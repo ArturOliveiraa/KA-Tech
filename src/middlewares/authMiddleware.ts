@@ -1,32 +1,31 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { NextFunction, Request, Response } from "express";
+import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
-
-interface JwtPayload {
-  userId: string;
-  email: string;
+export interface AuthRequest extends Request {
+  userId?: number;
 }
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export function authMiddleware(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
-    return res.status(401).json({ error: 'Token não fornecido' });
+    return res.status(401).json({ error: "Token não informado" });
   }
 
-  const [, token] = authHeader.split(' '); // "Bearer token"
+  const [, token] = authHeader.split(" ");
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+      userId: number;
+    };
 
-    // @ts-ignore – vamos só anexar ao req
     req.userId = decoded.userId;
-    // @ts-ignore
-    req.userEmail = decoded.email;
-
     return next();
   } catch {
-    return res.status(401).json({ error: 'Token inválido' });
+    return res.status(401).json({ error: "Token inválido ou expirado" });
   }
-};
+}

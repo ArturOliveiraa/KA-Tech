@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes";
 import meRoutes from "./routes/meRoutes";
 import userRoutes from "./routes/userRoutes";
-
+import contactRoutes from "./routes/contactRoutes";
 dotenv.config();
 
 const app = express();
@@ -15,6 +15,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/me", meRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/contacts", contactRoutes);
 
 // Rota de teste
 app.get("/", (_req, res) => {
