@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "./services/api";
+import { supabase } from "./supabaseClient";
 
 import "./App.css";
 import logoKaTech from "./assets/ka-tech-logo.png";
@@ -13,6 +15,8 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
   const [remember, setRemember] = useState(true);
 
+  const navigate = useNavigate();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -20,21 +24,49 @@ function App() {
     setSuccessMessage("");
 
     try {
-      const response = await api.post("/auth/login", { email, password });
-      const { token, user } = response.data;
+      // ======== NOVO: login via Supabase Auth ========
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (remember) {
-        localStorage.setItem("ka-tech-token", token);
+      if (error) {
+        throw error;
       }
 
-      setSuccessMessage(`Bem-vindo, ${user.name}!`);
+      const session = data.session;
+      const user = data.user;
+
+      if (!session || !user) {
+        throw new Error("Sessão não criada.");
+      }
+
+      if (remember) {
+        // guarda o access token do Supabase (opcional, o SDK já gerencia)
+        localStorage.setItem("ka-tech-token", session.access_token);
+      }
+
+      // por padrão o Supabase não tem name, então usamos o e-mail;
+      // depois dá para trocar para user.user_metadata.name
+      setSuccessMessage(`Bem-vindo, ${user.email}!`);
+
+      // se quiser já redirecionar depois do login:
+      // setTimeout(() => navigate("/dashboard"), 800);
+      // ===============================================
     } catch (err: any) {
+      console.error(err);
       setErrorMessage(
-        err?.response?.data?.error || "Erro ao fazer login. Tente novamente."
+        err?.message ||
+        err?.error_description ||
+        "Erro ao fazer login. Tente novamente."
       );
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleSignupClick() {
+    navigate("/signup");
   }
 
   return (
@@ -108,12 +140,11 @@ function App() {
               <button
                 type="button"
                 className="link-button"
-                onClick={() =>
-                  alert("Fluxo de recuperação ainda não implementado.")
-                }
+                onClick={handleForgotPassword}
               >
                 Esqueceu a senha?
               </button>
+
             </div>
 
             {errorMessage && (
@@ -167,9 +198,7 @@ function App() {
               <button
                 type="button"
                 className="link-button"
-                onClick={() =>
-                  alert("Fluxo de cadastro ainda não implementado.")
-                }
+                onClick={handleSignupClick}
               >
                 Cadastre-se
               </button>
@@ -179,6 +208,28 @@ function App() {
       </div>
     </div>
   );
+}
+
+async function handleForgotPassword() {
+  const emailPrompt = prompt("Digite o e-mail da conta para redefinir a senha:");
+
+  if (!emailPrompt) return;
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(emailPrompt, {
+      redirectTo: "http://localhost:3000/reset-password",
+    });
+
+    if (error) {
+      alert(error.message || "Erro ao enviar e-mail de redefinição.");
+      return;
+    }
+
+    alert("Se esse e-mail existir, enviaremos um link de redefinição.");
+  } catch (err: any) {
+    console.error(err);
+    alert("Erro ao enviar e-mail de redefinição.");
+  }
 }
 
 export default App;
