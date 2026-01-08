@@ -25,7 +25,8 @@ function Signup() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
+
         email,
         password,
         // se quiser mandar metadados:
