@@ -4,13 +4,13 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "Backend/src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "typeRoots": ["./node_modules/@types", "Backend/src/types"]
   },
-  "include": ["src/**/*"],
+  "include": ["Backend/src/**/*"],
   "exclude": ["node_modules"]
 }
