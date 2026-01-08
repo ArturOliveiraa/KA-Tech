@@ -1,38 +1,306 @@
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+/* Layout geral */
+.auth-page {
   min-height: 100vh;
   display: flex;
+  background: radial-gradient(circle at top left, #1f2937 0, #020617 55%, #000 100%);
+  color: #f9fafb;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Colunas */
+.auth-left,
+.auth-right {
+  flex: 1;
+  display: flex;
+}
+
+.auth-left {
   flex-direction: column;
+  padding: 2.5rem 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-right {
+  background: #020617;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
 }
 
-.App-link {
-  color: #61dafb;
+/* Marca e texto lateral */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 3rem;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.brand-logo {
+  height: 200px;
+  width: auto;
+  display: block;
+}
+
+/* Centralizar texto */
+.left-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 420px;
+}
+
+.left-content h2 {
+  font-size: 1.9rem;
+  line-height: 1.3;
+  margin-bottom: 1rem;
+}
+
+.left-content p {
+  color: #9ca3af;
+  font-size: 0.95rem;
+}
+
+/* Ilustração abstrata */
+.abstract-graphic {
+  position: absolute;
+  inset: auto -120px -120px auto;
+  width: 420px;
+  height: 420px;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.25), transparent 55%),
+    radial-gradient(circle at 80% 60%, rgba(34, 197, 94, 0.32), transparent 55%);
+  filter: blur(2px);
+  opacity: 0.9;
+}
+
+/* Cartão de login */
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem 2.75rem;
+  border-radius: 1.5rem;
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.65);
+}
+
+.login-header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.4rem;
+}
+
+.login-header p {
+  color: #9ca3af;
+  font-size: 0.95rem;
+}
+
+/* Formulário */
+.login-form {
+  margin-top: 1.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  margin-bottom: 0.4rem;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #020617;
+  border-radius: 999px;
+  padding: 0.6rem 0.95rem;
+  border: 1px solid #1f2937;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-wrapper:focus-within {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+.input-icon {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.input-wrapper input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #f9fafb;
+  font-size: 0.95rem;
+}
+
+.input-wrapper input::placeholder {
+  color: #6b7280;
+}
+
+/* Lembrar de mim / esqueci senha */
+.form-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #9ca3af;
+}
+
+.remember input {
+  accent-color: #22c55e;
+}
+
+/* Botões principais */
+.primary-button {
+  margin-top: 0.4rem;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.2rem;
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  color: #020617;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.primary-button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.link-button {
+  border: none;
+  padding: 0;
+  background: none;
+  color: #60a5fa;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Feedback */
+.feedback {
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+}
+
+.feedback-error {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.feedback-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #bbf7d0;
+}
+
+/* Divisor e sociais */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.6rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #111827;
+}
+
+.social-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.social-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #1f2937;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 0.8rem;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.social-button:hover {
+  background: #050816;
+  border-color: #374151;
+}
+
+.social-icon {
+  font-size: 0.9rem;
+}
+
+.social-google .social-icon {
+  color: #f97316;
+}
+
+/* Discord */
+.social-discord {
+  border-color: #5865f2;
+}
+
+.social-discord:hover {
+  border-color: #818cf8;
+  background: #020617;
+}
+
+.social-icon-img {
+  height: 16px;
+  width: auto;
+  display: block;
+}
+
+/* Rodapé do card */
+.signup-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+/* Responsivo básico */
+@media (max-width: 900px) {
+  .auth-page {
+    flex-direction: column;
   }
-  to {
-    transform: rotate(360deg);
+
+  .auth-left {
+    display: none;
+  }
+
+  .auth-right {
+    padding: 2rem 1.5rem;
   }
 }

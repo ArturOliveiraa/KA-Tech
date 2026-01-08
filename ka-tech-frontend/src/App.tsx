@@ -1,126 +1,181 @@
-import { FormEvent, useState } from "react";
+import React, { useState } from "react";
 import api from "./services/api";
+
+import "./App.css";
+import logoKaTech from "./assets/ka-tech-logo.png";
+import discordLogo from "./assets/discord-logo.png";
 
 function App() {
   const [email, setEmail] = useState("artur.seguro@example.com");
-  const [password, setPassword] = useState("minhaSenha123");
-  const [message, setMessage] = useState("");
-  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [remember, setRemember] = useState(true);
 
-  async function handleLogin(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const response = await api.post("/auth/login", { email, password });
-
       const { token, user } = response.data;
 
-      localStorage.setItem("ka-tech:token", token);
-      setUserName(user.name);
-      setMessage("Login realizado com sucesso!");
-    } catch (error: any) {
-      console.error(error);
-      setMessage(
-        error.response?.data?.error || "Erro ao fazer login. Tente novamente."
+      if (remember) {
+        localStorage.setItem("ka-tech-token", token);
+      }
+
+      setSuccessMessage(`Bem-vindo, ${user.name}!`);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.response?.data?.error || "Erro ao fazer login. Tente novamente."
       );
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #0f172a, #020617)",
-        color: "#e5e7eb",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: 400,
-          padding: 32,
-          borderRadius: 16,
-          background: "rgba(15,23,42,0.9)",
-          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.75)",
-          border: "1px solid rgba(148,163,184,0.3)",
-        }}
-      >
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>
-          KA Tech
-        </h1>
-        <p style={{ marginBottom: 24, color: "#9ca3af" }}>
-          Faça login para gerenciar seus contatos.
-        </p>
+    <div className="auth-page">
+      {/* Lado esquerdo – marca e visual */}
+      <div className="auth-left">
+        <div className="brand">
+          <img src={logoKaTech} alt="KA Tech" className="brand-logo" />
+        </div>
 
-        <form onSubmit={handleLogin} style={{ display: "grid", gap: 16 }}>
-          <div>
-            <label style={{ display: "block", marginBottom: 4 }}>E-mail</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 10,
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-                background: "#020617",
-                color: "#e5e7eb",
-              }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: "block", marginBottom: 4 }}>Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 10,
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-                background: "#020617",
-                color: "#e5e7eb",
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            style={{
-              marginTop: 8,
-              width: "100%",
-              padding: 10,
-              borderRadius: 999,
-              border: "none",
-              background:
-                "linear-gradient(135deg, #22c55e, #16a34a, #22c55e)",
-              color: "#0f172a",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Entrar
-          </button>
-        </form>
-
-        {message && (
-          <p style={{ marginTop: 16, fontSize: 14, color: "#f97316" }}>
-            {message}
+        <div className="left-content">
+          <h2>Potencialize sua comunicação com a tecnologia KA.</h2>
+          <p>
+            Fluxos inteligentes, mensagens automatizadas e conexões que
+            trabalham por você.
           </p>
-        )}
 
-        {userName && (
-          <p style={{ marginTop: 8, fontSize: 14 }}>
-            Bem-vindo, <strong>{userName}</strong>!
-          </p>
-        )}
+          <div className="abstract-graphic" />
+        </div>
+      </div>
+
+      {/* Lado direito – formulário */}
+      <div className="auth-right">
+        <div className="login-card">
+          <header className="login-header">
+            <h1>Bem-vindo de volta!</h1>
+            <p>Acesse sua conta para gerenciar suas conexões.</p>
+          </header>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="field">
+              <label htmlFor="email">E-mail ou celular</label>
+              <div className="input-wrapper">
+                <span className="input-icon">@</span>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="seu.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label htmlFor="password">Senha</label>
+              <div className="input-wrapper">
+                <span className="input-icon">🔒</span>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-meta">
+              <label className="remember">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
+                Lembrar de mim
+              </label>
+
+              <button
+                type="button"
+                className="link-button"
+                onClick={() =>
+                  alert("Fluxo de recuperação ainda não implementado.")
+                }
+              >
+                Esqueceu a senha?
+              </button>
+            </div>
+
+            {errorMessage && (
+              <div className="feedback feedback-error">{errorMessage}</div>
+            )}
+
+            {successMessage && (
+              <div className="feedback feedback-success">
+                {successMessage}
+              </div>
+            )}
+
+            <button className="primary-button" type="submit" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar na plataforma"}
+            </button>
+
+            <div className="divider">
+              <span>ou entre com</span>
+            </div>
+
+            <div className="social-row">
+              <button
+                type="button"
+                className="social-button social-google"
+                onClick={() =>
+                  alert("Login com Google ainda não implementado.")
+                }
+              >
+                <span className="social-icon">G</span>
+                <span>Google</span>
+              </button>
+
+              <button
+                type="button"
+                className="social-button social-discord"
+                onClick={() =>
+                  alert("Login com Discord ainda não implementado.")
+                }
+              >
+                <img
+                  src={discordLogo}
+                  alt="Discord"
+                  className="social-icon-img"
+                />
+                <span>Discord</span>
+              </button>
+            </div>
+
+            <p className="signup-hint">
+              Não tem uma conta?{" "}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() =>
+                  alert("Fluxo de cadastro ainda não implementado.")
+                }
+              >
+                Cadastre-se
+              </button>
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );
