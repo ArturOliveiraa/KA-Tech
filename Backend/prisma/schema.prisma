@@ -7,13 +7,26 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum GlobalRole {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum CourseRole {
+  STUDENT
+  INSTRUCTOR
+}
+
 model User {
-  id        Int       @id @default(autoincrement())
-  name      String
-  email     String    @unique
-  password  String
-  contacts  Contact[]
-  createdAt DateTime  @default(now())
+  id          Int                 @id @default(autoincrement())
+  name        String
+  email       String              @unique
+  password    String              // hash da senha
+  role        GlobalRole          @default(STUDENT)
+  contacts    Contact[]
+  enrollments CourseEnrollment[]
+  createdAt   DateTime            @default(now())
 
   @@map("users")
 }
@@ -27,4 +40,45 @@ model Contact {
   createdAt DateTime @default(now())
 
   @@map("contacts")
+}
+
+model Course {
+  id           Int                 @id @default(autoincrement())
+  title        String
+  description  String
+  thumbnailUrl String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  enrollments  CourseEnrollment[]
+  lessons      Lesson[]
+
+  @@map("courses")
+}
+
+model Lesson {
+  id        Int      @id @default(autoincrement())
+  title     String
+  videoUrl  String?
+  content   String?  // texto/descrição da aula
+  order     Int
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  Int
+  createdAt DateTime @default(now())
+
+  @@map("lessons")
+}
+
+model CourseEnrollment {
+  id        Int        @id @default(autoincrement())
+  role      CourseRole
+  user      User       @relation(fields: [userId], references: [id])
+  userId    Int
+  course    Course     @relation(fields: [courseId], references: [id])
+  courseId  Int
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, courseId])
+
+  @@map("course_enrollments")
 }
