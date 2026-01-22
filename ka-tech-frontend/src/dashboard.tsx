@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import "./App.css";
 
+// Interface baseada na sua tabela 'public.courses' do Supabase
 interface Course {
   id: number;
   title: string;
@@ -17,46 +18,50 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Opção 1: Definindo a função dentro do hook para evitar erros de dependência
+    async function loadData() {
+      try {
+        setLoading(true);
+        
+        // Busca o usuário logado via Supabase Auth
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate("/");
+          return;
+        }
 
-  async function loadData() {
-    try {
-      setLoading(true);
-      
-      // 1. Pega dados do usuário logado
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate("/");
-        return;
+        // Define o nome vindo do metadata ou usa o prefixo do e-mail
+        const name = user.user_metadata?.name || user.email?.split('@')[0] || "Aluno";
+        setUserName(name);
+
+        // Busca os cursos na tabela 'courses'
+        const { data: coursesData, error } = await supabase
+          .from("courses")
+          .select("*");
+
+        if (error) throw error;
+        setCourses(coursesData || []);
+
+      } catch (err) {
+        console.error("Erro ao carregar dados do dashboard:", err);
+      } finally {
+        setLoading(false);
       }
-      // Tenta pegar o nome nos metadados ou usa o e-mail
-      setUserName(user.user_metadata?.name || user.email?.split('@')[0] || "Aluno");
-
-      // 2. Busca cursos da sua tabela 'public.courses'
-      const { data: coursesData, error } = await supabase
-        .from("courses")
-        .select("*");
-
-      if (error) throw error;
-      setCourses(coursesData || []);
-
-    } catch (err) {
-      console.error("Erro ao carregar dados:", err);
-    } finally {
-      setLoading(false);
     }
-  }
+
+    loadData();
+  }, [navigate]); // 'navigate' é a única dependência externa estável
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    localStorage.removeItem("ka-tech-token");
+    localStorage.removeItem("ka-tech-token"); // Limpa o token local
     navigate("/");
   }
 
   return (
     <div className="dashboard-wrapper">
-      {/* Sidebar - Fixando as classes para o seu App.css único */}
+      {/* Sidebar - Mantendo o padrão visual da KA Tech */}
       <aside className="dashboard-sidebar">
         <div className="brand">
           <div className="logo-icon-small">KA</div>
@@ -64,9 +69,9 @@ function Dashboard() {
         </div>
 
         <nav className="dashboard-nav">
-          <button className="nav-link active">📚 Meus Cursos</button>
-          <button className="nav-link">🔍 Explorar</button>
-          <button className="nav-link">⚙️ Configurações</button>
+          <button className="nav-link active"><span>📚</span> Meus Cursos</button>
+          <button className="nav-link"><span>🔍</span> Explorar</button>
+          <button className="nav-link"><span>⚙️</span> Configurações</button>
         </nav>
 
         <button className="logout-btn" onClick={handleLogout}>
@@ -74,7 +79,7 @@ function Dashboard() {
         </button>
       </aside>
 
-      {/* Conteúdo Principal */}
+      {/* Área Principal */}
       <main className="dashboard-content">
         <header className="dashboard-header">
           <div className="header-info">
@@ -104,8 +109,8 @@ function Dashboard() {
                     <h3>{course.title}</h3>
                     <p>{course.description}</p>
                     <button 
-                       className="primary-button card-button"
-                       onClick={() => navigate(`/course/${course.id}`)}
+                      className="primary-button card-button"
+                      onClick={() => navigate(`/course/${course.id}`)}
                     >
                       Acessar Aula
                     </button>
