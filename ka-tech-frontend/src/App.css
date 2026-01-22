@@ -1,3 +1,7 @@
+/* ==========================================================================
+   ESTILOS DE AUTENTICAÇÃO (MANTIDOS IGUAIS)
+   ========================================================================== */
+
 /* Layout geral */
 .auth-page {
   min-height: 100vh;
@@ -290,6 +294,170 @@
   color: #9ca3af;
 }
 
+/* ==========================================================================
+   EXTENSÃO PARA O DASHBOARD (MOVIDO PARA FORA DO MEDIA QUERY)
+   ========================================================================== */
+
+.dashboard-wrapper {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  background: #020617; /* Sincronizado com auth-right */
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.dashboard-sidebar {
+  background: rgba(15, 23, 42, 0.98);
+  border-right: 1px solid #1f2937;
+  padding: 2.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-icon-small {
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  color: #020617;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.dashboard-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.nav-link {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  text-align: left;
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  display: block;
+  width: 100%;
+}
+
+.nav-link:hover, .nav-link.active {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.logout-btn {
+  margin-top: auto;
+  text-align: left;
+  padding-left: 1rem;
+  color: #f87171;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* Área de Conteúdo */
+.dashboard-content {
+  padding: 3rem;
+  overflow-y: auto;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.user-profile-circle {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #020617;
+  font-weight: bold;
+}
+
+/* Grid de Cursos */
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.course-card-v2 {
+  background: rgba(15, 23, 42, 0.98);
+  border-radius: 1.2rem;
+  border: 1px solid #1f2937;
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.course-card-v2:hover {
+  transform: translateY(-5px);
+  border-color: #22c55e;
+}
+
+.card-thumb {
+  height: 150px;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-placeholder {
+  font-size: 2rem;
+  font-weight: bold;
+  opacity: 0.2;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.card-body h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-body p {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  height: 2.6rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.loading-box {
+  color: #9ca3af;
+  text-align: center;
+  margin-top: 5rem;
+}
+
 /* Responsivo básico */
 @media (max-width: 900px) {
   .auth-page {
@@ -302,5 +470,18 @@
 
   .auth-right {
     padding: 2rem 1.5rem;
+  }
+
+  /* Ajustes para o Dashboard no Mobile */
+  .dashboard-wrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    display: none; /* Você pode criar um menu hambúrguer futuramente */
+  }
+
+  .dashboard-content {
+    padding: 1.5rem;
   }
 }

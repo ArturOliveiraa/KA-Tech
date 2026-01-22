@@ -7,7 +7,7 @@ import logoKaTech from "./assets/ka-tech-logo.png";
 import discordLogo from "./assets/discord-logo.png";
 
 function App() {
-  const [email, setEmail] = useState("artur.seguro@example.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -23,15 +23,13 @@ function App() {
     setSuccessMessage("");
 
     try {
-      // ======== NOVO: login via Supabase Auth ========
+      // Login via Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const session = data.session;
       const user = data.user;
@@ -40,32 +38,47 @@ function App() {
         throw new Error("Sessão não criada.");
       }
 
+      // Gerencia o token local se "Lembrar de mim" estiver marcado
       if (remember) {
-        // guarda o access token do Supabase (opcional, o SDK já gerencia)
         localStorage.setItem("ka-tech-token", session.access_token);
+      } else {
+        localStorage.removeItem("ka-tech-token");
       }
 
-      // por padrão o Supabase não tem name, então usamos o e-mail;
-      // depois dá para trocar para user.user_metadata.name
-      setSuccessMessage(`Bem-vindo, ${user.email}!`);
+      // Tenta pegar o nome dos metadados ou usa o email
+      const displayName = user.user_metadata?.name || user.email;
+      setSuccessMessage(`Bem-vindo, ${displayName}! Redirecionando...`);
 
-      // se quiser já redirecionar depois do login:
-      // setTimeout(() => navigate("/dashboard"), 800);
-      // ===============================================
+      // Redireciona para o dashboard após um breve delay para mostrar a mensagem
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1000);
+
     } catch (err: any) {
       console.error(err);
       setErrorMessage(
-        err?.message ||
-        err?.error_description ||
-        "Erro ao fazer login. Tente novamente."
+        err?.message || "Erro ao fazer login. Verifique suas credenciais."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  function handleSignupClick() {
-    navigate("/signup");
+  // Função interna para facilitar o acesso ao contexto do componente
+  async function handleForgotPassword() {
+    const emailPrompt = prompt("Digite o e-mail da conta para redefinir a senha:");
+    if (!emailPrompt) return;
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(emailPrompt, {
+        redirectTo: window.location.origin + "/reset-password",
+      });
+
+      if (error) throw error;
+      alert("Se esse e-mail existir, enviaremos um link de redefinição.");
+    } catch (err: any) {
+      alert(err.message || "Erro ao enviar e-mail de redefinição.");
+    }
   }
 
   return (
@@ -82,7 +95,6 @@ function App() {
             Fluxos inteligentes, mensagens automatizadas e conexões que
             trabalham por você.
           </p>
-
           <div className="abstract-graphic" />
         </div>
       </div>
@@ -103,7 +115,7 @@ function App() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="seu.email@example.com"
+                  placeholder="email@exemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -143,7 +155,6 @@ function App() {
               >
                 Esqueceu a senha?
               </button>
-
             </div>
 
             {errorMessage && (
@@ -151,9 +162,7 @@ function App() {
             )}
 
             {successMessage && (
-              <div className="feedback feedback-success">
-                {successMessage}
-              </div>
+              <div className="feedback feedback-success">{successMessage}</div>
             )}
 
             <button className="primary-button" type="submit" disabled={loading}>
@@ -168,9 +177,7 @@ function App() {
               <button
                 type="button"
                 className="social-button social-google"
-                onClick={() =>
-                  alert("Login com Google ainda não implementado.")
-                }
+                onClick={() => alert("Login com Google ainda não implementado.")}
               >
                 <span className="social-icon">G</span>
                 <span>Google</span>
@@ -179,15 +186,9 @@ function App() {
               <button
                 type="button"
                 className="social-button social-discord"
-                onClick={() =>
-                  alert("Login com Discord ainda não implementado.")
-                }
+                onClick={() => alert("Login com Discord ainda não implementado.")}
               >
-                <img
-                  src={discordLogo}
-                  alt="Discord"
-                  className="social-icon-img"
-                />
+                <img src={discordLogo} alt="Discord" className="social-icon-img" />
                 <span>Discord</span>
               </button>
             </div>
@@ -197,7 +198,7 @@ function App() {
               <button
                 type="button"
                 className="link-button"
-                onClick={handleSignupClick}
+                onClick={() => navigate("/signup")}
               >
                 Cadastre-se
               </button>
@@ -207,28 +208,6 @@ function App() {
       </div>
     </div>
   );
-}
-
-async function handleForgotPassword() {
-  const emailPrompt = prompt("Digite o e-mail da conta para redefinir a senha:");
-
-  if (!emailPrompt) return;
-
-  try {
-    const { error } = await supabase.auth.resetPasswordForEmail(emailPrompt, {
-      redirectTo: "http://localhost:3000/reset-password",
-    });
-
-    if (error) {
-      alert(error.message || "Erro ao enviar e-mail de redefinição.");
-      return;
-    }
-
-    alert("Se esse e-mail existir, enviaremos um link de redefinição.");
-  } catch (err: any) {
-    console.error(err);
-    alert("Erro ao enviar e-mail de redefinição.");
-  }
 }
 
 export default App;
