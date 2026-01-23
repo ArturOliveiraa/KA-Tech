@@ -10,6 +10,7 @@ import Dashboard from './pages/dashboard';
 import Cursos from './pages/cursos';
 import Admin from './pages/admin';
 import ProtectedRoute from './components/ProtectedRoute';
+import Player from './pages/Player';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -24,6 +25,7 @@ root.render(
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cursos" element={<Cursos />} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/course/:courseId" element={<Player />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
