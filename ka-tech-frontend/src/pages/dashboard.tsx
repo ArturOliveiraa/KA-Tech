@@ -8,7 +8,7 @@ interface Course {
   id: number;
   title: string;
   description: string;
-  thumbnail_url: string | null;
+  thumbnailUrl: string | null;
 }
 
 interface Profile {
@@ -58,7 +58,7 @@ function Dashboard() {
         setCourses(coursesData || []);
 
       } catch (err) {
-        console.error("Erro ao carregar dados do dashboard:", err);
+        console.error("ERRO DETALHADO:", err); 
       } finally {
         setLoading(false);
       }
@@ -129,8 +129,8 @@ function Dashboard() {
               courses.map((course) => (
                 <div key={course.id} className="course-card-v2">
                   <div className="card-thumb">
-                    {course.thumbnail_url ? (
-                      <img src={course.thumbnail_url} alt={course.title} />
+                    {course.thumbnailUrl ? (
+                      <img src={course.thumbnailUrl} alt={course.title} />
                     ) : (
                       <div className="thumb-placeholder">KA Tech</div>
                     )}
