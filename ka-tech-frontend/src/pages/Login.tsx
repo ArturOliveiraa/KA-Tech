@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -6,7 +7,7 @@ import "../App.css";
 import logoKaTech from "../assets/ka-tech-logo.png";
 import discordLogo from "../assets/discord-logo.png";
 
-function App() {
+function Login() { // Renomeado de App para Login
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,7 @@ function App() {
       const displayName = user.user_metadata?.name || user.email;
       setSuccessMessage(`Bem-vindo, ${displayName}! Redirecionando...`);
 
-      // Redireciona para o dashboard após um breve delay para mostrar a mensagem
+      // Redireciona para o dashboard após um breve delay
       setTimeout(() => {
         navigate("/dashboard");
       }, 1000);
@@ -64,26 +65,9 @@ function App() {
     }
   }
 
-  // Função interna para facilitar o acesso ao contexto do componente
-  async function handleForgotPassword() {
-    const emailPrompt = prompt("Digite o e-mail da conta para redefinir a senha:");
-    if (!emailPrompt) return;
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(emailPrompt, {
-        redirectTo: window.location.origin + "/reset-password",
-      });
-
-      if (error) throw error;
-      alert("Se esse e-mail existir, enviaremos um link de redefinição.");
-    } catch (err: any) {
-      alert(err.message || "Erro ao enviar e-mail de redefinição.");
-    }
-  }
-
   return (
     <div className="auth-page">
-      {/* Lado esquerdo – marca e visual */}
+      {/* Lado esquerdo – marca e visual KA Tech */}
       <div className="auth-left">
         <div className="brand">
           <img src={logoKaTech} alt="KA Tech" className="brand-logo" />
@@ -99,7 +83,7 @@ function App() {
         </div>
       </div>
 
-      {/* Lado direito – formulário */}
+      {/* Lado direito – formulário de login */}
       <div className="auth-right">
         <div className="login-card">
           <header className="login-header">
@@ -151,7 +135,7 @@ function App() {
               <button
                 type="button"
                 className="link-button"
-                onClick={handleForgotPassword}
+                onClick={() => navigate("/reset-password")}
               >
                 Esqueceu a senha?
               </button>
@@ -210,4 +194,4 @@ function App() {
   );
 }
 
-export default App;
+export default Login; // Exportado como Login

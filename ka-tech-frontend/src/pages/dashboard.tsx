@@ -82,8 +82,13 @@ function Dashboard() {
         </div>
 
         <nav className="dashboard-nav">
-          <button className="nav-link active"><span>📚</span> Meus Cursos</button>
-          <button className="nav-link"><span>🔍</span> Explorar</button>
+          <button className="nav-link active" onClick={() => navigate("/dashboard")}>
+          <span>📚</span> Meus Cursos
+          </button>
+          
+          <button className="nav-link" onClick={() => navigate("/cursos")}>
+          <span>🔍</span> Explorar
+          </button>
           
           {/* Botão de Gestão: Apenas visível para Admin e Professor */}
           {(userRole === 'admin' || userRole === 'professor') && (
@@ -145,8 +150,8 @@ function Dashboard() {
             ) : (
               <div className="empty-state">
                 <p>Você ainda não possui cursos vinculados.</p>
-                <button className="secondary-button" onClick={() => navigate("/explorar")}>
-                  Ver catálogo
+                <button className="secondary-button" onClick={() => navigate("/cursos")}>
+                  <span>🔍</span> Explorar
                 </button>
               </div>
             )}
