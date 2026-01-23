@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "./supabaseClient";
+import { supabase } from "../supabaseClient";
 
-import "./App.css";
-import logoKaTech from "./assets/ka-tech-logo.png";
-import discordLogo from "./assets/discord-logo.png";
+import "../App.css";
+import logoKaTech from "../assets/ka-tech-logo.png";
+import discordLogo from "../assets/discord-logo.png";
 
 function App() {
   const [email, setEmail] = useState("");

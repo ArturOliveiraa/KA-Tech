@@ -1,29 +1,34 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "./supabaseClient";
-import "./App.css";
+import { supabase } from "../supabaseClient";
+import "../App.css";
 
-// Interface baseada na sua tabela 'public.courses' do Supabase
+// Interfaces baseadas no seu esquema de banco de dados
 interface Course {
   id: number;
   title: string;
   description: string;
-  thumbnailUrl: string | null;
+  thumbnail_url: string | null;
+}
+
+interface Profile {
+  full_name: string | null;
+  role: string;
 }
 
 function Dashboard() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Opção 1: Definindo a função dentro do hook para evitar erros de dependência
-    async function loadData() {
+    async function loadDashboardData() {
       try {
         setLoading(true);
         
-        // Busca o usuário logado via Supabase Auth
+        // 1. Verificar autenticação
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -31,16 +36,25 @@ function Dashboard() {
           return;
         }
 
-        // Define o nome vindo do metadata ou usa o prefixo do e-mail
-        const name = user.user_metadata?.name || user.email?.split('@')[0] || "Aluno";
-        setUserName(name);
+        // 2. Buscar Perfil (Nome e Role) na tabela 'profiles'
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("id", user.id)
+          .single();
 
-        // Busca os cursos na tabela 'courses'
-        const { data: coursesData, error } = await supabase
+        if (profileError) throw profileError;
+
+        const profile = profileData as Profile;
+        setUserName(profile?.full_name || user.email?.split('@')[0] || "Aluno");
+        setUserRole(profile?.role || "aluno");
+
+        // 3. Buscar Cursos na tabela 'courses'
+        const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
           .select("*");
 
-        if (error) throw error;
+        if (coursesError) throw coursesError;
         setCourses(coursesData || []);
 
       } catch (err) {
@@ -50,18 +64,17 @@ function Dashboard() {
       }
     }
 
-    loadData();
-  }, [navigate]); // 'navigate' é a única dependência externa estável
+    loadDashboardData();
+  }, [navigate]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    localStorage.removeItem("ka-tech-token"); // Limpa o token local
     navigate("/");
   }
 
   return (
     <div className="dashboard-wrapper">
-      {/* Sidebar - Mantendo o padrão visual da KA Tech */}
+      {/* Sidebar - Padrão Visual KA Tech */}
       <aside className="dashboard-sidebar">
         <div className="brand">
           <div className="logo-icon-small">KA</div>
@@ -71,6 +84,18 @@ function Dashboard() {
         <nav className="dashboard-nav">
           <button className="nav-link active"><span>📚</span> Meus Cursos</button>
           <button className="nav-link"><span>🔍</span> Explorar</button>
+          
+          {/* Botão de Gestão: Apenas visível para Admin e Professor */}
+          {(userRole === 'admin' || userRole === 'professor') && (
+            <button 
+              className="nav-link admin-access" 
+              onClick={() => navigate("/admin")}
+              style={{ color: '#00e5ff', fontWeight: 'bold' }}
+            >
+              <span>🛠️</span> Painel de Gestão
+            </button>
+          )}
+
           <button className="nav-link"><span>⚙️</span> Configurações</button>
         </nav>
 
@@ -92,17 +117,17 @@ function Dashboard() {
         </header>
 
         {loading ? (
-          <div className="loading-box">Carregando seus cursos...</div>
+          <div className="loading-box">Carregando conteúdos...</div>
         ) : (
           <div className="courses-grid">
             {courses.length > 0 ? (
               courses.map((course) => (
                 <div key={course.id} className="course-card-v2">
                   <div className="card-thumb">
-                    {course.thumbnailUrl ? (
-                      <img src={course.thumbnailUrl} alt={course.title} />
+                    {course.thumbnail_url ? (
+                      <img src={course.thumbnail_url} alt={course.title} />
                     ) : (
-                      <div className="thumb-placeholder">KA</div>
+                      <div className="thumb-placeholder">KA Tech</div>
                     )}
                   </div>
                   <div className="card-body">
@@ -118,7 +143,12 @@ function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="loading-box">Nenhum curso encontrado.</div>
+              <div className="empty-state">
+                <p>Você ainda não possui cursos vinculados.</p>
+                <button className="secondary-button" onClick={() => navigate("/explorar")}>
+                  Ver catálogo
+                </button>
+              </div>
             )}
           </div>
         )}
