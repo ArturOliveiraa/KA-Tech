@@ -13,6 +13,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "axios": "^1.13.2",
+    "canvas-confetti": "^1.9.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-player": "^3.4.0",
@@ -45,5 +46,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0"
   }
 }

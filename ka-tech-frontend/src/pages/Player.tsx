@@ -1,23 +1,79 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import LessonView from "../components/LessonView";
 import LessonSidebar from "../components/LessonSidebar";
-
-interface CourseData {
-    id: number;
-    title: string;
-}
+import confetti from "canvas-confetti";
 
 export default function Player() {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
 
-    const [course, setCourse] = useState<CourseData | null>(null);
+    const [course, setCourse] = useState<any>(null);
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [userRole, setUserRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
+
+    const fireConfetti = () => {
+        const duration = 5 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+        const interval: any = setInterval(function() {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+        }, 250);
+    };
+
+    const calculateProgress = useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !courseId) return;
+
+        // Referenciando as colunas id e courseId conforme estrutura do banco
+        const [lessonsRes, progressRes] = await Promise.all([
+            supabase.from("lessons").select("id", { count: 'exact', head: true }).eq("courseId", Number(courseId)),
+            supabase.from("user_progress").select("lesson_id", { count: 'exact', head: true }).eq("user_id", user.id).eq("course_id", Number(courseId))
+        ]);
+
+        const total = lessonsRes.count || 0;
+        const completed = progressRes.count || 0;
+        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        if (percent === 100 && stats.percent < 100) fireConfetti();
+        setStats({ completed, total, percent });
+    }, [courseId, stats.percent]);
+
+    // --- FUNÇÃO ATUALIZADA COM AS SUAS URLs ---
+    const getRank = (p: number) => {
+        if (p >= 100) return { 
+            label: "GOD", color: "#ff00ff", glow: "0 0 20px #ff00ff", animation: "rankPulse 1.5s infinite",
+            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/GOD.png" 
+        };
+        if (p >= 75) return { 
+            label: "HACKER", color: "#00e5ff", glow: "0 0 10px #00e5ff", animation: "none",
+            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/HACKER.png" 
+        };
+        if (p >= 50) return { 
+            label: "PRO PLAYER", color: "#7000ff", glow: "0 0 10px #7000ff", animation: "none",
+            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/PRO%20PLAYER.png" 
+        };
+        if (p >= 25) return { 
+            label: "NEW PLAYER", color: "#00ff88", glow: "0 0 5px #00ff88", animation: "none",
+            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NEW%20PLAYER.png" 
+        };
+        return { 
+            label: "NOOB", color: "#94a3b8", glow: "none", animation: "none",
+            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NOOB.png" 
+        };
+    };
+
+    const rank = getRank(stats.percent);
 
     useEffect(() => {
         async function loadPlayerData() {
@@ -25,111 +81,78 @@ export default function Player() {
                 setLoading(true);
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return navigate("/");
-
-                // 1. Carregar perfil para a Sidebar
-                const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("role")
-                    .eq("id", user.id)
-                    .single();
+                const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
                 setUserRole(profile?.role || "student");
-
-                // 2. Carregar dados do curso
-                const { data: courseData } = await supabase
-                    .from("courses")
-                    .select("id, title")
-                    .eq("id", courseId)
-                    .single();
+                const { data: courseData } = await supabase.from("courses").select("id, title").eq("id", courseId).single();
                 setCourse(courseData);
-
-                // 3. Buscar a primeira aula do curso para começar o player automaticamente
-                // AJUSTE: Convertendo courseId para Number e usando maybeSingle para evitar erro 406
-                const { data: firstLesson } = await supabase
-                    .from("lessons")
-                    .select("id")
-                    .eq("courseId", Number(courseId)) 
-                    .order("order", { ascending: true })
-                    .limit(1)
-                    .maybeSingle(); 
-
-                if (firstLesson) {
-                    setActiveLessonId(firstLesson.id);
-                }
-            } catch (err) {
-                console.error("Erro ao carregar player:", err);
-            } finally {
-                setLoading(false);
-            }
+                const { data: firstLesson } = await supabase.from("lessons").select("id").eq("courseId", Number(courseId)).order("order", { ascending: true }).limit(1).maybeSingle(); 
+                if (firstLesson) setActiveLessonId(firstLesson.id);
+                calculateProgress();
+            } catch (err) { console.error(err); } finally { setLoading(false); }
         }
         loadPlayerData();
-    }, [courseId, navigate]);
+        window.addEventListener("progressUpdated", calculateProgress);
+        return () => window.removeEventListener("progressUpdated", calculateProgress);
+    }, [courseId, navigate, calculateProgress]);
 
-    if (loading) return <div className="loading-box" style={{ color: '#00e5ff', padding: '40px' }}>Preparando ambiente de aula...</div>;
+    if (loading) return <div style={{ color: '#00e5ff', padding: '40px' }}>Carregando...</div>;
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#0b0e14' }}>
-
-            {/* 1. Sidebar Principal (Menu) */}
             <Sidebar userRole={userRole} />
 
-            {/* 2. Área de Conteúdo do Player */}
-            <main className="dashboard-content" style={{ display: 'flex', flexDirection: 'column' }}>
-
-                {/* Header do Curso */}
+            <main className="dashboard-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '40px' }}>
                 <header style={{ marginBottom: '24px' }}>
                     <h2 style={{ color: '#fff', fontSize: '1.5rem' }}>{course?.title}</h2>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Aproveite sua aula na <strong>KA Tech</strong></p>
                 </header>
 
-                {/* Layout do Player + Lista de Aulas */}
-                <div className="player-layout" style={{
-                    display: 'flex',
-                    gap: '24px',
-                    flex: 1,
-                    width: '100%'
-                }}>
-
-                    {/* Lado Esquerdo: Vídeo e Conteúdo */}
-                    <div className="video-section" style={{ flex: 1, minWidth: 0 }}>
-                        {activeLessonId ? (
-                            <LessonView lessonId={activeLessonId} />
-                        ) : (
-                            <div style={{ padding: '40px', background: '#121418', borderRadius: '16px', color: '#94a3b8', border: '1px solid #2d323e', textAlign: 'center' }}>
-                                Este curso ainda não possui aulas cadastradas.
-                            </div>
-                        )}
+                {/* Interface Gamer com as Badges Oficiais */}
+                <div style={{ background: '#121418', padding: '24px', borderRadius: '16px', border: '1px solid #2d323e', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    
+                    <div style={{ 
+                        width: '80px', height: '80px', background: '#0b0e14', borderRadius: '12px', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${rank.color}`,
+                        boxShadow: rank.glow
+                    }}>
+                        <img src={rank.image} alt={rank.label} style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
                     </div>
 
-                    {/* Lado Direito: Navegação entre Aulas */}
-                    <div className="sidebar-section" style={{ width: '320px', flexShrink: 0 }}>
-                        <div style={{
-                            background: '#121418',
-                            borderRadius: '16px',
-                            border: '1px solid #2d323e',
-                            overflow: 'hidden',
-                            position: 'sticky',
-                            top: '40px'
-                        }}>
-                            <LessonSidebar
-                                courseId={Number(courseId)}
-                                currentLessonId={activeLessonId || 0}
-                                onSelectLesson={(id: number) => { 
-                                    setActiveLessonId(id);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                            />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
+                            <div>
+                                <span style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 'bold' }}>PATENTE ATUAL</span>
+                                <h2 style={{ margin: 0, color: rank.color, textShadow: rank.glow, fontSize: '1.8rem', fontWeight: '900', animation: rank.animation }}>
+                                    {rank.label}
+                                </h2>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 'bold' }}>{stats.percent}% Concluído</span>
+                                <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block' }}>{stats.completed} de {stats.total} missões</span>
+                            </div>
                         </div>
+                        <div style={{ width: '100%', height: '8px', background: '#0b0e14', borderRadius: '10px', overflow: 'hidden' }}>
+                            <div style={{ width: `${stats.percent}%`, height: '100%', background: `linear-gradient(90deg, ${rank.color}, #fff)`, boxShadow: rank.glow, transition: 'width 1s ease-in-out' }} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="player-layout" style={{ display: 'flex', gap: '24px' }}>
+                    <div className="video-section" style={{ flex: 1 }}>
+                        {activeLessonId && <LessonView lessonId={activeLessonId} />}
+                    </div>
+                    <div className="sidebar-section" style={{ width: '320px' }}>
+                        <LessonSidebar courseId={Number(courseId)} currentLessonId={activeLessonId || 0} onSelectLesson={setActiveLessonId} />
                     </div>
                 </div>
             </main>
 
             <style>{`
-        /* Ajustes Responsivos para o Player */
-        @media (max-width: 1100px) {
-          .player-layout { flex-direction: column; }
-          .sidebar-section { width: 100% !important; }
-        }
-      `}</style>
+                @keyframes rankPulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.08); }
+                    100% { transform: scale(1); }
+                }
+            `}</style>
         </div>
     );
 }
