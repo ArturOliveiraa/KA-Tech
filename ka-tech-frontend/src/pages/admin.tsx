@@ -8,11 +8,19 @@ interface Tag {
   name: string;
 }
 
+interface Course {
+  id: number;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  tag_id: string | null;
+  createdAt: string;
+}
+
 function Admin() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Estados para controle de upload da thumbnail do curso
   const [uploadingThumb, setUploadingThumb] = useState(false);
 
   const [courseTitle, setCourseTitle] = useState("");
@@ -23,6 +31,9 @@ function Admin() {
   const [tagName, setTagName] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
 
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,7 +41,6 @@ function Admin() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/");
 
-      // Buscamos apenas o 'role' agora, já que nome e foto estão na Sidebar
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -43,6 +53,7 @@ function Admin() {
 
       setUserRole(profile.role);
       fetchTags();
+      fetchCourses();
       setLoading(false);
     }
     checkAccess();
@@ -53,7 +64,19 @@ function Admin() {
     if (data) setTags(data);
   }
 
-  // --- LOGICA DE UPLOAD: THUMBNAIL DO CURSO ---
+  async function fetchCourses() {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("*")
+      .order("createdAt", { ascending: false }); 
+
+    if (error) {
+      console.error("Erro ao buscar cursos:", error.message);
+    } else {
+      setCourses(data || []);
+    }
+  }
+
   async function handleUploadThumbnail(event: React.ChangeEvent<HTMLInputElement>) {
     try {
       setUploadingThumb(true);
@@ -76,15 +99,50 @@ function Admin() {
     }
   }
 
-  const handleCreateCourse = async (e: React.FormEvent) => {
+  const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("courses").insert([
-      { title: courseTitle, description: courseDesc, thumbnailUrl: courseThumb, tag_id: selectedTag || null }
-    ]);
-    if (error) alert("Erro: " + error.message);
+    
+    const courseData = { 
+      title: courseTitle, 
+      description: courseDesc, 
+      thumbnailUrl: courseThumb, 
+      tag_id: selectedTag || null 
+    };
+
+    if (editingCourseId) {
+      const { error } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
+      if (error) alert("Erro ao atualizar: " + error.message);
+      else {
+        alert("Curso atualizado com sucesso!");
+        setEditingCourseId(null);
+      }
+    } else {
+      const { error } = await supabase.from("courses").insert([courseData]);
+      if (error) alert("Erro ao publicar: " + error.message);
+      else alert("Curso publicado com sucesso!");
+    }
+
+    setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag("");
+    fetchCourses();
+  };
+
+  const handleEditInit = (course: Course) => {
+    setEditingCourseId(course.id);
+    setCourseTitle(course.title);
+    setCourseDesc(course.description);
+    setCourseThumb(course.thumbnailUrl);
+    setSelectedTag(course.tag_id || "");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteCourse = async (id: number) => {
+    if (!window.confirm("Tem certeza que deseja excluir este curso permanentemente?")) return;
+
+    const { error } = await supabase.from("courses").delete().eq("id", id);
+    if (error) alert("Erro ao excluir: " + error.message);
     else {
-      alert("Curso publicado com sucesso!");
-      setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag("");
+      alert("Curso excluído!");
+      fetchCourses();
     }
   };
 
@@ -104,37 +162,10 @@ function Admin() {
   return (
     <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#0b0e14' }}>
       <style>{`
-        .dashboard-content {
-          flex: 1; 
-          padding: 40px;
-          margin-left: 260px; 
-          width: 100%;
-        }
-        .admin-content-container {
-          display: flex;
-          flex-direction: row;
-          flex-wrap: wrap;
-          justify-content: flex-start; 
-          gap: 30px;
-          width: 100%;
-          margin-top: 20px;
-        }
-        .admin-card-local {
-          background: #121418;
-          border-radius: 16px;
-          padding: 24px;
-          flex: 1 1 450px; 
-          max-width: 600px; 
-          border: 1px solid #2d323e;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        .dashboard-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          width: 100%;
-          margin-bottom: 30px;
-        }
+        .dashboard-content { flex: 1; padding: 40px; margin-left: 260px; width: 100%; }
+        .admin-content-container { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 30px; width: 100%; margin-top: 20px; }
+        .admin-card-local { background: #121418; border-radius: 16px; padding: 24px; flex: 1 1 450px; max-width: 600px; border: 1px solid #2d323e; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 30px; }
         .local-field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
         .local-field label { color: #e2e8f0; font-size: 0.8rem; font-weight: 500; }
         .local-input-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
@@ -144,14 +175,46 @@ function Admin() {
           border: 1px solid #2d323e; border-radius: 8px; padding: 10px 12px 10px 45px; font-size: 14px; outline: none;
         }
         .local-input-wrapper textarea { min-height: 120px; resize: none; }
-        .local-primary-button {
-          width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: none;
-          background: linear-gradient(90deg, #00c9ff 0%, #92fe9d 100%); color: #000; font-weight: bold; cursor: pointer;
+        .local-primary-button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: none; background: linear-gradient(90deg, #00c9ff 0%, #92fe9d 100%); color: #000; font-weight: bold; cursor: pointer; transition: opacity 0.3s ease; }
+        .local-primary-button:hover { opacity: 0.9; }
+        
+        .management-section { width: 100%; margin-top: 40px; }
+        .course-list-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #121418; border-radius: 16px; overflow: hidden; border: 1px solid #2d323e; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .course-list-table th { text-align: left; padding: 18px 24px; background: #1a1d23; color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #2d323e; }
+        .course-list-table td { padding: 18px 24px; border-bottom: 1px solid #2d323e; color: #fff; font-size: 0.95rem; vertical-align: middle; }
+        
+        /* FIX: Container das ações para evitar sobreposição */
+        .actions-container {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          align-items: center;
+          white-space: nowrap;
         }
+
+        .btn-action { 
+          padding: 8px 16px; 
+          border-radius: 8px; 
+          border: 1px solid transparent; 
+          cursor: pointer; 
+          font-size: 0.8rem; 
+          font-weight: 600; 
+          transition: all 0.3s ease;
+        }
+
+        .btn-edit { background: rgba(0, 201, 255, 0.1); color: #00c9ff; border-color: rgba(0, 201, 255, 0.5); }
+        .btn-edit:hover { background: #00c9ff; color: #0b0e14; box-shadow: 0 0 15px rgba(0, 201, 255, 0.4); }
+
+        .btn-delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.5); }
+        .btn-delete:hover { background: #ef4444; color: #fff; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+
+        .cancel-edit-btn { background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 6px 12px; font-size: 0.75rem; border-radius: 8px; cursor: pointer; margin-left: 15px; }
+
         @media (max-width: 768px) {
           .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; }
-          .dashboard-header { flex-direction: column; align-items: flex-start; gap: 15px; }
-          .admin-card-local { flex: 1 1 100%; max-width: 100%; }
+          .course-list-table th, .course-list-table td { padding: 12px; }
+          .actions-container { gap: 6px; }
+          .btn-action { padding: 6px 10px; font-size: 0.7rem; }
         }
       `}</style>
 
@@ -167,12 +230,23 @@ function Admin() {
 
         <div className="admin-content-container">
           <div className="admin-card-local">
-            <header>
-              <h2 style={{ color: '#fff', fontSize: '1.4rem' }}>Novo Curso</h2>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Cadastre um novo conteúdo na grade.</p>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ color: '#fff', fontSize: '1.4rem', margin: 0 }}>
+                  {editingCourseId ? "Editar Curso" : "Novo Curso"}
+                </h2>
+                <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '5px' }}>
+                  {editingCourseId ? "Alterando informações do curso selecionado." : "Cadastre um novo conteúdo na grade."}
+                </p>
+              </div>
+              {editingCourseId && (
+                <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag(""); }}>
+                  Cancelar Edição
+                </button>
+              )}
             </header>
 
-            <form onSubmit={handleCreateCourse}>
+            <form onSubmit={handleSaveCourse} style={{ marginTop: '25px' }}>
               <div className="local-field">
                 <label>Título do Curso</label>
                 <div className="local-input-wrapper">
@@ -208,14 +282,16 @@ function Admin() {
                   <span className="local-icon">🖼️</span>
                   <input type="file" accept="image/*" onChange={handleUploadThumbnail} />
                 </div>
-                {uploadingThumb && <p style={{fontSize: '0.7rem', color: '#00e5ff'}}>Subindo imagem...</p>}
+                {uploadingThumb && <p style={{fontSize: '0.7rem', color: '#00e5ff', marginTop: '5px'}}>Subindo imagem...</p>}
                 {courseThumb && (
-                  <img src={courseThumb} alt="Preview" style={{ width: '120px', marginTop: '10px', borderRadius: '4px', border: '1px solid #2d323e' }} />
+                  <div style={{ marginTop: '15px', background: '#1a1d23', padding: '5px', borderRadius: '8px', width: 'fit-content', border: '1px solid #2d323e' }}>
+                    <img src={courseThumb} alt="Preview" style={{ width: '150px', height: '85px', objectFit: 'cover', borderRadius: '6px', display: 'block' }} />
+                  </div>
                 )}
               </div>
 
               <button className="local-primary-button" type="submit" disabled={uploadingThumb}>
-                {uploadingThumb ? "Aguarde upload..." : "Publicar Curso"}
+                {uploadingThumb ? "Aguarde upload..." : editingCourseId ? "Salvar Alterações" : "Publicar Curso"}
               </button>
             </form>
           </div>
@@ -238,13 +314,60 @@ function Admin() {
                 <button className="local-primary-button" type="submit">Criar Tag</button>
               </form>
 
-              <div className="tags-list-container" style={{ marginTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div className="tags-list-container" style={{ marginTop: '25px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 {tags.map(tag => (
-                  <span key={tag.id} className="tag-badge" style={{ background: '#1a1d23', border: '1px solid #2d323e', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', color: '#00e5ff' }}>{tag.name}</span>
+                  <span key={tag.id} className="tag-badge" style={{ background: 'rgba(0, 229, 255, 0.1)', border: '1px solid #00e5ff', padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', color: '#00e5ff', fontWeight: 600 }}>{tag.name}</span>
                 ))}
               </div>
             </div>
           )}
+
+          <section className="management-section">
+            <h2 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.4rem' }}>Cursos Existentes</h2>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="course-list-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '120px' }}>Capa</th>
+                    <th>Título do Curso</th>
+                    <th style={{ textAlign: 'right' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courses.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                        Nenhum curso encontrado.
+                      </td>
+                    </tr>
+                  ) : (
+                    courses.map(course => (
+                      <tr key={course.id}>
+                        <td>
+                          {course.thumbnailUrl ? (
+                             <img src={course.thumbnailUrl} alt="capa" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2d323e' }} />
+                          ) : (
+                             <div style={{ width: '80px', height: '50px', background: '#2d323e', borderRadius: '6px', border: '1px solid #2d323e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#94a3b8' }}>Sem Capa</div>
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 500 }}>{course.title}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="actions-container">
+                            <button className="btn-action btn-edit" onClick={() => handleEditInit(course)}>
+                              Editar
+                            </button>
+                            <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)}>
+                              Excluir
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </main>
     </div>
