@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 
 interface Lesson {
   id: number;
   title: string;
-  videoUrl: string; // Coluna exata do seu banco
-  content: string;  // Coluna exata do seu banco
-  order: number;    // Coluna exata do seu banco
+  videoUrl: string;
+  content: string;
+  order: number;
 }
 
-// Interface corrigida para aceitar o onBack do Admin.tsx
 interface ManageLessonsProps {
   courseId: number;
   courseTitle: string;
@@ -24,18 +23,20 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [order, setOrder] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchLessons();
-  }, [courseId]);
-
-  async function fetchLessons() {
+  // CORREÇÃO: Função memorizada para evitar alertas do ESLint e loops infinitos
+  const fetchLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
       .select("*")
-      .eq("courseId", courseId) // Filtra pelo curso selecionado
+      .eq("courseId", courseId)
       .order("order", { ascending: true });
     if (data) setLessons(data);
-  }
+  }, [courseId]); // Recria apenas se o ID do curso mudar
+
+  // useEffect agora utiliza a função memorizada com segurança
+  useEffect(() => {
+    fetchLessons();
+  }, [fetchLessons]);
 
   const handleCreateLesson = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +48,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
         videoUrl, 
         content, 
         order, 
-        courseId // Vincula a aula ao curso
+        courseId 
       }
     ]);
 
