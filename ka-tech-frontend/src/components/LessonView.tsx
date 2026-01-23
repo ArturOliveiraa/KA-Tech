@@ -11,7 +11,7 @@ export default function LessonView({ lessonId }: { lessonId: number }) {
   
   // Criamos um Ref para a função de salvar para que o useEffect 
   // do player sempre tenha acesso à versão mais recente sem precisar reiniciar o player
-  const saveProgressRef = useRef<() => Promise<void>>();
+  const saveProgressRef = useRef<(() => Promise<void>) | null>(null);
 
   const fetchLesson = useCallback(async () => {
     if (!lessonId) return;
