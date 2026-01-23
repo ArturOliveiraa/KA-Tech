@@ -157,6 +157,18 @@ function Admin() {
     }
   };
 
+  const handleDeleteTag = async (id: number) => {
+    if (!window.confirm("Tem certeza que deseja remover esta tag? Cursos que usam esta tag ficarão sem categoria.")) return;
+
+    const { error } = await supabase.from("tags").delete().eq("id", id);
+    
+    if (error) {
+      alert("Erro ao remover tag: " + error.message);
+    } else {
+      fetchTags();
+    }
+  };
+
   if (loading) return <div className="loading-box">Carregando painel...</div>;
 
   return (
@@ -183,32 +195,40 @@ function Admin() {
         .course-list-table th { text-align: left; padding: 18px 24px; background: #1a1d23; color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #2d323e; }
         .course-list-table td { padding: 18px 24px; border-bottom: 1px solid #2d323e; color: #fff; font-size: 0.95rem; vertical-align: middle; }
         
-        /* FIX: Container das ações para evitar sobreposição */
-        .actions-container {
-          display: flex;
-          justify-content: flex-end;
-          gap: 12px;
-          align-items: center;
-          white-space: nowrap;
-        }
-
-        .btn-action { 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          border: 1px solid transparent; 
-          cursor: pointer; 
-          font-size: 0.8rem; 
-          font-weight: 600; 
-          transition: all 0.3s ease;
-        }
-
+        .actions-container { display: flex; justify-content: flex-end; gap: 12px; align-items: center; white-space: nowrap; }
+        .btn-action { padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.3s ease; }
         .btn-edit { background: rgba(0, 201, 255, 0.1); color: #00c9ff; border-color: rgba(0, 201, 255, 0.5); }
         .btn-edit:hover { background: #00c9ff; color: #0b0e14; box-shadow: 0 0 15px rgba(0, 201, 255, 0.4); }
-
         .btn-delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.5); }
         .btn-delete:hover { background: #ef4444; color: #fff; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
-
         .cancel-edit-btn { background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 6px 12px; font-size: 0.75rem; border-radius: 8px; cursor: pointer; margin-left: 15px; }
+
+        /* Estilos específicos para as Tags */
+        .tag-badge { 
+          background: rgba(0, 229, 255, 0.1); 
+          border: 1px solid #00e5ff; 
+          padding: 6px 12px; 
+          border-radius: 20px; 
+          fontSize: 0.75rem; 
+          color: #00e5ff; 
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .btn-remove-tag {
+          background: transparent;
+          border: none;
+          color: rgba(0, 229, 255, 0.5);
+          cursor: pointer;
+          font-size: 1.1rem;
+          line-height: 1;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          transition: color 0.2s ease;
+        }
+        .btn-remove-tag:hover { color: #ef4444; }
 
         @media (max-width: 768px) {
           .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; }
@@ -316,7 +336,12 @@ function Admin() {
 
               <div className="tags-list-container" style={{ marginTop: '25px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 {tags.map(tag => (
-                  <span key={tag.id} className="tag-badge" style={{ background: 'rgba(0, 229, 255, 0.1)', border: '1px solid #00e5ff', padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', color: '#00e5ff', fontWeight: 600 }}>{tag.name}</span>
+                  <span key={tag.id} className="tag-badge">
+                    {tag.name}
+                    <button className="btn-remove-tag" onClick={() => handleDeleteTag(tag.id)} title="Remover tag">
+                      &times;
+                    </button>
+                  </span>
                 ))}
               </div>
             </div>
