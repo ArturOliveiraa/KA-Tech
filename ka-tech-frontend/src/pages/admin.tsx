@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import ManageLessons from "../components/ManageLessons"; // ADICIONADO: Importação do componente
 
 interface Tag {
   id: number;
@@ -33,6 +34,9 @@ function Admin() {
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+
+  // ADICIONADO: Estado para controlar qual curso estamos gerenciando as aulas
+  const [manageLessonsCourse, setManageLessonsCourse] = useState<Course | null>(null);
 
   const navigate = useNavigate();
 
@@ -197,37 +201,21 @@ function Admin() {
         
         .actions-container { display: flex; justify-content: flex-end; gap: 12px; align-items: center; white-space: nowrap; }
         .btn-action { padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.3s ease; }
+        
+        /* ADICIONADO: Estilos do Botão Aulas e Tags */
+        .btn-lessons { background: rgba(146, 254, 157, 0.1); color: #92fe9d; border-color: rgba(146, 254, 157, 0.5); }
+        .btn-lessons:hover { background: #92fe9d; color: #000; box-shadow: 0 0 15px rgba(146, 254, 157, 0.4); }
+
         .btn-edit { background: rgba(0, 201, 255, 0.1); color: #00c9ff; border-color: rgba(0, 201, 255, 0.5); }
         .btn-edit:hover { background: #00c9ff; color: #0b0e14; box-shadow: 0 0 15px rgba(0, 201, 255, 0.4); }
+
         .btn-delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.5); }
         .btn-delete:hover { background: #ef4444; color: #fff; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+
         .cancel-edit-btn { background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 6px 12px; font-size: 0.75rem; border-radius: 8px; cursor: pointer; margin-left: 15px; }
 
-        /* Estilos específicos para as Tags */
-        .tag-badge { 
-          background: rgba(0, 229, 255, 0.1); 
-          border: 1px solid #00e5ff; 
-          padding: 6px 12px; 
-          border-radius: 20px; 
-          fontSize: 0.75rem; 
-          color: #00e5ff; 
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .btn-remove-tag {
-          background: transparent;
-          border: none;
-          color: rgba(0, 229, 255, 0.5);
-          cursor: pointer;
-          font-size: 1.1rem;
-          line-height: 1;
-          padding: 0;
-          display: flex;
-          align-items: center;
-          transition: color 0.2s ease;
-        }
+        .tag-badge { background: rgba(0, 229, 255, 0.1); border: 1px solid #00e5ff; padding: 6px 12px; border-radius: 20px; fontSize: 0.75rem; color: #00e5ff; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .btn-remove-tag { background: transparent; border: none; color: rgba(0, 229, 255, 0.5); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0; display: flex; align-items: center; transition: color 0.2s ease; }
         .btn-remove-tag:hover { color: #ef4444; }
 
         @media (max-width: 768px) {
@@ -249,150 +237,168 @@ function Admin() {
         </header>
 
         <div className="admin-content-container">
-          <div className="admin-card-local">
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ color: '#fff', fontSize: '1.4rem', margin: 0 }}>
-                  {editingCourseId ? "Editar Curso" : "Novo Curso"}
-                </h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '5px' }}>
-                  {editingCourseId ? "Alterando informações do curso selecionado." : "Cadastre um novo conteúdo na grade."}
-                </p>
-              </div>
-              {editingCourseId && (
-                <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag(""); }}>
-                  Cancelar Edição
-                </button>
-              )}
-            </header>
-
-            <form onSubmit={handleSaveCourse} style={{ marginTop: '25px' }}>
-              <div className="local-field">
-                <label>Título do Curso</label>
-                <div className="local-input-wrapper">
-                  <span className="local-icon">📝</span>
-                  <input type="text" placeholder="Nome do curso" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="local-field">
-                <label>Tag / Categoria</label>
-                <div className="local-input-wrapper">
-                  <span className="local-icon">🏷️</span>
-                  <select value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)}>
-                    <option value="">Selecione uma tag...</option>
-                    {tags.map(tag => (
-                      <option key={tag.id} value={tag.id}>{tag.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="local-field">
-                <label>Descrição</label>
-                <div className="local-input-wrapper">
-                  <span className="local-icon" style={{ top: '12px' }}>📄</span>
-                  <textarea placeholder="O que o aluno aprenderá?" value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="local-field">
-                <label>Capa do Curso (.png / .jpg)</label>
-                <div className="local-input-wrapper">
-                  <span className="local-icon">🖼️</span>
-                  <input type="file" accept="image/*" onChange={handleUploadThumbnail} />
-                </div>
-                {uploadingThumb && <p style={{fontSize: '0.7rem', color: '#00e5ff', marginTop: '5px'}}>Subindo imagem...</p>}
-                {courseThumb && (
-                  <div style={{ marginTop: '15px', background: '#1a1d23', padding: '5px', borderRadius: '8px', width: 'fit-content', border: '1px solid #2d323e' }}>
-                    <img src={courseThumb} alt="Preview" style={{ width: '150px', height: '85px', objectFit: 'cover', borderRadius: '6px', display: 'block' }} />
+          {/* ADICIONADO: Lógica Condicional para Aulas */}
+          {manageLessonsCourse ? (
+            <ManageLessons 
+              courseId={manageLessonsCourse.id} 
+              courseTitle={manageLessonsCourse.title} 
+              onBack={() => setManageLessonsCourse(null)} 
+            />
+          ) : (
+            <>
+              {/* FORMULÁRIO DE CURSO ORIGINAL */}
+              <div className="admin-card-local">
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h2 style={{ color: '#fff', fontSize: '1.4rem', margin: 0 }}>
+                      {editingCourseId ? "Editar Curso" : "Novo Curso"}
+                    </h2>
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '5px' }}>
+                      {editingCourseId ? "Alterando informações do curso selecionado." : "Cadastre um novo conteúdo na grade."}
+                    </p>
                   </div>
-                )}
-              </div>
-
-              <button className="local-primary-button" type="submit" disabled={uploadingThumb}>
-                {uploadingThumb ? "Aguarde upload..." : editingCourseId ? "Salvar Alterações" : "Publicar Curso"}
-              </button>
-            </form>
-          </div>
-
-          {userRole === 'admin' && (
-            <div className="admin-card-local" style={{ height: 'fit-content' }}>
-              <header>
-                <h2 style={{ color: '#fff', fontSize: '1.4rem' }}>Gerenciar Tags</h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Categorias para organização.</p>
-              </header>
-
-              <form onSubmit={handleCreateTag}>
-                <div className="local-field">
-                  <label>Nome da Tag</label>
-                  <div className="local-input-wrapper">
-                    <span className="local-icon">🏷️</span>
-                    <input type="text" placeholder="Ex: COMERCIAL, PEV, BLIP" value={tagName} onChange={(e) => setTagName(e.target.value)} required />
-                  </div>
-                </div>
-                <button className="local-primary-button" type="submit">Criar Tag</button>
-              </form>
-
-              <div className="tags-list-container" style={{ marginTop: '25px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                {tags.map(tag => (
-                  <span key={tag.id} className="tag-badge">
-                    {tag.name}
-                    <button className="btn-remove-tag" onClick={() => handleDeleteTag(tag.id)} title="Remover tag">
-                      &times;
+                  {editingCourseId && (
+                    <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag(""); }}>
+                      Cancelar Edição
                     </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <section className="management-section">
-            <h2 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.4rem' }}>Cursos Existentes</h2>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="course-list-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '120px' }}>Capa</th>
-                    <th>Título do Curso</th>
-                    <th style={{ textAlign: 'right' }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {courses.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
-                        Nenhum curso encontrado.
-                      </td>
-                    </tr>
-                  ) : (
-                    courses.map(course => (
-                      <tr key={course.id}>
-                        <td>
-                          {course.thumbnailUrl ? (
-                             <img src={course.thumbnailUrl} alt="capa" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2d323e' }} />
-                          ) : (
-                             <div style={{ width: '80px', height: '50px', background: '#2d323e', borderRadius: '6px', border: '1px solid #2d323e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#94a3b8' }}>Sem Capa</div>
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 500 }}>{course.title}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div className="actions-container">
-                            <button className="btn-action btn-edit" onClick={() => handleEditInit(course)}>
-                              Editar
-                            </button>
-                            <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)}>
-                              Excluir
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
                   )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                </header>
+
+                <form onSubmit={handleSaveCourse} style={{ marginTop: '25px' }}>
+                  <div className="local-field">
+                    <label>Título do Curso</label>
+                    <div className="local-input-wrapper">
+                      <span className="local-icon">📝</span>
+                      <input type="text" placeholder="Nome do curso" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} required />
+                    </div>
+                  </div>
+
+                  <div className="local-field">
+                    <label>Tag / Categoria</label>
+                    <div className="local-input-wrapper">
+                      <span className="local-icon">🏷️</span>
+                      <select value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)}>
+                        <option value="">Selecione uma tag...</option>
+                        {tags.map(tag => (
+                          <option key={tag.id} value={tag.id}>{tag.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="local-field">
+                    <label>Descrição</label>
+                    <div className="local-input-wrapper">
+                      <span className="local-icon" style={{ top: '12px' }}>📄</span>
+                      <textarea placeholder="O que o aluno aprenderá?" value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} required />
+                    </div>
+                  </div>
+
+                  <div className="local-field">
+                    <label>Capa do Curso (.png / .jpg)</label>
+                    <div className="local-input-wrapper">
+                      <span className="local-icon">🖼️</span>
+                      <input type="file" accept="image/*" onChange={handleUploadThumbnail} />
+                    </div>
+                    {uploadingThumb && <p style={{fontSize: '0.7rem', color: '#00e5ff', marginTop: '5px'}}>Subindo imagem...</p>}
+                    {courseThumb && (
+                      <div style={{ marginTop: '15px', background: '#1a1d23', padding: '5px', borderRadius: '8px', width: 'fit-content', border: '1px solid #2d323e' }}>
+                        <img src={courseThumb} alt="Preview" style={{ width: '150px', height: '85px', objectFit: 'cover', borderRadius: '6px', display: 'block' }} />
+                      </div>
+                    )}
+                  </div>
+
+                  <button className="local-primary-button" type="submit" disabled={uploadingThumb}>
+                    {uploadingThumb ? "Aguarde upload..." : editingCourseId ? "Salvar Alterações" : "Publicar Curso"}
+                  </button>
+                </form>
+              </div>
+
+              {/* GERENCIAR TAGS ORIGINAL */}
+              {userRole === 'admin' && (
+                <div className="admin-card-local" style={{ height: 'fit-content' }}>
+                  <header>
+                    <h2 style={{ color: '#fff', fontSize: '1.4rem' }}>Gerenciar Tags</h2>
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Categorias para organização.</p>
+                  </header>
+
+                  <form onSubmit={handleCreateTag}>
+                    <div className="local-field">
+                      <label>Nome da Tag</label>
+                      <div className="local-input-wrapper">
+                        <span className="local-icon">🏷️</span>
+                        <input type="text" placeholder="Ex: COMERCIAL, PEV, BLIP" value={tagName} onChange={(e) => setTagName(e.target.value)} required />
+                      </div>
+                    </div>
+                    <button className="local-primary-button" type="submit">Criar Tag</button>
+                  </form>
+
+                  <div className="tags-list-container" style={{ marginTop: '25px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {tags.map(tag => (
+                      <span key={tag.id} className="tag-badge">
+                        {tag.name}
+                        <button className="btn-remove-tag" onClick={() => handleDeleteTag(tag.id)} title="Remover tag">
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* LISTAGEM DE CURSOS ORIGINAL */}
+              <section className="management-section" style={{ width: '100%' }}>
+                <h2 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.4rem' }}>Cursos Existentes</h2>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="course-list-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '120px' }}>Capa</th>
+                        <th>Título do Curso</th>
+                        <th style={{ textAlign: 'right' }}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courses.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                            Nenhum curso encontrado.
+                          </td>
+                        </tr>
+                      ) : (
+                        courses.map(course => (
+                          <tr key={course.id}>
+                            <td>
+                              {course.thumbnailUrl ? (
+                                <img src={course.thumbnailUrl} alt="capa" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #2d323e' }} />
+                              ) : (
+                                <div style={{ width: '80px', height: '50px', background: '#2d323e', borderRadius: '6px', border: '1px solid #2d323e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#94a3b8' }}>Sem Capa</div>
+                              )}
+                            </td>
+                            <td style={{ fontWeight: 500 }}>{course.title}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div className="actions-container">
+                                {/* ADICIONADO: O BOTÃO DE AULAS QUE VOCÊ QUERIA */}
+                                <button className="btn-action btn-lessons" onClick={() => setManageLessonsCourse(course)}>
+                                  Aulas
+                                </button>
+                                <button className="btn-action btn-edit" onClick={() => handleEditInit(course)}>
+                                  Editar
+                                </button>
+                                <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)}>
+                                  Excluir
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </main>
     </div>
