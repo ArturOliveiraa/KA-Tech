@@ -3,6 +3,9 @@ import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
 
+// Import da sua logo
+import logo from "../assets/ka-tech-logo.png";
+
 interface SidebarProps {
   userRole: string | null;
 }
@@ -48,7 +51,6 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           width: 100% !important; 
           min-height: 100vh;
           background-color: #0b0e14;
-          overflow-x: hidden;
         }
 
         /* --- LAYOUT PARA PC (Desktop) --- */
@@ -66,28 +68,24 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
             z-index: 1000;
           }
 
-          /* Ocupa 100% da largura restante e expande */
           .dashboard-content {
             margin-left: ${LARGURA_SIDEBAR} !important;
             width: calc(100% - ${LARGURA_SIDEBAR}) !important;
             min-height: 100vh;
             padding: 40px;
-            display: flex !important;
-            flex-direction: column;
-            flex: 1; /* Força a expansão total */
-          }
-
-          .admin-content-container {
-            width: 100% !important;
-            display: flex !important;
-            flex-wrap: wrap;
-            gap: 24px;
           }
         }
 
         /* --- ESTILOS VISUAIS (Sidebar) --- */
-        .sidebar-logo { padding: 30px 24px; font-weight: bold; color: #fff; font-size: 1.4rem; display: flex; align-items: center; gap: 8px; }
-        .logo-box { background: #00e5ff; color: #000; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+        .sidebar-logo { 
+          padding: 35px 20px; /* Padding equilibrado */
+          display: flex; 
+          align-items: center; 
+          justify-content: center; /* Centralização horizontal absoluta */
+          width: 100%;
+          min-height: 120px;
+        }
+
         .sidebar-nav { flex: 1; display: flex; flex-direction: column; padding: 10px 16px; gap: 4px; }
         .nav-link { display: flex; align-items: center; padding: 12px 16px; color: #94a3b8; text-decoration: none; border-radius: 8px; font-size: 0.9rem; transition: 0.2s; }
         .nav-link:hover { background-color: #1a1d23; color: #fff; }
@@ -98,24 +96,26 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
         @media (max-width: 768px) {
           .sidebar-container {
             width: 100%; height: 70px; background-color: #0d1117;
-            border-top: 1px solid #2d323e; display: flex; flex-direction: row;
-            position: fixed; bottom: 0; left: 0; z-index: 1000; padding: 0 10px;
+            position: fixed; bottom: 0; left: 0; z-index: 1000;
           }
-          .dashboard-content {
-            margin-left: 0 !important;
-            width: 100% !important;
-            padding: 20px;
-            padding-bottom: 90px;
-          }
-          .sidebar-logo, .sidebar-footer, .nav-link span { display: none !important; }
-          .sidebar-nav { flex-direction: row; justify-content: space-around; width: 100%; padding: 0; }
-          .nav-link { font-size: 1.6rem; }
+          .sidebar-logo { display: none !important; }
         }
       `}</style>
 
       <aside className="sidebar-container">
         <div className="sidebar-logo">
-          <span className="logo-box">KA</span> <span>Tech</span>
+          <img 
+            src={logo} 
+            alt="KA Tech" 
+            style={{ 
+              width: '120px', // TAMANHO REDUZIDO: Metade da largura da sidebar
+              height: 'auto', 
+              display: 'block',
+              objectFit: 'contain',
+              transform: 'none', // REMOVIDO: Para não ficar torto
+              filter: 'drop-shadow(0 0 10px rgba(0, 229, 255, 0.15))' // Glow sutil
+            }} 
+          />
         </div>
 
         <nav className="sidebar-nav">
