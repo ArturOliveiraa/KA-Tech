@@ -7,7 +7,9 @@ import Signup from './pages/Signup';
 import ResetPassword from './pages/ResetPassword';
 import UpdatePassword from './pages/UpdatePassword';
 import Dashboard from './pages/dashboard';
-import Cursos from './pages/cursos'; // Importe separado do dashboard!
+import Cursos from './pages/cursos';
+import Admin from './pages/admin';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -21,6 +23,7 @@ root.render(
         <Route path="/update-password" element={<UpdatePassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cursos" element={<Cursos />} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

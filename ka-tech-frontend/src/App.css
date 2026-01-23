@@ -529,4 +529,32 @@
   .courses-grid {
     gap: 1.8rem;
   }
+
+  /* Organização do Painel Administrativo */
+.admin-sections-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); /* Cria colunas automáticas */
+  gap: 30px; /* Espaço entre os cards */
+  padding-top: 20px;
+  align-items: start; /* Alinha os cards pelo topo */
+}
+
+.admin-card-style {
+  margin: 0 !important; /* Remove margens automáticas que centralizam */
+  width: 100% !important;
+  max-width: 500px; /* Impede que o card fique largo demais em telas grandes */
+  padding: 30px;
+}
+
+/* Ajuste para o Textarea no painel */
+.admin-card-style textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+@media (max-width: 768px) {
+  .admin-sections-container {
+    grid-template-columns: 1fr; /* No mobile, fica um embaixo do outro */
+  }
+}
 }

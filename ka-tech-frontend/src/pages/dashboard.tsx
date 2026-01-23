@@ -1,19 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import "../App.css";
+import Sidebar from "../components/Sidebar"; // Importando o componente unificado
 
-// Interfaces baseadas no seu esquema de banco de dados
 interface Course {
   id: number;
   title: string;
   description: string;
   thumbnailUrl: string | null;
-}
-
-interface Profile {
-  full_name: string | null;
-  role: string;
 }
 
 function Dashboard() {
@@ -27,8 +21,6 @@ function Dashboard() {
     async function loadDashboardData() {
       try {
         setLoading(true);
-        
-        // 1. Verificar autenticação
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
@@ -36,111 +28,83 @@ function Dashboard() {
           return;
         }
 
-        // 2. Buscar Perfil (Nome e Role) na tabela 'profiles'
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
           .select("full_name, role")
           .eq("id", user.id)
           .single();
 
-        if (profileError) throw profileError;
+        if (profile) {
+          setUserName(profile.full_name || "Aluno");
+          setUserRole(profile.role);
+        }
 
-        const profile = profileData as Profile;
-        setUserName(profile?.full_name || user.email?.split('@')[0] || "Aluno");
-        setUserRole(profile?.role || "aluno");
-
-        // 3. Buscar Cursos na tabela 'courses'
-        const { data: coursesData, error: coursesError } = await supabase
+        const { data: coursesData } = await supabase
           .from("courses")
           .select("*");
 
-        if (coursesError) throw coursesError;
         setCourses(coursesData || []);
-
       } catch (err) {
-        console.error("ERRO DETALHADO:", err); 
+        console.error("Erro ao carregar dashboard:", err); 
       } finally {
         setLoading(false);
       }
     }
-
     loadDashboardData();
   }, [navigate]);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    navigate("/");
-  }
-
   return (
-    <div className="dashboard-wrapper">
-      {/* Sidebar - Padrão Visual KA Tech */}
-      <aside className="dashboard-sidebar">
-        <div className="brand">
-          <div className="logo-icon-small">KA</div>
-          <span style={{ fontWeight: "bold", fontSize: "1.2rem", marginLeft: "8px" }}>Tech</span>
-        </div>
+    <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#0b0e14' }}>
+      
+      {/* 1. Sidebar unificada: agora com foto e menu responsivo */}
+      <Sidebar userRole={userRole} />
 
-        <nav className="dashboard-nav">
-          <button className="nav-link active" onClick={() => navigate("/dashboard")}>
-          <span>📚</span> Meus Cursos
-          </button>
-          
-          <button className="nav-link" onClick={() => navigate("/cursos")}>
-          <span>🔍</span> Explorar
-          </button>
-          
-          {/* Botão de Gestão: Apenas visível para Admin e Professor */}
-          {(userRole === 'admin' || userRole === 'professor') && (
-            <button 
-              className="nav-link admin-access" 
-              onClick={() => navigate("/admin")}
-              style={{ color: '#00e5ff', fontWeight: 'bold' }}
-            >
-              <span>🛠️</span> Painel de Gestão
-            </button>
-          )}
-
-          <button className="nav-link"><span>⚙️</span> Configurações</button>
-        </nav>
-
-        <button className="logout-btn" onClick={handleLogout}>
-          Sair da conta
-        </button>
-      </aside>
-
-      {/* Área Principal */}
+      {/* 2. Área Principal com recuo automático no PC */}
       <main className="dashboard-content">
-        <header className="dashboard-header">
+        <header className="dashboard-header" style={{ marginBottom: '30px' }}>
           <div className="header-info">
-            <h1>Área do Aluno</h1>
-            <p>Bem-vindo de volta, <strong>{userName}</strong>!</p>
+            <h1 style={{ color: '#fff', fontSize: '2rem', marginBottom: '8px' }}>Área do Aluno</h1>
+            <p style={{ color: '#94a3b8' }}>Bem-vindo de volta, <strong>{userName}</strong>!</p>
           </div>
-          <div className="user-profile-circle">
-            {userName.charAt(0).toUpperCase()}
-          </div>
+          {/* Removido o círculo de perfil daqui, pois já está na Sidebar */}
         </header>
 
         {loading ? (
-          <div className="loading-box">Carregando conteúdos...</div>
+          <div className="loading-box" style={{ color: '#00e5ff' }}>Carregando conteúdos...</div>
         ) : (
-          <div className="courses-grid">
+          /* 3. Grid usando a mesma estrutura de largura total do Admin */
+          <div className="admin-content-container">
             {courses.length > 0 ? (
               courses.map((course) => (
-                <div key={course.id} className="course-card-v2">
-                  <div className="card-thumb">
+                <div key={course.id} className="course-card-v2" style={{ 
+                  background: '#121418', 
+                  borderRadius: '16px', 
+                  border: '1px solid #2d323e',
+                  overflow: 'hidden',
+                  flex: '1 1 300px',
+                  maxWidth: '400px',
+                  transition: 'transform 0.2s'
+                }}>
+                  <div className="card-thumb" style={{ height: '180px', background: '#1a1d23', overflow: 'hidden' }}>
                     {course.thumbnailUrl ? (
-                      <img src={course.thumbnailUrl} alt={course.title} />
+                      <img src={course.thumbnailUrl} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <div className="thumb-placeholder">KA Tech</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#2d323e', fontWeight: 'bold' }}>KA Tech</div>
                     )}
                   </div>
-                  <div className="card-body">
-                    <h3>{course.title}</h3>
-                    <p>{course.description}</p>
+                  
+                  <div className="card-body" style={{ padding: '20px' }}>
+                    <h3 style={{ color: '#fff', marginBottom: '10px', fontSize: '1.2rem' }}>{course.title}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px', height: '40px', overflow: 'hidden' }}>
+                      {course.description}
+                    </p>
                     <button 
-                      className="primary-button card-button"
+                      className="local-primary-button"
                       onClick={() => navigate(`/course/${course.id}`)}
+                      style={{
+                        width: '100%', padding: '12px', borderRadius: '8px', border: 'none',
+                        background: 'linear-gradient(90deg, #00c9ff 0%, #92fe9d 100%)', color: '#000', fontWeight: 'bold', cursor: 'pointer'
+                      }}
                     >
                       Acessar Aula
                     </button>
@@ -148,11 +112,8 @@ function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="empty-state">
+              <div className="empty-state" style={{ textAlign: 'center', width: '100%', padding: '40px', color: '#94a3b8' }}>
                 <p>Você ainda não possui cursos vinculados.</p>
-                <button className="secondary-button" onClick={() => navigate("/cursos")}>
-                  <span>🔍</span> Explorar
-                </button>
               </div>
             )}
           </div>
