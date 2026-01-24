@@ -20,7 +20,7 @@ function Settings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return navigate("/");
 
-      const { data: profile, error } = await supabase
+      const { data: profile} = await supabase
         .from("profiles")
         .select("id, full_name, role, avatar_url")
         .eq("id", user.id)
