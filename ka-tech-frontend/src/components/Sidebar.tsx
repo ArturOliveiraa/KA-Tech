@@ -14,8 +14,9 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
   const [userName, setUserName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  // --- NOVO: ESTADO PARA A COR DO TEMA ---
-  const [themeColor, setThemeColor] = useState("#00e5ff");
+  
+  // --- NOVO: DEFAULT PARA O ROXO KA TECH ---
+  const [themeColor, setThemeColor] = useState("#8b5cf6");
 
   useEffect(() => {
     async function getProfileData() {
@@ -23,14 +24,14 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
       if (user) {
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, avatar_url, theme_color") // Buscando theme_color
+          .select("full_name, avatar_url, theme_color")
           .eq("id", user.id)
           .single();
         
         if (data) {
           setUserName(data.full_name || "Usuário");
           setAvatarUrl(data.avatar_url);
-          // Aplica a cor do tema globalmente se existir
+          
           if (data.theme_color) {
             setThemeColor(data.theme_color);
             document.documentElement.style.setProperty('--primary-color', data.theme_color);
@@ -51,24 +52,29 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   return (
     <>
       <style>{`
-        /* --- VARIÁVEL GLOBAL DE COR --- */
-        :root { --primary-color: ${themeColor}; }
+        /* --- VARIÁVEIS DE TEMA --- */
+        :root { 
+          --primary-color: ${themeColor}; 
+          --bg-sidebar: #020617; /* Navy Profundo */
+          --font-main: 'Sora', sans-serif;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
         body, #root { 
           width: 100% !important; 
           min-height: 100vh;
-          background-color: #0b0e14;
+          background-color: var(--bg-sidebar);
+          font-family: var(--font-main);
         }
 
-        /* --- LAYOUT PARA PC (Desktop) --- */
+        /* --- LAYOUT PARA PC --- */
         @media (min-width: 769px) {
           .sidebar-container {
             width: ${LARGURA_SIDEBAR};
             height: 100vh;
-            background-color: #0d1117;
-            border-right: 1px solid #2d323e;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid rgba(139, 92, 246, 0.1); /* Borda roxa sutil */
             display: flex;
             flex-direction: column;
             position: fixed;
@@ -85,9 +91,9 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           }
         }
 
-        /* --- AJUSTE DA LOGO CENTRALIZADA --- */
+        /* --- AJUSTE DA LOGO --- */
         .sidebar-logo { 
-          padding: 0px 0px 0px 0px; /* Padding removido para colar no topo */
+          padding: 20px 10px;
           display: flex; 
           align-items: center; 
           justify-content: center;
@@ -95,35 +101,74 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
         }
 
         .logo-img {
-          width: 1500px; /* Tamanho otimizado para os 260px da sidebar */
-          height: 230px;
+          width: 100%; /* Ajustado para ocupar a largura da sidebar */
+          max-width: 240px;
+          height: auto;
           display: block;
           object-fit: contain;
-          /* Glow baseado na cor do tema */
-          filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5)); 
+          /* Glow roxo característico da marca */
+          filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.4)); 
         }
 
-        .sidebar-nav { flex: 1; display: flex; flex-direction: column; padding: 20px 16px; gap: 4px; }
-        .nav-link { display: flex; align-items: center; padding: 12px 16px; color: #94a3b8; text-decoration: none; border-radius: 8px; font-size: 0.9rem; transition: 0.2s; }
-        .nav-link:hover { background-color: #1a1d23; color: #fff; }
+        .sidebar-nav { 
+          flex: 1; 
+          display: flex; 
+          flex-direction: column; 
+          padding: 20px 16px; 
+          gap: 8px; 
+        }
+
+        .nav-link { 
+          display: flex; 
+          align-items: center; 
+          padding: 12px 16px; 
+          color: #9ca3af; 
+          text-decoration: none; 
+          border-radius: 12px; 
+          font-size: 0.9rem; 
+          font-weight: 400;
+          transition: all 0.3s ease; 
+        }
+
+        .nav-link:hover { 
+          background-color: rgba(139, 92, 246, 0.05); 
+          color: #fff; 
+        }
         
-        /* --- LINK ATIVO USA A COR DINÂMICA --- */
+        /* --- ESTADO ATIVO NEON --- */
         .nav-link.active { 
-          background-color: rgba(var(--primary-color-rgb, 0, 229, 255), 0.1); 
+          background: linear-gradient(90deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%); 
           color: var(--primary-color); 
-          border-left: 3px solid var(--primary-color);
-          border-radius: 0 8px 8px 0;
+          border-left: 4px solid var(--primary-color);
+          border-radius: 0 12px 12px 0;
           font-weight: 600; 
         }
 
-        .sidebar-footer { padding: 16px; border-top: 1px solid #2d323e; }
+        .sidebar-footer { 
+          padding: 20px 16px; 
+          border-top: 1px solid rgba(139, 92, 246, 0.1);
+          background: rgba(0, 0, 0, 0.2);
+        }
 
         @media (max-width: 768px) {
           .sidebar-container {
-            width: 100%; height: 70px; background-color: #0d1117;
-            position: fixed; bottom: 0; left: 0; z-index: 1000;
+            width: 100%; 
+            height: 70px; 
+            background-color: #09090b;
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            z-index: 1000;
+            border-top: 1px solid rgba(139, 92, 246, 0.2);
           }
           .sidebar-logo { display: none !important; }
+          .sidebar-nav { 
+            flex-direction: row; 
+            justify-content: space-around; 
+            padding: 10px; 
+          }
+          .nav-link { padding: 8px; flex-direction: column; font-size: 0.7rem; gap: 4px; }
+          .nav-link.active { border-left: none; border-bottom: 3px solid var(--primary-color); border-radius: 0; }
         }
       `}</style>
 
@@ -138,27 +183,43 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
         <nav className="sidebar-nav">
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-            <span style={{ marginRight: '10px' }}>📚</span> <span>Meus Cursos</span>
+            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📚</span> <span>Meus Cursos</span>
           </Link>
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
-            <span style={{ marginRight: '10px' }}>🔍</span> <span>Explorar</span>
+            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Explorar</span>
           </Link>
           {(userRole === 'admin' || userRole === 'professor') && (
             <Link to="/admin" className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>
-              <span style={{ marginRight: '10px' }}>🛠️</span> <span>Gestão</span>
+              <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
             </Link>
           )}
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
-            <span style={{ marginRight: '10px' }}>⚙️</span> <span>Ajustes</span>
+            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>⚙️</span> <span>Ajustes</span>
           </Link>
         </nav>
 
         <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Avatar src={avatarUrl} name={userName} />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 500 }}>{userName}</span>
-              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ff4b4b', fontSize: '0.7rem', padding: 0, cursor: 'pointer', textAlign: 'left' }}>Sair</button>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {userName}
+              </span>
+              <button 
+                onClick={handleLogout} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: '#ef4444', 
+                  fontSize: '0.75rem', 
+                  padding: 0, 
+                  cursor: 'pointer', 
+                  textAlign: 'left',
+                  fontWeight: 500
+                }}
+              >
+                Encerrar Sessão
+              </button>
             </div>
           </div>
         </div>
