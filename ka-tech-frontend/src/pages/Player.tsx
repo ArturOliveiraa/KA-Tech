@@ -16,18 +16,17 @@ export default function Player() {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [lessonStartTime, setLessonStartTime] = useState(0);
+    const [isTimeLoaded, setIsTimeLoaded] = useState(false); // NOVO: Controle de carregamento do tempo
 
-    // --- ESTADOS DO CADERNO DE NOTAS ---
     const [activeTab, setActiveTab] = useState<"content" | "notes">("content");
     const [notes, setNotes] = useState<any[]>([]);
     const [newNote, setNewNote] = useState("");
-    const [currentVideoTime, setCurrentVideoTime] = useState(0); // Tempo real do player
-    const [seekTo, setSeekTo] = useState<number | null>(null); // Comando de pulo
+    const [currentVideoTime, setCurrentVideoTime] = useState(0); 
+    const [seekTo, setSeekTo] = useState<number | null>(null); 
 
     const [showBadgeModal, setShowBadgeModal] = useState(false);
     const [unlockedBadge, setUnlockedBadge] = useState<any>(null);
 
-    // Carregar notas da aula atual
     const fetchNotes = useCallback(async () => {
         if (!activeLessonId) return;
         const { data: { user } } = await supabase.auth.getUser();
@@ -67,7 +66,6 @@ export default function Player() {
         }
     };
 
-    // --- NOVA FUNÇÃO: DELETAR NOTA ---
     const handleDeleteNote = async (id: string) => {
         if (!window.confirm("Deseja excluir esta anotação?")) return;
 
@@ -115,31 +113,21 @@ export default function Player() {
     }, [realCourseId, stats.percent]);
 
     const handleSaveProgress = useCallback(async (time: number, completed: boolean = false) => {
-        setCurrentVideoTime(time); // Sincroniza o tempo para novas anotações
+        setCurrentVideoTime(time); 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || !activeLessonId || !realCourseId) return;
 
-        const { error } = await supabase.from("user_progress").upsert({
+        await supabase.from("user_progress").upsert({
             user_id: user.id,
             course_id: realCourseId,
             lesson_id: activeLessonId,
-            last_time: time,
+            last_time: Math.floor(time),
             is_completed: completed,
             completed_at: completed ? new Date() : null
         }, { onConflict: 'user_id,lesson_id' });
 
-        if (!error && completed) window.dispatchEvent(new Event("progressUpdated"));
+        if (completed) window.dispatchEvent(new Event("progressUpdated"));
     }, [activeLessonId, realCourseId]);
-
-    const getRank = (p: number) => {
-        if (p >= 100) return { label: "GOD", color: "#ff00ff", glow: "0 0 25px rgba(255, 0, 255, 0.5)", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/GOD.png" };
-        if (p >= 75) return { label: "HACKER", color: "#00e5ff", glow: "0 0 20px rgba(0, 229, 255, 0.5)", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/HACKER.png" };
-        if (p >= 50) return { label: "PRO PLAYER", color: "#8b5cf6", glow: "0 0 20px rgba(139, 92, 246, 0.5)", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/PRO%20PLAYER.png" };
-        if (p >= 25) return { label: "NEW PLAYER", color: "#00ff88", glow: "0 0 15px rgba(0, 255, 136, 0.4)", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NEW%20PLAYER.png" };
-        return { label: "NOOB", color: "#94a3b8", glow: "none", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NOOB.png" };
-    };
-
-    const rank = getRank(stats.percent);
 
     useEffect(() => {
         async function loadPlayerData() {
@@ -170,10 +158,18 @@ export default function Player() {
     useEffect(() => {
         async function fetchSavedTime() {
             if (!activeLessonId) return;
+            setIsTimeLoaded(false); // Bloqueia o player até carregar o tempo
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-            const { data } = await supabase.from("user_progress").select("last_time").eq("user_id", user.id).eq("lesson_id", activeLessonId).maybeSingle();
+            const { data } = await supabase
+                .from("user_progress")
+                .select("last_time")
+                .eq("user_id", user.id)
+                .eq("lesson_id", activeLessonId)
+                .maybeSingle();
+            
             setLessonStartTime(data?.last_time || 0);
+            setIsTimeLoaded(true); // Libera o player com o tempo correto
         }
         fetchSavedTime();
     }, [activeLessonId]);
@@ -183,31 +179,15 @@ export default function Player() {
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
             <Sidebar userRole={userRole} />
-            <main className="dashboard-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '40px', marginLeft: '260px' }}>
+            <main className="dashboard-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px 40px', marginLeft: '260px' }}>
                 <header style={{ marginBottom: '24px' }}>
                     <h2 style={{ color: '#fff', fontSize: '1.8rem', fontWeight: 800 }}>{course?.title}</h2>
                 </header>
 
-                <div style={{ background: '#09090b', padding: '24px', borderRadius: '20px', border: '1px solid rgba(139, 92, 246, 0.15)', marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '24px', boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)' }}>
-                    <div style={{ width: '90px', height: '90px', background: '#020617', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${rank.color}`, boxShadow: rank.glow }}>
-                        <img src={rank.image} alt={rank.label} style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                            <h2 style={{ margin: 0, color: rank.color, textShadow: rank.glow, fontSize: '2.2rem', fontWeight: 900 }}>{rank.label}</h2>
-                            <div style={{ textAlign: 'right' }}>
-                                <span style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>{stats.percent}%</span>
-                            </div>
-                        </div>
-                        <div style={{ width: '100%', height: '10px', background: '#111116', borderRadius: '20px', overflow: 'hidden' }}>
-                            <div style={{ width: `${stats.percent}%`, height: '100%', background: `linear-gradient(90deg, ${rank.color}, #fff)`, transition: 'width 1.5s ease' }} />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="player-layout" style={{ display: 'flex', gap: '30px' }}>
-                    <div className="video-section" style={{ flex: 1, borderRadius: '20px', overflow: 'hidden' }}>
-                        {activeLessonId && (
+                <div className="player-layout" style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+                    <div className="video-section" style={{ flex: 1, minWidth: 0 }}>
+                        {/* NOVO: Só renderiza se o tempo já foi buscado no banco */}
+                        {activeLessonId && isTimeLoaded && (
                             <LessonView
                                 lessonId={activeLessonId}
                                 initialTime={lessonStartTime}
@@ -215,9 +195,14 @@ export default function Player() {
                                 seekTo={seekTo}
                             />
                         )}
+                        {!isTimeLoaded && (
+                            <div style={{ width: '100%', paddingTop: '56.25%', background: '#000', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
+                                Sincronizando progresso...
+                            </div>
+                        )}
                     </div>
 
-                    <div className="sidebar-section" style={{ width: '380px' }}>
+                    <div className="sidebar-section" style={{ width: '340px', flexShrink: 0 }}>
                         <div style={{ display: 'flex', background: '#09090b', borderRadius: '12px', padding: '4px', marginBottom: '15px' }}>
                             <button onClick={() => setActiveTab('content')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'content' ? '#1e1b4b' : 'transparent', color: activeTab === 'content' ? '#a78bfa' : '#64748b', fontWeight: 800, fontSize: '0.75rem' }}>AULAS</button>
                             <button onClick={() => setActiveTab('notes')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'notes' ? '#1e1b4b' : 'transparent', color: activeTab === 'notes' ? '#a78bfa' : '#64748b', fontWeight: 800, fontSize: '0.75rem' }}>ANOTAÇÕES</button>
@@ -230,7 +215,7 @@ export default function Player() {
                                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
                                     <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
                                         {notes.map(note => (
-                                            <div key={note.id} style={{ background: '#020617', padding: '12px', borderRadius: '12px', border: '1px solid rgba(139, 92, 246, 0.1)', marginBottom: '12px', position: 'relative' }}>
+                                            <div key={note.id} style={{ background: '#020617', padding: '12px', borderRadius: '12px', border: '1px solid rgba(139, 92, 246, 0.1)', marginBottom: '12px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                     <button
                                                         onClick={() => setSeekTo(note.video_timestamp)}
@@ -238,8 +223,6 @@ export default function Player() {
                                                     >
                                                         ⏱️ {formatTime(note.video_timestamp)}
                                                     </button>
-                                                    
-                                                    {/* BOTÃO EXCLUIR */}
                                                     <button 
                                                         onClick={() => handleDeleteNote(note.id)}
                                                         style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', opacity: 0.6 }}
