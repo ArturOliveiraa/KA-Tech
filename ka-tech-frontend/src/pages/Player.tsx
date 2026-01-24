@@ -16,6 +16,9 @@ export default function Player() {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
 
+    // --- ADICIONADO: Estado para o tempo inicial do vídeo ---
+    const [lessonStartTime, setLessonStartTime] = useState(0);
+
     const fireConfetti = () => {
         const duration = 5 * 1000;
         const animationEnd = Date.now() + duration;
@@ -35,10 +38,9 @@ export default function Player() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || !courseId) return;
 
-        // Referenciando as colunas id e courseId conforme estrutura do banco
         const [lessonsRes, progressRes] = await Promise.all([
             supabase.from("lessons").select("id", { count: 'exact', head: true }).eq("courseId", Number(courseId)),
-            supabase.from("user_progress").select("lesson_id", { count: 'exact', head: true }).eq("user_id", user.id).eq("course_id", Number(courseId))
+            supabase.from("user_progress").select("lesson_id", { count: 'exact', head: true }).eq("user_id", user.id).eq("course_id", Number(courseId)).eq("is_completed", true)
         ]);
 
         const total = lessonsRes.count || 0;
@@ -49,7 +51,23 @@ export default function Player() {
         setStats({ completed, total, percent });
     }, [courseId, stats.percent]);
 
-    // --- FUNÇÃO ATUALIZADA COM AS SUAS URLs ---
+    // --- ADICIONADO: Função para salvar o progresso no Supabase ---
+    const handleSaveProgress = useCallback(async (time: number, completed: boolean = false) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !activeLessonId) return;
+
+        await supabase.from("user_progress").upsert({
+            user_id: user.id,
+            course_id: Number(courseId),
+            lesson_id: activeLessonId,
+            last_time: time,
+            is_completed: completed,
+            updated_at: new Date()
+        }, { onConflict: 'user_id,lesson_id' });
+
+        if (completed) window.dispatchEvent(new Event("progressUpdated"));
+    }, [activeLessonId, courseId]);
+
     const getRank = (p: number) => {
         if (p >= 100) return { 
             label: "GOD", color: "#ff00ff", glow: "0 0 20px #ff00ff", animation: "rankPulse 1.5s infinite",
@@ -95,6 +113,25 @@ export default function Player() {
         return () => window.removeEventListener("progressUpdated", calculateProgress);
     }, [courseId, navigate, calculateProgress]);
 
+    // --- ADICIONADO: Efeito para buscar o tempo salvo sempre que a aula mudar ---
+    useEffect(() => {
+        async function fetchSavedTime() {
+            if (!activeLessonId) return;
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data } = await supabase
+                .from("user_progress")
+                .select("last_time")
+                .eq("user_id", user.id)
+                .eq("lesson_id", activeLessonId)
+                .maybeSingle();
+            
+            setLessonStartTime(data?.last_time || 0);
+        }
+        fetchSavedTime();
+    }, [activeLessonId]);
+
     if (loading) return <div style={{ color: '#00e5ff', padding: '40px' }}>Carregando...</div>;
 
     return (
@@ -106,9 +143,7 @@ export default function Player() {
                     <h2 style={{ color: '#fff', fontSize: '1.5rem' }}>{course?.title}</h2>
                 </header>
 
-                {/* Interface Gamer com as Badges Oficiais */}
                 <div style={{ background: '#121418', padding: '24px', borderRadius: '16px', border: '1px solid #2d323e', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    
                     <div style={{ 
                         width: '80px', height: '80px', background: '#0b0e14', borderRadius: '12px', 
                         display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${rank.color}`,
@@ -138,7 +173,14 @@ export default function Player() {
 
                 <div className="player-layout" style={{ display: 'flex', gap: '24px' }}>
                     <div className="video-section" style={{ flex: 1 }}>
-                        {activeLessonId && <LessonView lessonId={activeLessonId} />}
+                        {/* AJUSTADO: Passando o tempo inicial e a função de atualização para o LessonView */}
+                        {activeLessonId && (
+                            <LessonView 
+                                lessonId={activeLessonId} 
+                                initialTime={lessonStartTime} 
+                                onProgressUpdate={handleSaveProgress} 
+                            />
+                        )}
                     </div>
                     <div className="sidebar-section" style={{ width: '320px' }}>
                         <LessonSidebar courseId={Number(courseId)} currentLessonId={activeLessonId || 0} onSelectLesson={setActiveLessonId} />

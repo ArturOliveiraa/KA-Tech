@@ -1,23 +1,36 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 
-export default function LessonView({ lessonId }: { lessonId: number }) {
+// ADICIONADO: Props initialTime e onProgressUpdate
+export default function LessonView({ 
+  lessonId, 
+  initialTime = 0, 
+  onProgressUpdate 
+}: { 
+  lessonId: number; 
+  initialTime?: number; 
+  onProgressUpdate?: (time: number, completed?: boolean) => void;
+}) {
   const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isCompleted, setIsCompleted] = useState(false);
   
   const playerRef = useRef<any>(null);
-  const lastValidTimeRef = useRef(0);
+  const lastValidTimeRef = useRef(initialTime); // AJUSTADO: Começa no tempo inicial
   
-  // Criamos um Ref para a função de salvar para que o useEffect 
-  // do player sempre tenha acesso à versão mais recente sem precisar reiniciar o player
   const saveProgressRef = useRef<(() => Promise<void>) | null>(null);
+  // ADICIONADO: Ref para a função de progresso para evitar re-init do player
+  const onProgressUpdateRef = useRef(onProgressUpdate);
+
+  useEffect(() => {
+    onProgressUpdateRef.current = onProgressUpdate;
+  }, [onProgressUpdate]);
 
   const fetchLesson = useCallback(async () => {
     if (!lessonId) return;
     setLoading(true);
     setIsCompleted(false);
-    lastValidTimeRef.current = 0;
+    lastValidTimeRef.current = initialTime; // AJUSTADO: Reseta para o tempo inicial da aula
 
     const { data } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
     
@@ -27,11 +40,10 @@ export default function LessonView({ lessonId }: { lessonId: number }) {
       setLesson({ ...data, videoId });
     }
     setLoading(false);
-  }, [lessonId]);
+  }, [lessonId, initialTime]);
 
   useEffect(() => { fetchLesson(); }, [fetchLesson]);
 
-  // Função de salvar real
   const saveProgress = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user || !lesson) return;
@@ -40,16 +52,20 @@ export default function LessonView({ lessonId }: { lessonId: number }) {
       user_id: session.user.id,
       lesson_id: lesson.id,
       course_id: lesson.courseId || lesson.courseid,
+      is_completed: true, // ADICIONADO: Mantendo consistência com o banco
       completed_at: new Date().toISOString()
     }, { onConflict: 'user_id,lesson_id' });
 
     if (!error) {
       setIsCompleted(true);
       window.dispatchEvent(new Event("progressUpdated"));
+      // ADICIONADO: Notifica o pai que a aula foi concluída
+      if (onProgressUpdateRef.current) {
+        onProgressUpdateRef.current(playerRef.current?.getCurrentTime() || 0, true);
+      }
     }
   }, [lesson]);
 
-  // Atualiza o Ref toda vez que a função saveProgress mudar
   useEffect(() => {
     saveProgressRef.current = saveProgress;
   }, [saveProgress]);
@@ -63,13 +79,20 @@ export default function LessonView({ lessonId }: { lessonId: number }) {
       return setInterval(() => {
         if (player && player.getCurrentTime) {
           const currentTime = player.getCurrentTime();
+          
+          // Lógica de Anti-Cheat mantida
           if (currentTime > lastValidTimeRef.current + 2) {
             player.seekTo(lastValidTimeRef.current, true);
           } else if (currentTime > lastValidTimeRef.current) {
             lastValidTimeRef.current = currentTime;
+            
+            // ADICIONADO: Reporta o progresso atual ao componente pai (Player.tsx)
+            if (onProgressUpdateRef.current) {
+              onProgressUpdateRef.current(currentTime, false);
+            }
           }
         }
-      }, 500);
+      }, 1000); // AJUSTADO: 1s é suficiente para salvar progresso
     };
 
     const initPlayer = () => {
@@ -83,15 +106,19 @@ export default function LessonView({ lessonId }: { lessonId: number }) {
           rel: 0,
           modestbranding: 1,
           controls: 1,
+          start: Math.floor(initialTime), // ADICIONADO: Player já começa no segundo certo
           origin: window.location.origin
         },
         events: {
           onReady: (event: any) => {
+            // GARANTIA: Seek forcado no ready para navegadores que ignoram o playerVars 'start'
+            if (initialTime > 0) {
+              event.target.seekTo(initialTime, true);
+            }
             intervalId = monitorProgress(event.target);
           },
           onStateChange: (event: any) => {
             if (event.data === (window as any).YT.PlayerState.ENDED) {
-              // Chama a função através do Ref
               if (saveProgressRef.current) saveProgressRef.current();
             }
           }
@@ -112,9 +139,7 @@ export default function LessonView({ lessonId }: { lessonId: number }) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-    // Agora o saveProgressRef não causa reinicialização do player,
-    // e o ESLint não reclama porque Refs não precisam estar no array.
-  }, [lesson, loading]);
+  }, [lesson, loading, initialTime]); // AJUSTADO: Adicionado initialTime para trocar de posição se a aula mudar
 
   if (loading) return <div style={{ color: '#00c9ff', padding: '40px' }}>Carregando Aula...</div>;
 

@@ -14,6 +14,8 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
   const [userName, setUserName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  // --- NOVO: ESTADO PARA A COR DO TEMA ---
+  const [themeColor, setThemeColor] = useState("#00e5ff");
 
   useEffect(() => {
     async function getProfileData() {
@@ -21,13 +23,18 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
       if (user) {
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, avatar_url")
+          .select("full_name, avatar_url, theme_color") // Buscando theme_color
           .eq("id", user.id)
           .single();
         
         if (data) {
           setUserName(data.full_name || "Usuário");
           setAvatarUrl(data.avatar_url);
+          // Aplica a cor do tema globalmente se existir
+          if (data.theme_color) {
+            setThemeColor(data.theme_color);
+            document.documentElement.style.setProperty('--primary-color', data.theme_color);
+          }
         }
       }
     }
@@ -44,7 +51,9 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   return (
     <>
       <style>{`
-        /* --- ESTRUTURA GLOBAL --- */
+        /* --- VARIÁVEL GLOBAL DE COR --- */
+        :root { --primary-color: ${themeColor}; }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
         body, #root { 
@@ -76,23 +85,39 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           }
         }
 
-        /* --- ESTILOS VISUAIS (Sidebar) --- */
+        /* --- AJUSTE DA LOGO CENTRALIZADA --- */
         .sidebar-logo { 
-          padding: 35px 20px; /* Padding equilibrado */
+          padding: 0px 0px 0px 0px; /* Padding removido para colar no topo */
           display: flex; 
           align-items: center; 
-          justify-content: center; /* Centralização horizontal absoluta */
+          justify-content: center;
           width: 100%;
-          min-height: 120px;
         }
 
-        .sidebar-nav { flex: 1; display: flex; flex-direction: column; padding: 10px 16px; gap: 4px; }
+        .logo-img {
+          width: 1500px; /* Tamanho otimizado para os 260px da sidebar */
+          height: 230px;
+          display: block;
+          object-fit: contain;
+          /* Glow baseado na cor do tema */
+          filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5)); 
+        }
+
+        .sidebar-nav { flex: 1; display: flex; flex-direction: column; padding: 20px 16px; gap: 4px; }
         .nav-link { display: flex; align-items: center; padding: 12px 16px; color: #94a3b8; text-decoration: none; border-radius: 8px; font-size: 0.9rem; transition: 0.2s; }
         .nav-link:hover { background-color: #1a1d23; color: #fff; }
-        .nav-link.active { background-color: rgba(0, 229, 255, 0.1); color: #00e5ff; font-weight: 600; }
+        
+        /* --- LINK ATIVO USA A COR DINÂMICA --- */
+        .nav-link.active { 
+          background-color: rgba(var(--primary-color-rgb, 0, 229, 255), 0.1); 
+          color: var(--primary-color); 
+          border-left: 3px solid var(--primary-color);
+          border-radius: 0 8px 8px 0;
+          font-weight: 600; 
+        }
+
         .sidebar-footer { padding: 16px; border-top: 1px solid #2d323e; }
 
-        /* --- LAYOUT PARA MOBILE --- */
         @media (max-width: 768px) {
           .sidebar-container {
             width: 100%; height: 70px; background-color: #0d1117;
@@ -107,31 +132,24 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           <img 
             src={logo} 
             alt="KA Tech" 
-            style={{ 
-              width: '120px', // TAMANHO REDUZIDO: Metade da largura da sidebar
-              height: 'auto', 
-              display: 'block',
-              objectFit: 'contain',
-              transform: 'none', // REMOVIDO: Para não ficar torto
-              filter: 'drop-shadow(0 0 10px rgba(0, 229, 255, 0.15))' // Glow sutil
-            }} 
+            className="logo-img"
           />
         </div>
 
         <nav className="sidebar-nav">
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-            📚 <span>Meus Cursos</span>
+            <span style={{ marginRight: '10px' }}>📚</span> <span>Meus Cursos</span>
           </Link>
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
-            🔍 <span>Explorar</span>
+            <span style={{ marginRight: '10px' }}>🔍</span> <span>Explorar</span>
           </Link>
           {(userRole === 'admin' || userRole === 'professor') && (
             <Link to="/admin" className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>
-              🛠️ <span>Gestão</span>
+              <span style={{ marginRight: '10px' }}>🛠️</span> <span>Gestão</span>
             </Link>
           )}
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
-            ⚙️ <span>Ajustes</span>
+            <span style={{ marginRight: '10px' }}>⚙️</span> <span>Ajustes</span>
           </Link>
         </nav>
 
