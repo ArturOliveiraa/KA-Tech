@@ -90,7 +90,7 @@ export default function Rankings() {
         { id: "badges", label: "🏆 Reis das Insígnias" },
         { id: "maratonistas", label: "⚡ Maratonistas" },
         { id: "tempo", label: "⏳ Tempo de Voo" },
-        { id: "on_fire", label: "🔥 On Fire" }
+        { id: "on_fire", label: "🔥 Ofensiva" }
     ];
 
     const podium = rankingList.slice(0, 3);
