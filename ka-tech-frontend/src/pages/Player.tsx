@@ -14,7 +14,6 @@ export default function Player() {
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [userRole, setUserRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [lessonStartTime, setLessonStartTime] = useState(0);
     const [isTimeLoaded, setIsTimeLoaded] = useState(false); 
 
@@ -23,9 +22,6 @@ export default function Player() {
     const [newNote, setNewNote] = useState("");
     const [currentVideoTime, setCurrentVideoTime] = useState(0); 
     const [seekTo, setSeekTo] = useState<number | null>(null); 
-
-    const [showBadgeModal, setShowBadgeModal] = useState(false);
-    const [unlockedBadge, setUnlockedBadge] = useState<any>(null);
 
     const fetchNotes = useCallback(async () => {
         if (!activeLessonId) return;
@@ -48,7 +44,6 @@ export default function Player() {
 
     const handleAddNote = async () => {
         if (!newNote.trim() || !activeLessonId || !realCourseId) return;
-
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
@@ -68,17 +63,8 @@ export default function Player() {
 
     const handleDeleteNote = async (id: string) => {
         if (!window.confirm("Deseja excluir esta anotação?")) return;
-
-        const { error } = await supabase
-            .from("lesson_notes")
-            .delete()
-            .eq("id", id);
-
-        if (!error) {
-            setNotes(prev => prev.filter(note => note.id !== id));
-        } else {
-            alert("Erro ao excluir nota.");
-        }
+        const { error } = await supabase.from("lesson_notes").delete().eq("id", id);
+        if (!error) setNotes(prev => prev.filter(note => note.id !== id));
     };
 
     const formatTime = (seconds: number) => {
@@ -86,31 +72,6 @@ export default function Player() {
         const s = Math.floor(seconds % 60);
         return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
     };
-
-    const calculateProgress = useCallback(async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !realCourseId) return;
-
-        const [lessonsRes, progressRes] = await Promise.all([
-            supabase.from("lessons").select("id", { count: 'exact', head: true }).eq("course_id", realCourseId),
-            supabase.from("user_progress").select("lesson_id", { count: 'exact', head: true }).eq("user_id", user.id).eq("course_id", realCourseId).eq("is_completed", true)
-        ]);
-
-        if (lessonsRes.error || progressRes.error) return;
-
-        const total = lessonsRes.count || 0;
-        const completed = progressRes.count || 0;
-        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-        if (percent === 100 && stats.percent < 100) {
-            const { data: badge } = await supabase.from("badges").select("id, name, image_url").eq("course_id", realCourseId).maybeSingle();
-            if (badge) {
-                const { error: badgeError } = await supabase.from("user_badges").upsert({ user_id: user.id, badge_id: badge.id }, { onConflict: 'user_id,badge_id' });
-                if (!badgeError) { setUnlockedBadge(badge); setShowBadgeModal(true); }
-            }
-        }
-        setStats({ completed, total, percent });
-    }, [realCourseId, stats.percent]);
 
     const handleSaveProgress = useCallback(async (time: number, completed: boolean = false) => {
         setCurrentVideoTime(time); 
@@ -148,14 +109,6 @@ export default function Player() {
     }, [slug, navigate]);
 
     useEffect(() => {
-        if (realCourseId) {
-            calculateProgress();
-            window.addEventListener("progressUpdated", calculateProgress);
-            return () => window.removeEventListener("progressUpdated", calculateProgress);
-        }
-    }, [realCourseId, calculateProgress]);
-
-    useEffect(() => {
         async function fetchSavedTime() {
             if (!activeLessonId) return;
             setIsTimeLoaded(false); 
@@ -174,7 +127,7 @@ export default function Player() {
         fetchSavedTime();
     }, [activeLessonId]);
 
-    if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', fontFamily: 'Sora', fontWeight: 800 }}>Carregando Missão...</div>;
+    if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', fontFamily: 'Sora', fontWeight: 800 }}>Iniciando...</div>;
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
@@ -196,7 +149,7 @@ export default function Player() {
                         )}
                         {!isTimeLoaded && (
                             <div style={{ width: '100%', paddingTop: '56.25%', background: '#000', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
-                                Sincronizando progresso...
+                                Sincronizando...
                             </div>
                         )}
                     </div>
@@ -237,7 +190,7 @@ export default function Player() {
                                         <textarea
                                             value={newNote}
                                             onChange={(e) => setNewNote(e.target.value)}
-                                            placeholder="Digite uma anotação..."
+                                            placeholder="Anotar..."
                                             style={{ width: '100%', background: '#020617', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: '12px', padding: '12px', color: '#fff', fontSize: '0.8rem', resize: 'none', minHeight: '80px' }}
                                         />
                                         <button onClick={handleAddNote} style={{ position: 'absolute', bottom: '10px', right: '10px', background: '#8b5cf6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 800, fontSize: '0.7rem', cursor: 'pointer' }}>SALVAR</button>
@@ -248,7 +201,6 @@ export default function Player() {
                     </div>
                 </div>
             </main>
-            {/* Modal de badge removido para brevidade */}
         </div>
     );
 }
