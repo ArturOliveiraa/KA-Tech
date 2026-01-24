@@ -14,6 +14,7 @@ interface Course {
 function Dashboard() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<number[]>([]); 
+  const [completedCourseIds, setCompletedCourseIds] = useState<number[]>([]); // Novo estado para cursos concluídos
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -41,16 +42,24 @@ function Dashboard() {
           setUserRole(profile.role);
         }
 
-        // Busca cursos e matrículas simultaneamente
-        const [coursesRes, enrollmentsRes] = await Promise.all([
+        // Busca cursos, matrículas e progresso simultaneamente
+        const [coursesRes, enrollmentsRes, progressRes] = await Promise.all([
           supabase.from("courses").select("*"),
-          supabase.from("course_enrollments").select("courseId").eq("userId", user.id)
+          supabase.from("course_enrollments").select("courseId").eq("userId", user.id),
+          supabase.from("user_progress")
+            .select("course_id")
+            .eq("user_id", user.id)
+            .eq("is_completed", true) // Filtra apenas o que já foi finalizado
         ]);
 
         setCourses(coursesRes.data || []);
         
         if (enrollmentsRes.data) {
           setEnrolledCourseIds(enrollmentsRes.data.map(e => e.courseId));
+        }
+
+        if (progressRes.data) {
+          setCompletedCourseIds(progressRes.data.map(p => p.course_id));
         }
 
       } catch (err) {
@@ -110,7 +119,9 @@ function Dashboard() {
         ) : (
           <div className="admin-content-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
             {courses.length > 0 ? (
-              courses.map((course) => {
+              courses
+                .filter(course => !completedCourseIds.includes(course.id)) // REMOVE OS CURSOS CONCLUÍDOS DO DASHBOARD
+                .map((course) => {
                 const isEnrolled = enrolledCourseIds.includes(course.id);
 
                 return (
@@ -144,7 +155,6 @@ function Dashboard() {
                           width: '100%', 
                           padding: '12px', 
                           borderRadius: '12px', 
-                          // CORREÇÃO: Removida a duplicata do border
                           background: isEnrolled 
                             ? 'rgba(139, 92, 246, 0.1)' 
                             : 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', 
