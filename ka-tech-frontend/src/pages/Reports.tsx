@@ -14,9 +14,10 @@ export default function Reports() {
     const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [orphanTags, setOrphanTags] = useState<any[]>([]);
 
-    // NOVOS ESTADOS PARA FILTRO (Sem alterar os anteriores)
+    // NOVOS ESTADOS PARA FILTRO
     const [courses, setCourses] = useState<any[]>([]);
     const [tempCourseId, setTempCourseId] = useState(""); 
+    const [tempStatusFilter, setTempStatusFilter] = useState("all"); // NOVO: Estado para o filtro de status
     const [selectedCourseId, setSelectedCourseId] = useState(""); 
     const [studentsByCourse, setStudentsByCourse] = useState<any[]>([]);
     const [loadingFilter, setLoadingFilter] = useState(false);
@@ -37,7 +38,6 @@ export default function Reports() {
                 setUserRole(prof?.role || 'user');
             }
 
-            // Busca estatísticas e agora também a LISTA DE CURSOS para o select
             const [profilesRes, coursesRes, progressRes, listCoursesRes] = await Promise.all([
                 supabase.from("profiles").select("id", { count: 'exact', head: true }),
                 supabase.from("courses").select("id", { count: 'exact', head: true }),
@@ -66,7 +66,6 @@ export default function Reports() {
         loadData();
     }, []);
 
-    // --- FUNÇÃO PARA APLICAR FILTRO CORRIGIDA (Baseada no seu Schema) ---
     const handleApplyFilter = async () => {
         if (!tempCourseId) return;
 
@@ -74,34 +73,51 @@ export default function Reports() {
         setHasSearched(true);
         setSelectedCourseId(tempCourseId);
         
-        // Query usando course_enrollments e userId/courseId conforme seu SQL
-        const { data, error } = await supabase
-            .from("course_enrollments")
-            .select(`
-                userId,
-                profiles:userId (
-                    full_name,
-                    role
-                )
-            `)
-            .eq("courseId", Number(tempCourseId)); // Number é vital pois no banco é integer
+        const [enrollmentsRes, progressRes] = await Promise.all([
+            supabase
+                .from("course_enrollments")
+                .select(`userId, profiles:userId (full_name, role)`)
+                .eq("courseId", Number(tempCourseId)),
+            supabase
+                .from("user_progress")
+                .select("user_id, is_completed")
+                .eq("course_id", Number(tempCourseId))
+        ]);
 
-        if (error) {
-            console.error("Erro Supabase:", error.message);
+        if (enrollmentsRes.error) {
+            console.error("Erro Supabase:", enrollmentsRes.error.message);
             setStudentsByCourse([]);
-        } else if (data) {
-            const students = data
+        } else if (enrollmentsRes.data) {
+            const progressMap = new Map(
+                progressRes.data?.map(p => [p.user_id, p.is_completed]) || []
+            );
+
+            let students = enrollmentsRes.data
                 .filter((item: any) => item.profiles)
-                .map((item: any) => item.profiles);
+                .map((item: any) => ({
+                    ...item.profiles,
+                    is_completed: progressMap.get(item.userId) || false
+                }));
+
+            // Lógica do NOVO FILTRO de Status
+            if (tempStatusFilter === "completed") {
+                students = students.filter(s => s.is_completed === true);
+            } else if (tempStatusFilter === "pending") {
+                students = students.filter(s => s.is_completed === false);
+            }
+                
             setStudentsByCourse(students);
         }
         setLoadingFilter(false);
     };
 
-    // --- FUNÇÕES DE EXPORTAÇÃO (FILTRADO) ---
     const exportFilteredExcel = () => {
         const courseName = courses.find(c => c.id === Number(selectedCourseId))?.title || "Curso";
-        const ws = XLSX.utils.json_to_sheet(studentsByCourse.map(s => ({ "Aluno": s.full_name, "Cargo": s.role?.toUpperCase() })));
+        const ws = XLSX.utils.json_to_sheet(studentsByCourse.map(s => ({ 
+            "Aluno": s.full_name, 
+            "Cargo": s.role?.toUpperCase(),
+            "Status": s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"
+        })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Lista");
         XLSX.writeFile(wb, `Alunos_${courseName.replace(/\s/g, "_")}.xlsx`);
@@ -113,8 +129,12 @@ export default function Reports() {
         const doc = new jsPDF();
         doc.text(`Alunos do Curso: ${courseName}`, 14, 15);
         autoTable(doc, {
-            head: [["Nome do Aluno", "Cargo"]],
-            body: studentsByCourse.map(s => [s.full_name, s.role?.toUpperCase()]),
+            head: [["Nome do Aluno", "Cargo", "Status"]],
+            body: studentsByCourse.map(s => [
+                s.full_name, 
+                s.role?.toUpperCase(), 
+                s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"
+            ]),
             startY: 25,
             theme: 'grid',
             headStyles: { fillColor: [139, 92, 246] }
@@ -123,7 +143,7 @@ export default function Reports() {
         showSuccessToast("✅ PDF do curso gerado!");
     };
 
-    // --- FUNÇÕES DE EXPORTAÇÃO (GERAIS - MANTIDAS) ---
+    // Funções Gerais Mantidas
     const exportMembersExcel = () => {
         const data = allProfiles.map(p => ({ "Nome": p.full_name, "Cargo": p.role?.toUpperCase() }));
         const ws = XLSX.utils.json_to_sheet(data);
@@ -208,19 +228,32 @@ export default function Reports() {
                 {loading ? <p style={{ color: '#8b5cf6', textAlign: 'center' }}>Carregando dados...</p> : (
                     <div className="admin-sections">
                         
-                        {/* NOVO CARD: RELATÓRIO POR CURSO (Inserido na estrutura Grid) */}
                         <section className="report-section" style={{ gridColumn: "1 / -1", marginBottom: "20px" }}>
                             <div className="card-header-flex">
-                                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                                     <h3 className="section-header">🔍 Relatório por Curso</h3>
+                                    
+                                    {/* Select de Cursos */}
                                     <select 
                                         className="gamer-select" 
                                         value={tempCourseId} 
                                         onChange={(e) => setTempCourseId(e.target.value)} 
-                                        style={{ minWidth: "220px" }}
+                                        style={{ minWidth: "200px" }}
                                     >
                                         <option value="">Selecionar curso...</option>
                                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                                    </select>
+
+                                    {/* NOVO: Select de Status */}
+                                    <select 
+                                        className="gamer-select" 
+                                        value={tempStatusFilter} 
+                                        onChange={(e) => setTempStatusFilter(e.target.value)}
+                                        style={{ minWidth: "150px" }}
+                                    >
+                                        <option value="all">Todos os Status</option>
+                                        <option value="completed">Concluídos</option>
+                                        <option value="pending">Em Andamento</option>
                                     </select>
                                     
                                     <button 
@@ -243,19 +276,45 @@ export default function Reports() {
                                         <p style={{ color: "#64748b", fontSize: "0.8rem", padding: "10px" }}>Selecione um curso e clique em Aplicar.</p>
                                     ) : studentsByCourse.length > 0 ? (
                                         <table className="admin-table">
-                                            <thead><tr><th>NOME DO ALUNO</th><th>CARGO</th></tr></thead>
-                                            <tbody>{studentsByCourse.map((s: any, i: number) => (<tr key={i}><td>{s.full_name}</td><td><span className={`role-badge ${s.role}`}>{s.role?.toUpperCase()}</span></td></tr>))}</tbody>
+                                            <thead>
+                                                <tr>
+                                                    <th>NOME DO ALUNO</th>
+                                                    <th>CARGO</th>
+                                                    <th>STATUS</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {studentsByCourse.map((s: any, i: number) => (
+                                                    <tr key={i}>
+                                                        <td>{s.full_name}</td>
+                                                        <td><span className={`role-badge ${s.role}`}>{s.role?.toUpperCase()}</span></td>
+                                                        <td>
+                                                            <span style={{
+                                                                fontSize: '0.6rem',
+                                                                padding: '3px 8px',
+                                                                borderRadius: '4px',
+                                                                fontWeight: 800,
+                                                                backgroundColor: s.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                                                color: s.is_completed ? '#10b981' : '#f59e0b',
+                                                                border: `1px solid ${s.is_completed ? '#10b98140' : '#f59e0b40'}`
+                                                            }}>
+                                                                {s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
                                         </table>
                                     ) : (
                                         <div className="no-results-box">
-                                            <span>⚠️ Nenhum resultado encontrado para este curso.</span>
+                                            <span>⚠️ Nenhum resultado encontrado para este filtro.</span>
                                         </div>
                                     )
                                 )}
                             </div>
                         </section>
 
-                        {/* GESTÃO DE MEMBROS (MANTIDO) */}
+                        {/* GESTÃO DE MEMBROS */}
                         <section className="report-section">
                             <div className="card-header-flex">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -291,7 +350,7 @@ export default function Reports() {
                             </div>
                         </section>
 
-                        {/* TAGS (MANTIDO) */}
+                        {/* TAGS */}
                         <section className="report-section">
                             <div className="card-header-flex">
                                 <h3 className="section-header">🧹 Tags Sem Uso</h3>
