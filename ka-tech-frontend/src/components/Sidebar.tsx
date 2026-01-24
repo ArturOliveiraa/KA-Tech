@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation} from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
 
@@ -184,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📚</span> <span>Meus Cursos</span>
           </Link>
-          
+
           <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏆</span> <span>Minhas Conquistas</span>
           </Link>
@@ -200,7 +200,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           )}
 
           {/* NOVA FEATURE: RELATÓRIOS (SOMENTE ADMIN) */}
-          {userRole === 'admin' && (
+          {(userRole === 'admin' || userRole === 'teacher') && (
             <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
               <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📊</span> <span>Relatórios</span>
             </Link>
