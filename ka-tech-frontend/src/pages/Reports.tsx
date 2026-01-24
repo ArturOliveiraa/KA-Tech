@@ -14,10 +14,10 @@ export default function Reports() {
     const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [orphanTags, setOrphanTags] = useState<any[]>([]);
 
-    // NOVOS ESTADOS PARA FILTRO
+    // ESTADOS PARA FILTRO
     const [courses, setCourses] = useState<any[]>([]);
     const [tempCourseId, setTempCourseId] = useState(""); 
-    const [tempStatusFilter, setTempStatusFilter] = useState("all"); // NOVO: Estado para o filtro de status
+    const [tempStatusFilter, setTempStatusFilter] = useState("all");
     const [selectedCourseId, setSelectedCourseId] = useState(""); 
     const [studentsByCourse, setStudentsByCourse] = useState<any[]>([]);
     const [loadingFilter, setLoadingFilter] = useState(false);
@@ -99,7 +99,6 @@ export default function Reports() {
                     is_completed: progressMap.get(item.userId) || false
                 }));
 
-            // Lógica do NOVO FILTRO de Status
             if (tempStatusFilter === "completed") {
                 students = students.filter(s => s.is_completed === true);
             } else if (tempStatusFilter === "pending") {
@@ -111,13 +110,38 @@ export default function Reports() {
         setLoadingFilter(false);
     };
 
+    // Componente Interno de Gráfico de Pizza (SVG)
+    const CoursePieChart = () => {
+        const total = studentsByCourse.length;
+        const concluidos = studentsByCourse.filter(s => s.is_completed).length;
+        const andamento = total - concluidos;
+        
+        if (total === 0) return null;
+
+        const percentage = Math.round((concluidos / total) * 100);
+        const strokeDasharray = `${percentage} ${100 - percentage}`;
+
+        return (
+            <div className="chart-container-inner">
+                <div className="pie-wrapper">
+                    <svg viewBox="0 0 36 36" className="circular-chart purple">
+                        <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path className="circle" strokeDasharray={strokeDasharray} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <text x="18" y="20.35" className="percentage">{percentage}%</text>
+                    </svg>
+                    <div className="chart-legend">
+                        <div className="legend-item"><span className="dot concluido"></span> Concluídos: <strong>{concluidos}</strong></div>
+                        <div className="legend-item"><span className="dot andamento"></span> Em Andamento: <strong>{andamento}</strong></div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Funções de Exportação
     const exportFilteredExcel = () => {
         const courseName = courses.find(c => c.id === Number(selectedCourseId))?.title || "Curso";
-        const ws = XLSX.utils.json_to_sheet(studentsByCourse.map(s => ({ 
-            "Aluno": s.full_name, 
-            "Cargo": s.role?.toUpperCase(),
-            "Status": s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"
-        })));
+        const ws = XLSX.utils.json_to_sheet(studentsByCourse.map(s => ({ "Aluno": s.full_name, "Cargo": s.role?.toUpperCase(), "Status": s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO" })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Lista");
         XLSX.writeFile(wb, `Alunos_${courseName.replace(/\s/g, "_")}.xlsx`);
@@ -130,11 +154,7 @@ export default function Reports() {
         doc.text(`Alunos do Curso: ${courseName}`, 14, 15);
         autoTable(doc, {
             head: [["Nome do Aluno", "Cargo", "Status"]],
-            body: studentsByCourse.map(s => [
-                s.full_name, 
-                s.role?.toUpperCase(), 
-                s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"
-            ]),
+            body: studentsByCourse.map(s => [s.full_name, s.role?.toUpperCase(), s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"]),
             startY: 25,
             theme: 'grid',
             headStyles: { fillColor: [139, 92, 246] }
@@ -143,7 +163,6 @@ export default function Reports() {
         showSuccessToast("✅ PDF do curso gerado!");
     };
 
-    // Funções Gerais Mantidas
     const exportMembersExcel = () => {
         const data = allProfiles.map(p => ({ "Nome": p.full_name, "Cargo": p.role?.toUpperCase() }));
         const ws = XLSX.utils.json_to_sheet(data);
@@ -233,34 +252,18 @@ export default function Reports() {
                                 <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                                     <h3 className="section-header">🔍 Relatório por Curso</h3>
                                     
-                                    {/* Select de Cursos */}
-                                    <select 
-                                        className="gamer-select" 
-                                        value={tempCourseId} 
-                                        onChange={(e) => setTempCourseId(e.target.value)} 
-                                        style={{ minWidth: "200px" }}
-                                    >
+                                    <select className="gamer-select" value={tempCourseId} onChange={(e) => setTempCourseId(e.target.value)} style={{ minWidth: "200px" }}>
                                         <option value="">Selecionar curso...</option>
                                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                                     </select>
 
-                                    {/* NOVO: Select de Status */}
-                                    <select 
-                                        className="gamer-select" 
-                                        value={tempStatusFilter} 
-                                        onChange={(e) => setTempStatusFilter(e.target.value)}
-                                        style={{ minWidth: "150px" }}
-                                    >
+                                    <select className="gamer-select" value={tempStatusFilter} onChange={(e) => setTempStatusFilter(e.target.value)} style={{ minWidth: "150px" }}>
                                         <option value="all">Todos os Status</option>
                                         <option value="completed">Concluídos</option>
                                         <option value="pending">Em Andamento</option>
                                     </select>
                                     
-                                    <button 
-                                        className="btn-apply-filter" 
-                                        onClick={handleApplyFilter}
-                                        disabled={loadingFilter}
-                                    >
+                                    <button className="btn-apply-filter" onClick={handleApplyFilter} disabled={loadingFilter}>
                                         {loadingFilter ? "..." : "APLICAR"}
                                     </button>
 
@@ -270,46 +273,40 @@ export default function Reports() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="table-container" style={{ marginTop: "15px" }}>
-                                {loadingFilter ? <p style={{ color: "#8b5cf6", padding: "10px" }}>Buscando...</p> : (
-                                    !hasSearched ? (
-                                        <p style={{ color: "#64748b", fontSize: "0.8rem", padding: "10px" }}>Selecione um curso e clique em Aplicar.</p>
-                                    ) : studentsByCourse.length > 0 ? (
-                                        <table className="admin-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>NOME DO ALUNO</th>
-                                                    <th>CARGO</th>
-                                                    <th>STATUS</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {studentsByCourse.map((s: any, i: number) => (
-                                                    <tr key={i}>
-                                                        <td>{s.full_name}</td>
-                                                        <td><span className={`role-badge ${s.role}`}>{s.role?.toUpperCase()}</span></td>
-                                                        <td>
-                                                            <span style={{
-                                                                fontSize: '0.6rem',
-                                                                padding: '3px 8px',
-                                                                borderRadius: '4px',
-                                                                fontWeight: 800,
-                                                                backgroundColor: s.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                                                                color: s.is_completed ? '#10b981' : '#f59e0b',
-                                                                border: `1px solid ${s.is_completed ? '#10b98140' : '#f59e0b40'}`
-                                                            }}>
-                                                                {s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    ) : (
-                                        <div className="no-results-box">
-                                            <span>⚠️ Nenhum resultado encontrado para este filtro.</span>
-                                        </div>
-                                    )
+
+                            <div className="report-content-layout">
+                                {/* TABELA */}
+                                <div className="table-container" style={{ flex: 2 }}>
+                                    {loadingFilter ? <p style={{ color: "#8b5cf6", padding: "10px" }}>Buscando...</p> : (
+                                        !hasSearched ? (
+                                            <p style={{ color: "#64748b", fontSize: "0.8rem", padding: "10px" }}>Selecione um curso e clique em Aplicar.</p>
+                                        ) : studentsByCourse.length > 0 ? (
+                                            <table className="admin-table">
+                                                <thead><tr><th>NOME DO ALUNO</th><th>CARGO</th><th>STATUS</th></tr></thead>
+                                                <tbody>
+                                                    {studentsByCourse.map((s: any, i: number) => (
+                                                        <tr key={i}>
+                                                            <td>{s.full_name}</td>
+                                                            <td><span className={`role-badge ${s.role}`}>{s.role?.toUpperCase()}</span></td>
+                                                            <td>
+                                                                <span style={{ fontSize: '0.6rem', padding: '3px 8px', borderRadius: '4px', fontWeight: 800, backgroundColor: s.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: s.is_completed ? '#10b981' : '#f59e0b', border: `1px solid ${s.is_completed ? '#10b98140' : '#f59e0b40'}` }}>
+                                                                    {s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        ) : <div className="no-results-box"><span>⚠️ Nenhum resultado encontrado.</span></div>
+                                    )}
+                                </div>
+
+                                {/* GRÁFICO (SÓ APARECE SE HOUVER BUSCA) */}
+                                {hasSearched && studentsByCourse.length > 0 && (
+                                    <div className="visual-summary-aside">
+                                        <h4 style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 800, marginBottom: '15px', textAlign: 'center' }}>TAXA DE CONCLUSÃO</h4>
+                                        <CoursePieChart />
+                                    </div>
                                 )}
                             </div>
                         </section>
@@ -370,6 +367,25 @@ export default function Reports() {
             </main>
 
             <style>{`
+                /* LAYOUT DO RELATÓRIO */
+                .report-content-layout { display: flex; gap: 30px; margin-top: 20px; align-items: flex-start; }
+                .visual-summary-aside { background: rgba(139, 92, 246, 0.03); padding: 20px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.1); min-width: 250px; }
+                
+                /* PIE CHART CSS */
+                .pie-wrapper { display: flex; flex-direction: column; align-items: center; }
+                .circular-chart { display: block; margin: 10px auto; max-width: 150px; max-height: 150px; }
+                .circle-bg { fill: none; stroke: rgba(139, 92, 246, 0.1); stroke-width: 3.8; }
+                .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; animation: progress 1s ease-out forwards; }
+                @keyframes progress { 0% { stroke-dasharray: 0 100; } }
+                .circular-chart.purple .circle { stroke: #8b5cf6; }
+                .percentage { fill: #fff; font-family: 'Sora', sans-serif; font-size: 0.5rem; text-anchor: middle; font-weight: 800; }
+                .chart-legend { margin-top: 15px; width: 100%; }
+                .legend-item { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 0.65rem; margin-bottom: 5px; }
+                .dot { width: 8px; height: 8px; border-radius: 50%; }
+                .dot.concluido { background: #8b5cf6; }
+                .dot.andamento { background: rgba(139, 92, 246, 0.2); }
+
+                /* RESTO DO CSS */
                 .no-results-box { padding: 25px; border: 1px dashed rgba(139, 92, 246, 0.2); border-radius: 12px; color: #94a3b8; text-align: center; font-size: 0.8rem; }
                 .btn-apply-filter { background: #1e293b; color: #fff; border: 1px solid #8b5cf6; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
                 .btn-apply-filter:hover:not(:disabled) { background: #8b5cf6; }
