@@ -109,6 +109,27 @@ export default function ContentManagement() {
     } catch (err: any) { alert(err.message); }
   };
 
+  // --- FUNÇÃO DE EXCLUSÃO ---
+  const handleDeleteCourse = async (id: number) => {
+    if (!window.confirm("Tem certeza que deseja excluir este curso? Todas as aulas e dados vinculados serão perdidos.")) return;
+    
+    try {
+      // Deleta dependências primeiro (Tags e Insígnias)
+      await supabase.from("course_tags").delete().eq("course_id", id);
+      await supabase.from("badges").delete().eq("course_id", id);
+      await supabase.from("lessons").delete().eq("course_id", id);
+      
+      // Deleta o curso
+      const { error } = await supabase.from("courses").delete().eq("id", id);
+      if (error) throw error;
+
+      alert("Curso excluído com sucesso!");
+      setCourses(courses.filter(c => c.id !== id));
+    } catch (err: any) {
+      alert("Erro ao excluir: " + err.message);
+    }
+  };
+
   const resetForm = () => {
     setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setEditingCourseId(null);
     setSelectedTags([]); setSelectedCategoryId(""); setBadgeName(""); setBadgeThumb("");
@@ -131,47 +152,19 @@ export default function ContentManagement() {
       <Sidebar userRole={userRole} />
       
       <style>{`
-        /* --- ESTILOS GLOBAIS DE CAMPOS --- */
         .form-label { color: #f3f4f6; display: block; margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
-        
         .input-with-icon { position: relative; display: flex; align-items: center; width: 100%; box-sizing: border-box; }
         .input-emoji { position: absolute; left: 16px; font-size: 1.25rem; z-index: 10; pointer-events: none; }
-
-        .form-input, select, textarea, .manage-lessons-wrapper input, .manage-lessons-wrapper textarea, .manage-lessons-wrapper select { 
+        .form-input, select, textarea { 
           width: 100% !important; padding: 16px 16px 16px 52px !important; border-radius: 14px !important; 
           background: rgba(15, 23, 42, 0.6) !important; border: 1px solid rgba(139, 92, 246, 0.2) !important; 
           color: #fff !important; outline: none !important; transition: all 0.3s ease !important;
           backdrop-filter: blur(10px); font-family: 'Sora'; box-sizing: border-box;
         }
-
         .form-input:focus, select:focus, textarea:focus { border-color: #8b5cf6 !important; box-shadow: 0 0 20px rgba(139, 92, 246, 0.15) !important; background: rgba(15, 23, 42, 0.8) !important; }
-
-        /* --- TELA DE AULAS (MANAGE LESSONS) --- */
-        .manage-lessons-wrapper { max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-        
-        /* Força o formulário de aulas a ser um grid organizado */
-        .manage-lessons-wrapper form { 
-          display: grid; 
-          grid-template-columns: 1.5fr 0.5fr; 
-          gap: 25px; 
-          background: #09090b; 
-          padding: 35px; 
-          border-radius: 24px; 
-          border: 1px solid rgba(139,92,246,0.1);
-          margin-bottom: 40px;
-        }
-
-        /* Ajuste para que a descrição ocupe a linha inteira no formulário de aula */
-        .manage-lessons-wrapper textarea { grid-column: span 2; }
-
-        /* Botão de publicar aula ocupando espaço centralizado */
-        .manage-lessons-wrapper button.local-primary-button { grid-column: span 2; max-width: 300px; justify-self: center; }
-
-        /* --- ELEMENTOS VISUAIS --- */
         .file-upload-box { border: 2px dashed rgba(139, 92, 246, 0.3); padding: 30px; border-radius: 20px; text-align: center; cursor: pointer; transition: 0.3s; background: linear-gradient(145deg, rgba(139, 92, 246, 0.02), rgba(2, 6, 23, 0.5)); }
         .image-preview { border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.4); object-fit: cover; margin-top: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .badge-preview { border-radius: 20px; width: 100px; height: 100px; border: 2px solid #8b5cf6; object-fit: contain; background: #000; }
-
         .local-primary-button { 
            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;
            border: none !important; padding: 18px 32px !important; border-radius: 16px !important;
@@ -236,7 +229,6 @@ export default function ContentManagement() {
                   <div style={{ marginBottom: '30px' }}>
                     <label className="form-label">Resumo do Curso</label>
                     <div className="input-with-icon align-top">
-                      <span className="input-emoji">📄</span>
                       <textarea style={{ height: '140px' }} placeholder="O que o aluno aprenderá?" value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} required />
                     </div>
                   </div>
@@ -284,14 +276,21 @@ export default function ContentManagement() {
                   {courses.map(course => (
                     <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '25px', background: 'linear-gradient(145deg, #020617, #09090b)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.03)', transition: '0.3s' }}>
                       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                        <div style={{width: '80px', height: '50px', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(139,92,246,0.2)'}}>
+                        <div style={{width: '60px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(139,92,246,0.2)'}}>
                            <img src={course.thumbnailUrl || "https://via.placeholder.com/80x50"} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
-                        <span style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem' }}>{course.title}</span>
+                        <span style={{ color: '#fff', fontWeight: 700, fontSize: '1rem' }}>{course.title}</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        <button onClick={() => setManageLessonsCourse(course)} style={{ background: '#1e293b', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>Aulas</button>
-                        <button onClick={() => handleEditInit(course)} style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>Editar</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => setManageLessonsCourse(course)} style={{ background: '#1e293b', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem' }}>Aulas</button>
+                        <button onClick={() => handleEditInit(course)} style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem' }}>Editar</button>
+                        {/* BOTÃO DE DELETAR */}
+                        <button 
+                          onClick={() => handleDeleteCourse(course.id)} 
+                          style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem' }}
+                        >
+                          Excluir
+                        </button>
                       </div>
                     </div>
                   ))}
