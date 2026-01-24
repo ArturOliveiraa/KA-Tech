@@ -12,7 +12,6 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
-  const navigate = useNavigate(); // Inicialização do navigate para corrigir o erro
   const [userName, setUserName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
