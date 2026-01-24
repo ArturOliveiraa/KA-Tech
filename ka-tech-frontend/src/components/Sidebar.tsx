@@ -15,7 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const [userName, setUserName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // --- NOVO: DEFAULT PARA O ROXO KA TECH ---
+  // --- DEFAULT PARA O ROXO KA TECH ---
   const [themeColor, setThemeColor] = useState("#8b5cf6");
 
   useEffect(() => {
@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
             width: ${LARGURA_SIDEBAR};
             height: 100vh;
             background-color: var(--bg-sidebar);
-            border-right: 1px solid rgba(139, 92, 246, 0.1); /* Borda roxa sutil */
+            border-right: 1px solid rgba(139, 92, 246, 0.1);
             display: flex;
             flex-direction: column;
             position: fixed;
@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
         }
 
         .logo-img {
-          width: 100%; /* Ajustado para ocupar a largura da sidebar */
+          width: 100%;
           max-width: 240px;
           height: auto;
           display: block;
@@ -193,13 +193,17 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Explorar</span>
           </Link>
 
+          {/* NOVO: RANKINGS (VISÍVEL PARA TODOS OS ALUNOS) */}
+          <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
+            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏅</span> <span>Rankings</span>
+          </Link>
+
           {(userRole === 'admin' || userRole === 'teacher') && (
             <Link to="/admin" className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>
               <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
             </Link>
           )}
 
-          {/* NOVA FEATURE: RELATÓRIOS (SOMENTE ADMIN) */}
           {(userRole === 'admin' || userRole === 'teacher') && (
             <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
               <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📊</span> <span>Relatórios</span>

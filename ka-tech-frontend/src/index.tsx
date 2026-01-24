@@ -15,6 +15,7 @@ import Player from './pages/Player';
 import Settings from './pages/Settings';
 import Achievements from "./pages/Achievements";
 import Reports from "./pages/Reports";
+import Rankings from "./pages/Rankings";
 
 
 // Components
@@ -36,6 +37,7 @@ root.render(
         {/* Rotas de Usuário (Logado) */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cursos" element={<Cursos />} />
+        
         <Route path="/conquistas" element={<Achievements />} />
         <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         
@@ -47,6 +49,9 @@ root.render(
 
         {/* RELATORIOS */}
         <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+
+        {/* NOVO: Rota de Rankings */}
+        <Route path="/rankings" element={<Rankings />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
