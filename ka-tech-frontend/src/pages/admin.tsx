@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import ManageLessons from "../components/ManageLessons"; 
+import ManageLessons from "../components/ManageLessons";
 
 interface Tag {
   id: number;
@@ -12,19 +12,29 @@ interface Tag {
 interface Course {
   id: number;
   title: string;
+  slug: string;
   description: string;
   thumbnailUrl: string;
   tag_id: string | null;
   createdAt: string;
 }
 
+const generateSlug = (text: string) => {
+  return text
+    .toLowerCase()
+    .normalize("NFD") // Decompõe caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+    .replace(/[^a-z0-9 ]/g, "") // Remove símbolos
+    .replace(/\s+/g, "-") // Troca espaços por hífens
+    .trim();
+};
 function Admin() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingThumb, setUploadingThumb] = useState(false);
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDesc, setCourseDesc] = useState("");
-  const [courseThumb, setCourseThumb] = useState(""); 
+  const [courseThumb, setCourseThumb] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [tagName, setTagName] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
@@ -66,7 +76,7 @@ function Admin() {
     const { data, error } = await supabase
       .from("courses")
       .select("*")
-      .order("createdAt", { ascending: false }); 
+      .order("createdAt", { ascending: false });
 
     if (error) {
       console.error("Erro ao buscar cursos:", error.message);
@@ -99,11 +109,13 @@ function Admin() {
 
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    const courseData = { 
-      title: courseTitle, 
-      description: courseDesc, 
-      thumbnailUrl: courseThumb, 
-      tag_id: selectedTag || null 
+    const slug = generateSlug(courseTitle);
+    const courseData = {
+      title: courseTitle,
+      slug: slug,
+      description: courseDesc,
+      thumbnailUrl: courseThumb,
+      tag_id: selectedTag || null
     };
 
     if (editingCourseId) {
@@ -247,10 +259,10 @@ function Admin() {
 
         <div className="admin-content-container">
           {manageLessonsCourse ? (
-            <ManageLessons 
-              courseId={manageLessonsCourse.id} 
-              courseTitle={manageLessonsCourse.title} 
-              onBack={() => setManageLessonsCourse(null)} 
+            <ManageLessons
+              courseId={manageLessonsCourse.id}
+              courseTitle={manageLessonsCourse.title}
+              onBack={() => setManageLessonsCourse(null)}
             />
           ) : (
             <>
@@ -307,7 +319,7 @@ function Admin() {
                       <span className="local-icon">🖼️</span>
                       <input type="file" accept="image/*" onChange={handleUploadThumbnail} />
                     </div>
-                    {uploadingThumb && <p style={{fontSize: '0.85rem', color: '#8b5cf6', marginTop: '8px', fontWeight: 600}}>Subindo imagem...</p>}
+                    {uploadingThumb && <p style={{ fontSize: '0.85rem', color: '#8b5cf6', marginTop: '8px', fontWeight: 600 }}>Subindo imagem...</p>}
                     {courseThumb && (
                       <div style={{ marginTop: '20px', background: '#020617', padding: '10px', borderRadius: '12px', width: 'fit-content', border: '1px solid rgba(139,92,246,0.2)' }}>
                         <img src={courseThumb} alt="Preview" style={{ width: '180px', height: '100px', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />

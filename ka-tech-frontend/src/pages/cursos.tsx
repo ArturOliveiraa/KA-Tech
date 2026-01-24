@@ -6,6 +6,7 @@ import Sidebar from "../components/Sidebar"; // Importando o componente unificad
 interface Course {
   id: number;
   title: string;
+  slug: string;
   description: string;
   thumbnailUrl: string | null;
 }
@@ -103,7 +104,7 @@ function Cursos() {
                     </p>
                     <button 
                       className="local-primary-button" 
-                      onClick={() => navigate(`/course/${course.id}`)}
+                      onClick={() => navigate(`/course/${course.slug || course.id}`)}
                       style={{
                         width: '100%', 
                         padding: '12px', 

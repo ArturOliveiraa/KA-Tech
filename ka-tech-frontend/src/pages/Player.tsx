@@ -7,10 +7,12 @@ import LessonSidebar from "../components/LessonSidebar";
 import confetti from "canvas-confetti";
 
 export default function Player() {
-    const { courseId } = useParams<{ courseId: string }>();
+    // 1. Agora pegamos o 'slug' da URL em vez do 'courseId'
+    const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
 
     const [course, setCourse] = useState<any>(null);
+    const [realCourseId, setRealCourseId] = useState<number | null>(null); // Estado para o ID numérico
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [userRole, setUserRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -34,11 +36,12 @@ export default function Player() {
 
     const calculateProgress = useCallback(async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !courseId) return;
+        // Usamos o realCourseId (número) para o progresso
+        if (!user || !realCourseId) return;
 
         const [lessonsRes, progressRes] = await Promise.all([
-            supabase.from("lessons").select("id", { count: 'exact', head: true }).eq("courseId", Number(courseId)),
-            supabase.from("user_progress").select("lesson_id", { count: 'exact', head: true }).eq("user_id", user.id).eq("course_id", Number(courseId)).eq("is_completed", true)
+            supabase.from("lessons").select("id", { count: 'exact', head: true }).eq("courseId", realCourseId),
+            supabase.from("user_progress").select("lesson_id", { count: 'exact', head: true }).eq("user_id", user.id).eq("course_id", realCourseId).eq("is_completed", true)
         ]);
 
         const total = lessonsRes.count || 0;
@@ -47,15 +50,15 @@ export default function Player() {
 
         if (percent === 100 && stats.percent < 100) fireConfetti();
         setStats({ completed, total, percent });
-    }, [courseId, stats.percent]);
+    }, [realCourseId, stats.percent]);
 
     const handleSaveProgress = useCallback(async (time: number, completed: boolean = false) => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !activeLessonId) return;
+        if (!user || !activeLessonId || !realCourseId) return;
 
         await supabase.from("user_progress").upsert({
             user_id: user.id,
-            course_id: Number(courseId),
+            course_id: realCourseId,
             lesson_id: activeLessonId,
             last_time: time,
             is_completed: completed,
@@ -63,29 +66,14 @@ export default function Player() {
         }, { onConflict: 'user_id,lesson_id' });
 
         if (completed) window.dispatchEvent(new Event("progressUpdated"));
-    }, [activeLessonId, courseId]);
+    }, [activeLessonId, realCourseId]);
 
     const getRank = (p: number) => {
-        if (p >= 100) return { 
-            label: "GOD", color: "#ff00ff", glow: "0 0 25px rgba(255, 0, 255, 0.5)", animation: "rankPulse 1.5s infinite",
-            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/GOD.png" 
-        };
-        if (p >= 75) return { 
-            label: "HACKER", color: "#00e5ff", glow: "0 0 20px rgba(0, 229, 255, 0.5)", animation: "none",
-            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/HACKER.png" 
-        };
-        if (p >= 50) return { 
-            label: "PRO PLAYER", color: "#8b5cf6", glow: "0 0 20px rgba(139, 92, 246, 0.5)", animation: "none",
-            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/PRO%20PLAYER.png" 
-        };
-        if (p >= 25) return { 
-            label: "NEW PLAYER", color: "#00ff88", glow: "0 0 15px rgba(0, 255, 136, 0.4)", animation: "none",
-            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NEW%20PLAYER.png" 
-        };
-        return { 
-            label: "NOOB", color: "#94a3b8", glow: "none", animation: "none",
-            image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NOOB.png" 
-        };
+        if (p >= 100) return { label: "GOD", color: "#ff00ff", glow: "0 0 25px rgba(255, 0, 255, 0.5)", animation: "rankPulse 1.5s infinite", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/GOD.png" };
+        if (p >= 75) return { label: "HACKER", color: "#00e5ff", glow: "0 0 20px rgba(0, 229, 255, 0.5)", animation: "none", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/HACKER.png" };
+        if (p >= 50) return { label: "PRO PLAYER", color: "#8b5cf6", glow: "0 0 20px rgba(139, 92, 246, 0.5)", animation: "none", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/PRO%20PLAYER.png" };
+        if (p >= 25) return { label: "NEW PLAYER", color: "#00ff88", glow: "0 0 15px rgba(0, 255, 136, 0.4)", animation: "none", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NEW%20PLAYER.png" };
+        return { label: "NOOB", color: "#94a3b8", glow: "none", animation: "none", image: "https://zvgchncgvadzpkffhfbr.supabase.co/storage/v1/object/public/RANKS/NOOB.png" };
     };
 
     const rank = getRank(stats.percent);
@@ -96,19 +84,53 @@ export default function Player() {
                 setLoading(true);
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return navigate("/");
+
                 const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
                 setUserRole(profile?.role || "student");
-                const { data: courseData } = await supabase.from("courses").select("id, title").eq("id", courseId).single();
+
+                // 2. BUSCA O CURSO PELO SLUG EM VEZ DO ID
+                const { data: courseData, error } = await supabase
+                    .from("courses")
+                    .select("id, title")
+                    .eq("slug", slug)
+                    .single();
+
+                if (error || !courseData) {
+                    console.error("Curso não encontrado!");
+                    return navigate("/dashboard");
+                }
+
                 setCourse(courseData);
-                const { data: firstLesson } = await supabase.from("lessons").select("id").eq("courseId", Number(courseId)).order("order", { ascending: true }).limit(1).maybeSingle(); 
+                setRealCourseId(courseData.id); // Guardamos o ID numérico aqui
+
+                // 3. BUSCA A PRIMEIRA AULA USANDO O ID NUMÉRICO ENCONTRADO
+                const { data: firstLesson } = await supabase
+                    .from("lessons")
+                    .select("id")
+                    .eq("courseId", courseData.id)
+                    .order("order", { ascending: true })
+                    .limit(1)
+                    .maybeSingle(); 
+
                 if (firstLesson) setActiveLessonId(firstLesson.id);
-                calculateProgress();
-            } catch (err) { console.error(err); } finally { setLoading(false); }
+                
+            } catch (err) { 
+                console.error(err); 
+            } finally { 
+                setLoading(false); 
+            }
         }
         loadPlayerData();
-        window.addEventListener("progressUpdated", calculateProgress);
-        return () => window.removeEventListener("progressUpdated", calculateProgress);
-    }, [courseId, navigate, calculateProgress]);
+    }, [slug, navigate]);
+
+    // Recalcula progresso quando o ID real do curso é carregado
+    useEffect(() => {
+        if (realCourseId) {
+            calculateProgress();
+            window.addEventListener("progressUpdated", calculateProgress);
+            return () => window.removeEventListener("progressUpdated", calculateProgress);
+        }
+    }, [realCourseId, calculateProgress]);
 
     useEffect(() => {
         async function fetchSavedTime() {
@@ -190,7 +212,6 @@ export default function Player() {
                 </div>
 
                 <div className="player-layout" style={{ display: 'flex', gap: '30px' }}>
-                    {/* AJUSTADO: Removido o fundo preto e bordas da video-section para eliminar o "caixote" */}
                     <div className="video-section" style={{ flex: 1, borderRadius: '20px', overflow: 'hidden' }}>
                         {activeLessonId && (
                             <LessonView 
@@ -201,11 +222,13 @@ export default function Player() {
                         )}
                     </div>
                     <div className="sidebar-section" style={{ width: '380px' }}>
-                        <LessonSidebar 
-                            courseId={Number(courseId)} 
-                            currentLessonId={activeLessonId || 0} 
-                            onSelectLesson={setActiveLessonId} 
-                        />
+                        {realCourseId && (
+                            <LessonSidebar 
+                                courseId={realCourseId} 
+                                currentLessonId={activeLessonId || 0} 
+                                onSelectLesson={setActiveLessonId} 
+                            />
+                        )}
                     </div>
                 </div>
             </main>

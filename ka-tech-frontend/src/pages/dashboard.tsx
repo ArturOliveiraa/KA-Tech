@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import Sidebar from "../components/Sidebar"; // Importando o componente unificado
+import Sidebar from "../components/Sidebar";
 
 interface Course {
   id: number;
   title: string;
+  slug: string; // 1. ADICIONADO AQUI
   description: string;
   thumbnailUrl: string | null;
 }
@@ -58,14 +59,12 @@ function Dashboard() {
       display: 'flex', 
       width: '100%', 
       minHeight: '100vh', 
-      backgroundColor: '#020617', // Fundo profundo conforme paleta KA tech
-      fontFamily: "'Sora', sans-serif" // Fonte Sora aplicada
+      backgroundColor: '#020617', 
+      fontFamily: "'Sora', sans-serif" 
     }}>
       
-      {/* 1. Sidebar unificada: agora com foto e menu responsivo */}
       <Sidebar userRole={userRole} />
 
-      {/* 2. Área Principal com recuo automático no PC */}
       <main className="dashboard-content" style={{ flex: 1, padding: '2rem' }}>
         <header className="dashboard-header" style={{ marginBottom: '30px' }}>
           <div className="header-info">
@@ -77,14 +76,13 @@ function Dashboard() {
         {loading ? (
           <div className="loading-box" style={{ color: '#8b5cf6', fontWeight: 600 }}>Carregando conteúdos...</div>
         ) : (
-          /* 3. Grid usando a mesma estrutura de largura total do Admin */
           <div className="admin-content-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
             {courses.length > 0 ? (
               courses.map((course) => (
                 <div key={course.id} className="course-card-v2" style={{ 
-                  background: '#09090b', // Card em preto puro para contraste
+                  background: '#09090b', 
                   borderRadius: '16px', 
-                  border: '1px solid rgba(139, 92, 246, 0.1)', // Borda sutil em roxo
+                  border: '1px solid rgba(139, 92, 246, 0.1)', 
                   overflow: 'hidden',
                   flex: '1 1 300px',
                   maxWidth: '400px',
@@ -106,13 +104,14 @@ function Dashboard() {
                     </p>
                     <button 
                       className="local-primary-button"
-                      onClick={() => navigate(`/course/${course.id}`)}
+                      // 2. ALTERADO DE course.id PARA course.slug (OU FALLBACK PARA ID)
+                      onClick={() => navigate(`/course/${course.slug || course.id}`)}
                       style={{
                         width: '100%', 
                         padding: '12px', 
-                        borderRadius: '999px', // Botão estilo pílula conforme login
+                        borderRadius: '999px', 
                         border: 'none',
-                        background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', // Degradê roxo KA tech
+                        background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', 
                         color: '#fff', 
                         fontWeight: 600, 
                         cursor: 'pointer',
