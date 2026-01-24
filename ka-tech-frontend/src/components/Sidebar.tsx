@@ -190,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           </Link>
 
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
-            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Explorar</span>
+            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Trilhas</span>
           </Link>
 
           {/* NOVO: RANKINGS (VISÍVEL PARA TODOS OS ALUNOS) */}

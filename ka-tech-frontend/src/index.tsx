@@ -10,8 +10,9 @@ import ResetPassword from './pages/ResetPassword';
 import UpdatePassword from './pages/UpdatePassword';
 import Dashboard from './pages/dashboard'; 
 import Cursos from './pages/cursos';     
+import CategoryCourses from './pages/CategoryCourses'; // IMPORTAÇÃO DA NOVA TELA
 import Admin from './pages/admin';         
-import ContentManagement from './pages/ContentManagement'; // 1. IMPORTAÇÃO DA NOVA TELA
+import ContentManagement from './pages/ContentManagement'; 
 import Player from './pages/Player';
 import Settings from './pages/Settings';
 import Achievements from "./pages/Achievements";
@@ -36,16 +37,19 @@ root.render(
         {/* Rotas de Usuário (Logado) */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cursos" element={<Cursos />} />
+        
+        {/* NOVA ROTA: Listagem de cursos por categoria */}
+        <Route path="/categoria/:slug" element={<CategoryCourses />} />
+        
         <Route path="/conquistas" element={<Achievements />} />
         <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         
-        {/* Rota do Player */}
-        <Route path="/course/:slug" element={<Player />} />
+        {/* Rota do Player (Onde o curso é assistido) */}
+        <Route path="/curso/:slug" element={<Player />} />
 
         {/* Rotas de Admin */}
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         
-        {/* 2. NOVA ROTA: Gestão de Conteúdo (Cursos e Aulas) */}
         <Route 
           path="/admin/gestao-conteudo" 
           element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} 
@@ -54,7 +58,7 @@ root.render(
         {/* RELATORIOS */}
         <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
 
-        {/* NOVO: Rota de Rankings */}
+        {/* Rota de Rankings */}
         <Route path="/rankings" element={<Rankings />} />
       </Routes>
     </BrowserRouter>
