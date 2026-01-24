@@ -61,7 +61,7 @@ function Admin() {
         .eq("id", user.id)
         .single();
 
-      if (profile?.role !== 'admin' && profile?.role !== 'professor') {
+      if (profile?.role !== 'admin' && profile?.role !== 'teacher') {
         return navigate("/dashboard");
       }
 
@@ -113,7 +113,6 @@ function Admin() {
     }
   }
 
-  // Função para upload da Insígnia
   async function handleUploadBadge(event: React.ChangeEvent<HTMLInputElement>) {
     try {
       setUploadingBadge(true);
@@ -147,22 +146,26 @@ function Admin() {
     };
 
     try {
-      let courseId = editingCourseId;
+      let currentCourseId = editingCourseId;
 
       if (editingCourseId) {
+        // Atualização de curso existente
         const { error } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
         if (error) throw error;
       } else {
+        // Inserção de novo curso (precisamos do retorno para pegar o ID)
         const { data, error } = await supabase.from("courses").insert([courseData]).select().single();
         if (error) throw error;
-        courseId = data.id;
+        currentCourseId = data.id;
       }
 
-      // Salva ou Atualiza a Insígnia
-      if (courseId && badgeName && badgeThumb) {
-        await supabase.from("badges").upsert([
-          { name: badgeName, image_url: badgeThumb, course_id: courseId }
+      // Salva ou Atualiza a Insígnia se houver dados preenchidos
+      if (currentCourseId && badgeName && badgeThumb) {
+        const { error: badgeError } = await supabase.from("badges").upsert([
+          { name: badgeName, image_url: badgeThumb, course_id: currentCourseId }
         ], { onConflict: 'course_id' });
+        
+        if (badgeError) throw badgeError;
       }
 
       alert(editingCourseId ? "Curso atualizado com sucesso!" : "Curso publicado com sucesso!");

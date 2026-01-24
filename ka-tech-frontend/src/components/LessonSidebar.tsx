@@ -8,12 +8,12 @@ interface Lesson {
 }
 
 interface LessonSidebarProps {
-  courseId: number;
+  course_id: number;
   currentLessonId: number;
   onSelectLesson: (id: number) => void;
 }
 
-export default function LessonSidebar({ courseId, currentLessonId, onSelectLesson }: LessonSidebarProps) {
+export default function LessonSidebar({ course_id, currentLessonId, onSelectLesson }: LessonSidebarProps) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
 
   // Memorizando a busca para evitar alertas de build
@@ -21,11 +21,11 @@ export default function LessonSidebar({ courseId, currentLessonId, onSelectLesso
     const { data } = await supabase
       .from("lessons")
       .select("id, title, order")
-      .eq("courseId", courseId)
+      .eq("course_id", course_id)
       .order("order", { ascending: true }); //
 
     if (data) setLessons(data);
-  }, [courseId]);
+  }, [course_id]);
 
   useEffect(() => {
     fetchCourseLessons();

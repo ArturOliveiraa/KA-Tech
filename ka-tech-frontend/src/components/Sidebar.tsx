@@ -14,7 +14,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
   const [userName, setUserName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  
+
   // --- NOVO: DEFAULT PARA O ROXO KA TECH ---
   const [themeColor, setThemeColor] = useState("#8b5cf6");
 
@@ -27,11 +27,11 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           .select("full_name, avatar_url, theme_color")
           .eq("id", user.id)
           .single();
-        
+
         if (data) {
           setUserName(data.full_name || "Usuário");
           setAvatarUrl(data.avatar_url);
-          
+
           if (data.theme_color) {
             setThemeColor(data.theme_color);
             document.documentElement.style.setProperty('--primary-color', data.theme_color);
@@ -174,9 +174,9 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
       <aside className="sidebar-container">
         <div className="sidebar-logo">
-          <img 
-            src={logo} 
-            alt="KA Tech" 
+          <img
+            src={logo}
+            alt="KA Tech"
             className="logo-img"
           />
         </div>
@@ -188,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Explorar</span>
           </Link>
-          {(userRole === 'admin' || userRole === 'professor') && (
+          {(userRole === 'admin' || userRole === 'teacher') && (
             <Link to="/admin" className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>
               <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
             </Link>
@@ -205,15 +205,15 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
               <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {userName}
               </span>
-              <button 
-                onClick={handleLogout} 
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: '#ef4444', 
-                  fontSize: '0.75rem', 
-                  padding: 0, 
-                  cursor: 'pointer', 
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  fontSize: '0.75rem',
+                  padding: 0,
+                  cursor: 'pointer',
                   textAlign: 'left',
                   fontWeight: 500
                 }}
