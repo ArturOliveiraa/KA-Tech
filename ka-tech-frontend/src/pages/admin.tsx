@@ -22,12 +22,13 @@ interface Course {
 const generateSlug = (text: string) => {
   return text
     .toLowerCase()
-    .normalize("NFD") // Decompõe caracteres acentuados
-    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
-    .replace(/[^a-z0-9 ]/g, "") // Remove símbolos
-    .replace(/\s+/g, "-") // Troca espaços por hífens
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, "-")
     .trim();
 };
+
 function Admin() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,11 @@ function Admin() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
   const [manageLessonsCourse, setManageLessonsCourse] = useState<Course | null>(null);
+
+  // Novos estados para a Insígnia
+  const [badgeName, setBadgeName] = useState("");
+  const [badgeThumb, setBadgeThumb] = useState("");
+  const [uploadingBadge, setUploadingBadge] = useState(false);
 
   const navigate = useNavigate();
 
@@ -107,6 +113,28 @@ function Admin() {
     }
   }
 
+  // Função para upload da Insígnia
+  async function handleUploadBadge(event: React.ChangeEvent<HTMLInputElement>) {
+    try {
+      setUploadingBadge(true);
+      if (!event.target.files || event.target.files.length === 0) return;
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `badge-${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage.from('badges-icons').upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('badges-icons').getPublicUrl(fileName);
+      setBadgeThumb(publicUrl);
+      alert("Ícone da insígnia carregado!");
+    } catch (error: any) {
+      alert("Erro no upload da insígnia: " + error.message);
+    } finally {
+      setUploadingBadge(false);
+    }
+  }
+
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     const slug = generateSlug(courseTitle);
@@ -118,29 +146,53 @@ function Admin() {
       tag_id: selectedTag || null
     };
 
-    if (editingCourseId) {
-      const { error } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
-      if (error) alert("Erro ao atualizar: " + error.message);
-      else {
-        alert("Curso atualizado com sucesso!");
-        setEditingCourseId(null);
-      }
-    } else {
-      const { error } = await supabase.from("courses").insert([courseData]);
-      if (error) alert("Erro ao publicar: " + error.message);
-      else alert("Curso publicado com sucesso!");
-    }
+    try {
+      let courseId = editingCourseId;
 
-    setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag("");
-    fetchCourses();
+      if (editingCourseId) {
+        const { error } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("courses").insert([courseData]).select().single();
+        if (error) throw error;
+        courseId = data.id;
+      }
+
+      // Salva ou Atualiza a Insígnia
+      if (courseId && badgeName && badgeThumb) {
+        await supabase.from("badges").upsert([
+          { name: badgeName, image_url: badgeThumb, course_id: courseId }
+        ], { onConflict: 'course_id' });
+      }
+
+      alert(editingCourseId ? "Curso atualizado com sucesso!" : "Curso publicado com sucesso!");
+      
+      // Reset campos
+      setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag("");
+      setBadgeName(""); setBadgeThumb("");
+      setEditingCourseId(null);
+      fetchCourses();
+    } catch (error: any) {
+      alert("Erro ao salvar curso: " + error.message);
+    }
   };
 
-  const handleEditInit = (course: Course) => {
+  const handleEditInit = async (course: Course) => {
     setEditingCourseId(course.id);
     setCourseTitle(course.title);
     setCourseDesc(course.description);
     setCourseThumb(course.thumbnailUrl);
     setSelectedTag(course.tag_id || "");
+
+    // Busca insígnia vinculada ao editar
+    const { data: badge } = await supabase.from("badges").select("*").eq("course_id", course.id).maybeSingle();
+    if (badge) {
+      setBadgeName(badge.name);
+      setBadgeThumb(badge.image_url);
+    } else {
+      setBadgeName(""); setBadgeThumb("");
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -179,72 +231,27 @@ function Admin() {
       <style>{`
         .dashboard-content { flex: 1; padding: 40px; margin-left: 260px; width: 100%; }
         .admin-content-container { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 30px; width: 100%; margin-top: 20px; }
-        
-        .admin-card-local { 
-          background: #09090b; 
-          border-radius: 16px; 
-          padding: 32px; /* Aumentado para dar respiro */
-          flex: 1 1 450px; 
-          max-width: 600px; 
-          border: 1px solid rgba(139, 92, 246, 0.1); 
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
-        }
-
+        .admin-card-local { background: #09090b; border-radius: 16px; padding: 32px; flex: 1 1 450px; max-width: 600px; border: 1px solid rgba(139, 92, 246, 0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 30px; }
         .dashboard-header h1 { color: #fff; font-weight: 800; letter-spacing: -0.02em; font-size: 2.2rem; }
-        
         .local-field { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .local-field label { color: #e5e7eb; font-size: 0.95rem; font-weight: 600; } /* Label maior e mais clara */
-        
+        .local-field label { color: #e5e7eb; font-size: 0.95rem; font-weight: 600; }
         .local-input-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
         .local-icon { position: absolute; left: 15px; font-size: 1.2rem; filter: grayscale(1) opacity(0.8); }
-        
-        .local-input-wrapper input, .local-input-wrapper textarea, .local-input-wrapper select {
-          width: 100%; background-color: #020617 !important; color: white !important;
-          border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 14px 14px 14px 48px; 
-          font-size: 1rem; /* Fonte aumentada para destaque */
-          outline: none;
-          transition: border-color 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        /* Destaque nos Placeholders */
-        .local-input-wrapper input::placeholder, 
-        .local-input-wrapper textarea::placeholder {
-          color: #9ca3af; 
-          font-weight: 400;
-        }
-
-        .local-input-wrapper input:focus, .local-input-wrapper textarea:focus { 
-          border-color: #8b5cf6; 
-          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
-        }
-        
+        .local-input-wrapper input, .local-input-wrapper textarea, .local-input-wrapper select { width: 100%; background-color: #020617 !important; color: white !important; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 14px 14px 14px 48px; font-size: 1rem; outline: none; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+        .local-input-wrapper input::placeholder, .local-input-wrapper textarea::placeholder { color: #9ca3af; font-weight: 400; }
+        .local-input-wrapper input:focus, .local-input-wrapper textarea:focus { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
         .local-input-wrapper textarea { min-height: 140px; resize: none; }
-        
-        .local-primary-button { 
-          width: 100%; padding: 16px; margin-top: 10px; border-radius: 999px; border: none; 
-          background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
-          color: #fff; font-weight: 700; cursor: pointer; transition: all 0.3s ease; 
-          font-size: 1rem;
-          box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-        }
+        .local-primary-button { width: 100%; padding: 16px; margin-top: 10px; border-radius: 999px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #fff; font-weight: 700; cursor: pointer; transition: all 0.3s ease; font-size: 1rem; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3); }
         .local-primary-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5); filter: brightness(1.1); }
-        
         .management-section { width: 100%; margin-top: 50px; }
         .management-section h2 { color: #fff; margin-bottom: 25px; font-size: 1.6rem; font-weight: 800; }
-
         .course-list-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #09090b; border-radius: 16px; overflow: hidden; border: 1px solid rgba(139, 92, 246, 0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
         .course-list-table th { text-align: left; padding: 20px 24px; background: #111116; color: #d1d5db; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; border-bottom: 1px solid rgba(139, 92, 246, 0.1); }
         .course-list-table td { padding: 20px 24px; border-bottom: 1px solid rgba(139, 92, 246, 0.05); color: #fff; font-size: 1rem; vertical-align: middle; }
-        
         .btn-action { padding: 10px 20px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
-
         .tag-badge { background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); padding: 8px 16px; border-radius: 999px; font-size: 0.8rem; color: #a78bfa; font-weight: 700; }
-
-        @media (max-width: 768px) {
-          .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; }
-          .admin-card-local { flex: 1 1 100%; padding: 24px; }
-        }
+        @media (max-width: 768px) { .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; } .admin-card-local { flex: 1 1 100%; padding: 24px; } }
       `}</style>
 
       <Sidebar userRole={userRole} />
@@ -277,7 +284,7 @@ function Admin() {
                     </p>
                   </div>
                   {editingCourseId && (
-                    <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag(""); }}>
+                    <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag(""); setBadgeName(""); setBadgeThumb(""); }}>
                       Cancelar Edição
                     </button>
                   )}
@@ -327,8 +334,36 @@ function Admin() {
                     )}
                   </div>
 
-                  <button className="local-primary-button" type="submit" disabled={uploadingThumb}>
-                    {uploadingThumb ? "Aguarde upload..." : editingCourseId ? "Salvar Alterações" : "Publicar Curso"}
+                  {/* Seção da Insígnia */}
+                  <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                    <h3 style={{ color: '#8b5cf6', fontSize: '1.1rem', marginBottom: '20px' }}>Conquista do Curso</h3>
+                    
+                    <div className="local-field">
+                      <label>Nome da Insígnia</label>
+                      <div className="local-input-wrapper">
+                        <span className="local-icon">🏆</span>
+                        <input type="text" placeholder="Ex: Especialista em React" value={badgeName} onChange={(e) => setBadgeName(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div className="local-field">
+                      <label>Ícone da Insígnia (.png / .svg)</label>
+                      <div className="local-input-wrapper">
+                        <span className="local-icon">⭐</span>
+                        <input type="file" accept="image/*" onChange={handleUploadBadge} />
+                      </div>
+                      {uploadingBadge && <p style={{ fontSize: '0.85rem', color: '#8b5cf6', marginTop: '8px' }}>Subindo ícone...</p>}
+                      {badgeThumb && (
+                        <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', gap: '15px', background: '#020617', padding: '10px', borderRadius: '12px', border: '1px solid rgba(139,92,246,0.2)' }}>
+                          <img src={badgeThumb} alt="Badge Preview" style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
+                          <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Ícone da insígnia carregado</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button className="local-primary-button" type="submit" disabled={uploadingThumb || uploadingBadge}>
+                    {uploadingThumb || uploadingBadge ? "Aguarde upload..." : editingCourseId ? "Salvar Alterações" : "Publicar Curso"}
                   </button>
                 </form>
               </div>
@@ -355,7 +390,7 @@ function Admin() {
                     {tags.map(tag => (
                       <span key={tag.id} className="tag-badge">
                         {tag.name}
-                        <button className="btn-remove-tag" onClick={() => handleDeleteTag(tag.id)} title="Remover tag">
+                        <button className="btn-remove-tag" onClick={() => handleDeleteTag(tag.id)} title="Remover tag" style={{ background: 'none', border: 'none', color: '#a78bfa', marginLeft: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                           &times;
                         </button>
                       </span>
@@ -394,14 +429,14 @@ function Admin() {
                             </td>
                             <td style={{ fontWeight: 600, fontSize: '1.1rem' }}>{course.title}</td>
                             <td style={{ textAlign: 'right' }}>
-                              <div className="actions-container">
-                                <button className="btn-action btn-lessons" onClick={() => setManageLessonsCourse(course)}>
+                              <div className="actions-container" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button className="btn-action btn-lessons" onClick={() => setManageLessonsCourse(course)} style={{ background: '#1e293b', color: '#fff', border: 'none', cursor: 'pointer' }}>
                                   Aulas
                                 </button>
-                                <button className="btn-action btn-edit" onClick={() => handleEditInit(course)}>
+                                <button className="btn-action btn-edit" onClick={() => handleEditInit(course)} style={{ background: '#8b5cf6', color: '#fff', border: 'none', cursor: 'pointer' }}>
                                   Editar
                                 </button>
-                                <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)}>
+                                <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer' }}>
                                   Excluir
                                 </button>
                               </div>
