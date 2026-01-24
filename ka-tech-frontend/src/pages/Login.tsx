@@ -74,10 +74,10 @@ function Login() { // Renomeado de App para Login
         </div>
 
         <div className="left-content">
-          <h2>Potencialize sua comunicação com a tecnologia KA.</h2>
+          <h2>Transforme sua carreira com a tecnologia que move o mundo.</h2>
           <p>
-            Fluxos inteligentes, mensagens automatizadas e conexões que
-            trabalham por você.
+            Sua jornada de aprendizado contínuo começa aqui. 
+            Acesse os melhores conteúdos de cursos, lives e tenha acesso a uma comunidade de aprendizado ativa.
           </p>
           <div className="abstract-graphic" />
         </div>
