@@ -17,7 +17,9 @@ export default function Player() {
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [lessonStartTime, setLessonStartTime] = useState(0);
 
-    // REMOVIDO: Função fireConfetti removida para retirar os fogos de artifício.
+    // --- NOVOS ESTADOS PARA O MODAL DE CONQUISTA ---
+    const [showBadgeModal, setShowBadgeModal] = useState(false);
+    const [unlockedBadge, setUnlockedBadge] = useState<any>(null);
 
     const calculateProgress = useCallback(async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -34,12 +36,11 @@ export default function Player() {
         const completed = progressRes.count || 0;
         const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-        // Gatilho de Conclusão e Insígnia
         if (percent === 100 && stats.percent < 100) {
-            // Busca os detalhes da insígnia para informar ao usuário
+            // Busca os detalhes da insígnia (incluindo a imagem)
             const { data: badge } = await supabase
                 .from("badges")
-                .select("id, name")
+                .select("id, name, image_url")
                 .eq("course_id", realCourseId)
                 .maybeSingle();
 
@@ -50,8 +51,9 @@ export default function Player() {
                 }, { onConflict: 'user_id,badge_id' });
 
                 if (!badgeError) {
-                    // Feedback visual na tela informando a conquista
-                    alert(`🏆 PARABÉNS! Você concluiu o curso e desbloqueou a insígnia: ${badge.name}`);
+                    // --- ATIVA O MODAL EM VEZ DO ALERT ---
+                    setUnlockedBadge(badge);
+                    setShowBadgeModal(true);
                 }
             }
         }
@@ -173,6 +175,135 @@ export default function Player() {
                     </div>
                 </div>
             </main>
+
+            {/* --- MODAL DE CONQUISTA PERSONALIZADO --- */}
+            {showBadgeModal && unlockedBadge && (
+                <div className="achievement-modal-overlay">
+                    <div className="achievement-modal-card">
+                        <div className="badge-glow-effect"></div>
+                        
+                        <div className="badge-image-container">
+                            <img src={unlockedBadge.image_url} alt="Badge" className="badge-main-img" />
+                        </div>
+
+                        <h3 className="achievement-subtitle">Nova Conquista Desbloqueada!</h3>
+                        <h2 className="achievement-title">{unlockedBadge.name}</h2>
+                        
+                        <p className="achievement-description">
+                            Sua dedicação deu frutos. Você acaba de se tornar um especialista em <strong>{course?.title}</strong>.
+                        </p>
+
+                        <button className="achievement-button" onClick={() => setShowBadgeModal(false)}>
+                            Continuar Jornada
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                .achievement-modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(2, 6, 23, 0.9);
+                    backdrop-filter: blur(12px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                    padding: 20px;
+                    animation: fadeIn 0.3s ease;
+                }
+
+                .achievement-modal-card {
+                    background: #09090b;
+                    border: 1px solid rgba(139, 92, 246, 0.4);
+                    border-radius: 32px;
+                    padding: 40px;
+                    max-width: 440px;
+                    width: 100%;
+                    text-align: center;
+                    position: relative;
+                    box-shadow: 0 0 50px rgba(139, 92, 246, 0.2);
+                    animation: slideUp 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+                }
+
+                .badge-glow-effect {
+                    position: absolute;
+                    top: 30%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 200px;
+                    height: 200px;
+                    background: #8b5cf6;
+                    filter: blur(80px);
+                    opacity: 0.25;
+                    border-radius: 50%;
+                }
+
+                .badge-image-container {
+                    position: relative;
+                    margin-bottom: 30px;
+                    display: flex;
+                    justify-content: center;
+                }
+
+                .badge-main-img {
+                    width: 180px;
+                    height: 180px;
+                    object-fit: contain;
+                    filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.5));
+                }
+
+                .achievement-subtitle {
+                    color: #a78bfa;
+                    font-size: 0.85rem;
+                    font-weight: 800;
+                    letter-spacing: 2px;
+                    text-transform: uppercase;
+                    margin-bottom: 12px;
+                }
+
+                .achievement-title {
+                    color: #fff;
+                    font-size: 2.2rem;
+                    font-weight: 900;
+                    margin-bottom: 16px;
+                }
+
+                .achievement-description {
+                    color: #94a3b8;
+                    font-size: 1rem;
+                    line-height: 1.6;
+                    margin-bottom: 35px;
+                }
+
+                .achievement-button {
+                    width: 100%;
+                    padding: 18px;
+                    border-radius: 16px;
+                    border: none;
+                    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+                    color: #fff;
+                    font-weight: 800;
+                    font-size: 1rem;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+                }
+
+                .achievement-button:hover {
+                    transform: translateY(-3px);
+                    filter: brightness(1.1);
+                    box-shadow: 0 8px 30px rgba(124, 58, 237, 0.6);
+                }
+
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(50px) scale(0.9); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+            `}</style>
         </div>
     );
 }
