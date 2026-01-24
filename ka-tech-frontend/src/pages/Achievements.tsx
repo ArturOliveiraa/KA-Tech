@@ -28,7 +28,11 @@ export default function Achievements() {
                             image_url, 
                             courses (
                                 course_tags (tags (name)), 
-                                lessons (count)
+                                lessons (count),
+                                course_enrollments (
+                                    role,
+                                    profiles (full_name)
+                                )
                             )
                         )
                     `).eq("user_id", user.id),
@@ -114,6 +118,12 @@ export default function Achievements() {
                             const lessonCount = course?.lessons?.[0]?.count || 0;
                             const uniqueId = `pdf-template-${index}`;
 
+                            // Lógica para filtrar instrutores (quem não tem role 'student')
+                            const instructorNames = course?.course_enrollments
+                                ?.filter((e: any) => e.role !== 'student') 
+                                .map((e: any) => e.profiles?.full_name)
+                                .join(", ") || "Equipe KA Academy";
+
                             return (
                                 <div key={index} className="achievement-card">
                                     <div id={uniqueId} style={{ 
@@ -151,8 +161,7 @@ export default function Achievements() {
 
                                                     <div style={{ textAlign: 'left', maxWidth: '400px' }}>
                                                         <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b', fontWeight: 700, marginBottom: '5px' }}>Instrutores:</p>
-                                                        {/* Substituí por um texto fixo para evitar erro de query até você confirmar o nome da tabela */}
-                                                        <p style={{ margin: 0, fontSize: '1rem', color: '#475569', lineHeight: '1.4' }}>Equipe KA Academy</p>
+                                                        <p style={{ margin: 0, fontSize: '1rem', color: '#475569', lineHeight: '1.4' }}>{instructorNames}</p>
                                                     </div>
                                                 </div>
                                                 <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#94a3b8', margin: 0 }}>Emitido por KA Academy</p>
