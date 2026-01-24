@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 
 interface Lesson {
@@ -23,17 +23,16 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [order, setOrder] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // CORREÇÃO: Função memorizada para evitar alertas do ESLint e loops infinitos
+  // CORREÇÃO 1: Alterado de "courseId" para "course_id" para bater com o SQL
   const fetchLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
       .select("*")
-      .eq("courseId", courseId)
+      .eq("course_id", courseId) // <--- Nome da coluna no banco é course_id
       .order("order", { ascending: true });
     if (data) setLessons(data);
-  }, [courseId]); // Recria apenas se o ID do curso mudar
+  }, [courseId]);
 
-  // useEffect agora utiliza a função memorizada com segurança
   useEffect(() => {
     fetchLessons();
   }, [fetchLessons]);
@@ -42,13 +41,14 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     e.preventDefault();
     setLoading(true);
 
+    // CORREÇÃO 2: Alterado o campo no insert para "course_id"
     const { error } = await supabase.from("lessons").insert([
       { 
         title, 
         videoUrl, 
         content, 
         order, 
-        courseId 
+        course_id: courseId // <--- Chave correta para a coluna do banco
       }
     ]);
 
@@ -81,7 +81,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
             onClick={onBack} 
             style={{ 
               background: 'transparent', 
-              color: '#00c9ff', 
+              color: '#8b5cf6', // Ajustado para combinar com seu novo tema roxo
               border: 'none', 
               cursor: 'pointer', 
               fontSize: '0.8rem', 
@@ -89,12 +89,13 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
               marginBottom: '10px',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '5px',
+              fontWeight: 700
             }}
           >
             ← Voltar para Cursos
           </button>
-          <h2 style={{ color: '#fff', fontSize: '1.4rem' }}>Gerenciar Aulas: {courseTitle}</h2>
+          <h2 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800 }}>Gerenciar Aulas: {courseTitle}</h2>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Adicione conteúdo e organize a grade das aulas.</p>
         </div>
       </header>
@@ -102,82 +103,80 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
       <form onSubmit={handleCreateLesson}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '15px' }}>
           <div className="local-field">
-            <label>Título da Aula</label>
-            <div className="local-input-wrapper">
-              <span className="local-icon">📝</span>
-              <input type="text" placeholder="Ex: Introdução ao Módulo" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            <label className="form-label">Título da Aula</label>
+            <div className="input-with-icon">
+              <span className="input-emoji">📝</span>
+              <input className="form-input" type="text" placeholder="Ex: Introdução ao Módulo" value={title} onChange={(e) => setTitle(e.target.value)} required />
             </div>
           </div>
 
           <div className="local-field">
-            <label>Ordem</label>
-            <div className="local-input-wrapper">
-              <span className="local-icon">🔢</span>
-              <input style={{ paddingLeft: '40px' }} type="number" value={order} onChange={(e) => setOrder(Number(e.target.value))} required />
+            <label className="form-label">Ordem</label>
+            <div className="input-with-icon">
+              <span className="input-emoji">🔢</span>
+              <input className="form-input" style={{ paddingLeft: '52px' }} type="number" value={order} onChange={(e) => setOrder(Number(e.target.value))} required />
             </div>
           </div>
         </div>
 
-        <div className="local-field">
-          <label>URL do Vídeo (YouTube/Vimeo/MP4)</label>
-          <div className="local-input-wrapper">
-            <span className="local-icon">🔗</span>
-            <input type="text" placeholder="https://..." value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} required />
+        <div className="local-field" style={{ marginTop: '20px' }}>
+          <label className="form-label">URL do Vídeo</label>
+          <div className="input-with-icon">
+            <span className="input-emoji">🔗</span>
+            <input className="form-input" type="text" placeholder="Link do YouTube" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} required />
           </div>
         </div>
 
-        <div className="local-field">
-          <label>Descrição / Conteúdo da Aula</label>
-          <div className="local-input-wrapper">
-            <span className="local-icon" style={{ top: '12px' }}>📄</span>
+        <div className="local-field" style={{ marginTop: '20px' }}>
+          <label className="form-label">Descrição / Conteúdo</label>
+          <div className="input-with-icon">
+            <span className="input-emoji" style={{ top: '16px' }}>📄</span>
             <textarea 
               placeholder="O que será abordado nesta aula?" 
               value={content} 
               onChange={(e) => setContent(e.target.value)} 
               required 
+              style={{ height: '100px' }}
             />
           </div>
         </div>
 
-        <button className="local-primary-button" type="submit" disabled={loading}>
-          {loading ? "Lançando..." : "Publicar Aula"}
+        <button className="local-primary-button" type="submit" disabled={loading} style={{ width: '100%', marginTop: '30px' }}>
+          {loading ? "Processando..." : "Publicar Aula"}
         </button>
       </form>
 
-      <div style={{ marginTop: '40px' }}>
-        <h4 style={{ color: '#fff', marginBottom: '15px', fontSize: '1.1rem' }}>Grade de Aulas Cadastradas</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ marginTop: '50px' }}>
+        <h4 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.1rem', fontWeight: 700 }}>Grade de Aulas Cadastradas</h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {lessons.length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '20px', border: '1px dashed #2d323e', borderRadius: '8px' }}>
-              Nenhuma aula cadastrada para este curso ainda.
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '30px', border: '1px dashed rgba(139,92,246,0.2)', borderRadius: '16px' }}>
+              Nenhuma aula cadastrada ainda.
             </p>
           ) : (
             lessons.map(l => (
               <div 
                 key={l.id} 
                 style={{ 
-                  padding: '12px 20px', 
-                  background: '#1a1d23', 
-                  borderRadius: '10px', 
-                  border: '1px solid #2d323e',
+                  padding: '16px 24px', 
+                  background: 'rgba(15, 23, 42, 0.4)', 
+                  borderRadius: '14px', 
+                  border: '1px solid rgba(255,255,255,0.05)',
                   display: 'flex', 
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}
               >
-                <div>
-                  <span style={{ color: '#00c9ff', fontWeight: 'bold', marginRight: '10px' }}>#{l.order}</span>
-                  <span style={{ color: '#fff' }}>{l.title}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <span style={{ color: '#8b5cf6', fontWeight: 800 }}>#{l.order}</span>
+                  <span style={{ color: '#fff', fontWeight: 600 }}>{l.title}</span>
                 </div>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                  <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{l.videoUrl.substring(0, 20)}...</span>
-                  <button 
-                    onClick={() => handleDeleteLesson(l.id)}
-                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                  >
-                    Excluir
-                  </button>
-                </div>
+                <button 
+                  onClick={() => handleDeleteLesson(l.id)}
+                  style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}
+                >
+                  Excluir
+                </button>
               </div>
             ))
           )}
