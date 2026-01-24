@@ -1,36 +1,45 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../supabaseClient";
 
-// ADICIONADO: Props initialTime e onProgressUpdate
 export default function LessonView({ 
   lessonId, 
   initialTime = 0, 
-  onProgressUpdate 
+  onProgressUpdate,
+  seekTo = null // ADICIONADO: Nova prop para o caderno de notas
 }: { 
   lessonId: number; 
   initialTime?: number; 
   onProgressUpdate?: (time: number, completed?: boolean) => void;
+  seekTo?: number | null; // ADICIONADO: Definição do tipo
 }) {
   const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isCompleted, setIsCompleted] = useState(false);
   
   const playerRef = useRef<any>(null);
-  const lastValidTimeRef = useRef(initialTime); // AJUSTADO: Começa no tempo inicial
+  const lastValidTimeRef = useRef(initialTime); 
   
   const saveProgressRef = useRef<(() => Promise<void>) | null>(null);
-  // ADICIONADO: Ref para a função de progresso para evitar re-init do player
   const onProgressUpdateRef = useRef(onProgressUpdate);
 
   useEffect(() => {
     onProgressUpdateRef.current = onProgressUpdate;
   }, [onProgressUpdate]);
 
+  // --- NOVO: LÓGICA PARA PULAR NO VÍDEO VIA NOTA ---
+  useEffect(() => {
+    if (seekTo !== null && playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      playerRef.current.seekTo(seekTo, true);
+      // Importante: atualizamos o lastValidTime para o anti-cheat permitir o pulo
+      lastValidTimeRef.current = seekTo; 
+    }
+  }, [seekTo]);
+
   const fetchLesson = useCallback(async () => {
     if (!lessonId) return;
     setLoading(true);
     setIsCompleted(false);
-    lastValidTimeRef.current = initialTime; // AJUSTADO: Reseta para o tempo inicial da aula
+    lastValidTimeRef.current = initialTime; 
 
     const { data } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
     
@@ -52,14 +61,13 @@ export default function LessonView({
       user_id: session.user.id,
       lesson_id: lesson.id,
       course_id: lesson.courseId || lesson.courseid,
-      is_completed: true, // ADICIONADO: Mantendo consistência com o banco
+      is_completed: true, 
       completed_at: new Date().toISOString()
     }, { onConflict: 'user_id,lesson_id' });
 
     if (!error) {
       setIsCompleted(true);
       window.dispatchEvent(new Event("progressUpdated"));
-      // ADICIONADO: Notifica o pai que a aula foi concluída
       if (onProgressUpdateRef.current) {
         onProgressUpdateRef.current(playerRef.current?.getCurrentTime() || 0, true);
       }
@@ -80,19 +88,17 @@ export default function LessonView({
         if (player && player.getCurrentTime) {
           const currentTime = player.getCurrentTime();
           
-          // Lógica de Anti-Cheat mantida
           if (currentTime > lastValidTimeRef.current + 2) {
             player.seekTo(lastValidTimeRef.current, true);
           } else if (currentTime > lastValidTimeRef.current) {
             lastValidTimeRef.current = currentTime;
             
-            // ADICIONADO: Reporta o progresso atual ao componente pai (Player.tsx)
             if (onProgressUpdateRef.current) {
               onProgressUpdateRef.current(currentTime, false);
             }
           }
         }
-      }, 1000); // AJUSTADO: 1s é suficiente para salvar progresso
+      }, 1000); 
     };
 
     const initPlayer = () => {
@@ -106,12 +112,11 @@ export default function LessonView({
           rel: 0,
           modestbranding: 1,
           controls: 1,
-          start: Math.floor(initialTime), // ADICIONADO: Player já começa no segundo certo
+          start: Math.floor(initialTime), 
           origin: window.location.origin
         },
         events: {
           onReady: (event: any) => {
-            // GARANTIA: Seek forcado no ready para navegadores que ignoram o playerVars 'start'
             if (initialTime > 0) {
               event.target.seekTo(initialTime, true);
             }
@@ -139,7 +144,7 @@ export default function LessonView({
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [lesson, loading, initialTime]); // AJUSTADO: Adicionado initialTime para trocar de posição se a aula mudar
+  }, [lesson, loading, initialTime]);
 
   if (loading) return <div style={{ color: '#00c9ff', padding: '40px' }}>Carregando Aula...</div>;
 
