@@ -13,6 +13,8 @@ import Cursos from './pages/cursos';       // cursos.tsx no seu arquivo
 import Admin from './pages/admin';         // admin.tsx no seu arquivo
 import Player from './pages/Player';
 import Settings from './pages/Settings';
+import Achievements from "./pages/Achievements";
+
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -28,10 +30,12 @@ root.render(
         <Route path="/signup" element={<Signup />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/update-password" element={<UpdatePassword />} />
+        
 
         {/* Rotas de Usuário (Logado) */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/cursos" element={<Cursos />} />
+        <Route path="/conquistas" element={<Achievements />} />
         <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         
         {/* Rota do Player (Agora usando Slug para URLs amigáveis) */}

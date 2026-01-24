@@ -5,7 +5,7 @@ import Sidebar from "../components/Sidebar";
 import ManageLessons from "../components/ManageLessons";
 
 interface Tag {
-  id: number;
+  id: string; // Alterado para string para suportar UUID
   name: string;
 }
 
@@ -36,14 +36,16 @@ function Admin() {
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDesc, setCourseDesc] = useState("");
   const [courseThumb, setCourseThumb] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string>("");
+  
+  // MUDANÇA: Agora usamos um array para múltiplas tags
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
   const [tagName, setTagName] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
   const [manageLessonsCourse, setManageLessonsCourse] = useState<Course | null>(null);
 
-  // Novos estados para a Insígnia
   const [badgeName, setBadgeName] = useState("");
   const [badgeThumb, setBadgeThumb] = useState("");
   const [uploadingBadge, setUploadingBadge] = useState(false);
@@ -90,6 +92,13 @@ function Admin() {
       setCourses(data || []);
     }
   }
+
+  // Função para gerenciar a seleção múltipla de tags
+  const toggleTag = (tagId: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    );
+  };
 
   async function handleUploadThumbnail(event: React.ChangeEvent<HTMLInputElement>) {
     try {
@@ -141,37 +150,43 @@ function Admin() {
       title: courseTitle,
       slug: slug,
       description: courseDesc,
-      thumbnailUrl: courseThumb,
-      tag_id: selectedTag || null
+      thumbnailUrl: courseThumb
+      // tag_id removido daqui pois agora usamos a tabela de junção
     };
 
     try {
       let currentCourseId = editingCourseId;
 
       if (editingCourseId) {
-        // Atualização de curso existente
         const { error } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
         if (error) throw error;
+        // Limpa as tags antigas para sobrescrever
+        await supabase.from("course_tags").delete().eq("course_id", editingCourseId);
       } else {
-        // Inserção de novo curso (precisamos do retorno para pegar o ID)
         const { data, error } = await supabase.from("courses").insert([courseData]).select().single();
         if (error) throw error;
         currentCourseId = data.id;
       }
 
-      // Salva ou Atualiza a Insígnia se houver dados preenchidos
+      // SALVAR MÚLTIPLAS TAGS na tabela de junção
+      if (currentCourseId && selectedTags.length > 0) {
+        const tagsToInsert = selectedTags.map(tId => ({
+          course_id: currentCourseId,
+          tag_id: tId
+        }));
+        await supabase.from("course_tags").insert(tagsToInsert);
+      }
+
       if (currentCourseId && badgeName && badgeThumb) {
-        const { error: badgeError } = await supabase.from("badges").upsert([
+        await supabase.from("badges").upsert([
           { name: badgeName, image_url: badgeThumb, course_id: currentCourseId }
         ], { onConflict: 'course_id' });
-        
-        if (badgeError) throw badgeError;
       }
 
       alert(editingCourseId ? "Curso atualizado com sucesso!" : "Curso publicado com sucesso!");
       
-      // Reset campos
-      setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag("");
+      setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); 
+      setSelectedTags([]); // Reset das tags
       setBadgeName(""); setBadgeThumb("");
       setEditingCourseId(null);
       fetchCourses();
@@ -185,9 +200,13 @@ function Admin() {
     setCourseTitle(course.title);
     setCourseDesc(course.description);
     setCourseThumb(course.thumbnailUrl);
-    setSelectedTag(course.tag_id || "");
 
-    // Busca insígnia vinculada ao editar
+    // BUSCA AS MÚLTIPLAS TAGS VINCULADAS
+    const { data: linkedTags } = await supabase.from("course_tags").select("tag_id").eq("course_id", course.id);
+    if (linkedTags) {
+      setSelectedTags(linkedTags.map(t => t.tag_id));
+    }
+
     const { data: badge } = await supabase.from("badges").select("*").eq("course_id", course.id).maybeSingle();
     if (badge) {
       setBadgeName(badge.name);
@@ -220,7 +239,7 @@ function Admin() {
     }
   };
 
-  const handleDeleteTag = async (id: number) => {
+  const handleDeleteTag = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja remover esta tag? Cursos que usam esta tag ficarão sem categoria.")) return;
     const { error } = await supabase.from("tags").delete().eq("id", id);
     if (error) alert("Erro ao remover tag: " + error.message);
@@ -254,6 +273,8 @@ function Admin() {
         .course-list-table td { padding: 20px 24px; border-bottom: 1px solid rgba(139, 92, 246, 0.05); color: #fff; font-size: 1rem; vertical-align: middle; }
         .btn-action { padding: 10px 20px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
         .tag-badge { background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); padding: 8px 16px; border-radius: 999px; font-size: 0.8rem; color: #a78bfa; font-weight: 700; }
+        .cancel-edit-btn { background: none; border: 1px solid #ef4444; color: #ef4444; padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 0.8rem; font-weight: 700; transition: all 0.3s; }
+        .cancel-edit-btn:hover { background: #ef4444; color: #fff; }
         @media (max-width: 768px) { .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; } .admin-card-local { flex: 1 1 100%; padding: 24px; } }
       `}</style>
 
@@ -282,13 +303,10 @@ function Admin() {
                     <h2 style={{ color: '#fff', fontSize: '1.6rem', margin: 0, fontWeight: 800 }}>
                       {editingCourseId ? "Editar Curso" : "Novo Curso"}
                     </h2>
-                    <p style={{ color: '#9ca3af', fontSize: '0.95rem', marginTop: '8px' }}>
-                      {editingCourseId ? "Alterando informações do curso selecionado." : "Cadastre um novo conteúdo na grade."}
-                    </p>
                   </div>
                   {editingCourseId && (
-                    <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTag(""); setBadgeName(""); setBadgeThumb(""); }}>
-                      Cancelar Edição
+                    <button className="cancel-edit-btn" onClick={() => { setEditingCourseId(null); setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setSelectedTags([]); setBadgeName(""); setBadgeThumb(""); }}>
+                      Cancelar
                     </button>
                   )}
                 </header>
@@ -302,16 +320,30 @@ function Admin() {
                     </div>
                   </div>
 
+                  {/* SELEÇÃO DE MÚLTIPLAS TAGS (Estilo Badges Clicáveis) */}
                   <div className="local-field">
-                    <label>Tag / Categoria</label>
-                    <div className="local-input-wrapper">
-                      <span className="local-icon">🏷️</span>
-                      <select value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)}>
-                        <option value="">Selecione uma categoria...</option>
-                        {tags.map(tag => (
-                          <option key={tag.id} value={tag.id}>{tag.name}</option>
-                        ))}
-                      </select>
+                    <label>Categorias (Selecione várias)</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
+                      {tags.map(tag => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleTag(tag.id)}
+                          style={{
+                            padding: '10px 18px',
+                            borderRadius: '12px',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                            backgroundColor: selectedTags.includes(tag.id) ? '#8b5cf6' : '#020617',
+                            color: '#fff',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {tag.name}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -319,28 +351,26 @@ function Admin() {
                     <label>Descrição</label>
                     <div className="local-input-wrapper">
                       <span className="local-icon" style={{ top: '15px' }}>📄</span>
-                      <textarea placeholder="Descreva o que o aluno aprenderá neste curso..." value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} required />
+                      <textarea placeholder="Descreva o que o aluno aprenderá..." value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} required />
                     </div>
                   </div>
 
                   <div className="local-field">
-                    <label>Capa do Curso (.png / .jpg)</label>
+                    <label>Capa do Curso</label>
                     <div className="local-input-wrapper">
                       <span className="local-icon">🖼️</span>
                       <input type="file" accept="image/*" onChange={handleUploadThumbnail} />
                     </div>
-                    {uploadingThumb && <p style={{ fontSize: '0.85rem', color: '#8b5cf6', marginTop: '8px', fontWeight: 600 }}>Subindo imagem...</p>}
+                    {uploadingThumb && <p style={{ fontSize: '0.85rem', color: '#8b5cf6', marginTop: '8px' }}>Subindo imagem...</p>}
                     {courseThumb && (
                       <div style={{ marginTop: '20px', background: '#020617', padding: '10px', borderRadius: '12px', width: 'fit-content', border: '1px solid rgba(139,92,246,0.2)' }}>
-                        <img src={courseThumb} alt="Preview" style={{ width: '180px', height: '100px', objectFit: 'cover', borderRadius: '8px', display: 'block' }} />
+                        <img src={courseThumb} alt="Preview" style={{ width: '180px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} />
                       </div>
                     )}
                   </div>
 
-                  {/* Seção da Insígnia */}
                   <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid rgba(139, 92, 246, 0.2)' }}>
                     <h3 style={{ color: '#8b5cf6', fontSize: '1.1rem', marginBottom: '20px' }}>Conquista do Curso</h3>
-                    
                     <div className="local-field">
                       <label>Nome da Insígnia</label>
                       <div className="local-input-wrapper">
@@ -348,9 +378,8 @@ function Admin() {
                         <input type="text" placeholder="Ex: Especialista em React" value={badgeName} onChange={(e) => setBadgeName(e.target.value)} />
                       </div>
                     </div>
-
                     <div className="local-field">
-                      <label>Ícone da Insígnia (.png / .svg)</label>
+                      <label>Ícone da Insígnia</label>
                       <div className="local-input-wrapper">
                         <span className="local-icon">⭐</span>
                         <input type="file" accept="image/*" onChange={handleUploadBadge} />
@@ -359,7 +388,6 @@ function Admin() {
                       {badgeThumb && (
                         <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', gap: '15px', background: '#020617', padding: '10px', borderRadius: '12px', border: '1px solid rgba(139,92,246,0.2)' }}>
                           <img src={badgeThumb} alt="Badge Preview" style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
-                          <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Ícone da insígnia carregado</span>
                         </div>
                       )}
                     </div>
@@ -375,25 +403,22 @@ function Admin() {
                 <div className="admin-card-local" style={{ height: 'fit-content' }}>
                   <header>
                     <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: 800 }}>Gerenciar Tags</h2>
-                    <p style={{ color: '#9ca3af', fontSize: '0.95rem', marginTop: '8px' }}>Categorias para organização.</p>
                   </header>
-
                   <form onSubmit={handleCreateTag} style={{ marginTop: '30px' }}>
                     <div className="local-field">
                       <label>Nome da Tag</label>
                       <div className="local-input-wrapper">
                         <span className="local-icon">🏷️</span>
-                        <input type="text" placeholder="Ex: COMERCIAL, BLIP, IA" value={tagName} onChange={(e) => setTagName(e.target.value)} required />
+                        <input type="text" placeholder="Ex: COMERCIAL, BLIP" value={tagName} onChange={(e) => setTagName(e.target.value)} required />
                       </div>
                     </div>
                     <button className="local-primary-button" type="submit">Criar Categoria</button>
                   </form>
-
                   <div className="tags-list-container" style={{ marginTop: '30px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                     {tags.map(tag => (
                       <span key={tag.id} className="tag-badge">
                         {tag.name}
-                        <button className="btn-remove-tag" onClick={() => handleDeleteTag(tag.id)} title="Remover tag" style={{ background: 'none', border: 'none', color: '#a78bfa', marginLeft: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        <button onClick={() => handleDeleteTag(tag.id)} style={{ background: 'none', border: 'none', color: '#a78bfa', marginLeft: '8px', cursor: 'pointer' }}>
                           &times;
                         </button>
                       </span>
@@ -414,39 +439,21 @@ function Admin() {
                       </tr>
                     </thead>
                     <tbody>
-                      {courses.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '1.1rem' }}>
-                            Nenhum curso encontrado.
+                      {courses.map(course => (
+                        <tr key={course.id}>
+                          <td>
+                            {course.thumbnailUrl && <img src={course.thumbnailUrl} alt="capa" style={{ width: '100px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />}
+                          </td>
+                          <td style={{ fontWeight: 600, fontSize: '1.1rem' }}>{course.title}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div className="actions-container" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                              <button className="btn-action btn-lessons" onClick={() => setManageLessonsCourse(course)} style={{ background: '#1e293b', color: '#fff', border: 'none', cursor: 'pointer' }}>Aulas</button>
+                              <button className="btn-action btn-edit" onClick={() => handleEditInit(course)} style={{ background: '#8b5cf6', color: '#fff', border: 'none', cursor: 'pointer' }}>Editar</button>
+                              <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer' }}>Excluir</button>
+                            </div>
                           </td>
                         </tr>
-                      ) : (
-                        courses.map(course => (
-                          <tr key={course.id}>
-                            <td>
-                              {course.thumbnailUrl ? (
-                                <img src={course.thumbnailUrl} alt="capa" style={{ width: '100px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.1)' }} />
-                              ) : (
-                                <div style={{ width: '100px', height: '60px', background: '#111116', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: '#9ca3af', fontWeight: 700 }}>KA TECH</div>
-                              )}
-                            </td>
-                            <td style={{ fontWeight: 600, fontSize: '1.1rem' }}>{course.title}</td>
-                            <td style={{ textAlign: 'right' }}>
-                              <div className="actions-container" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                                <button className="btn-action btn-lessons" onClick={() => setManageLessonsCourse(course)} style={{ background: '#1e293b', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                                  Aulas
-                                </button>
-                                <button className="btn-action btn-edit" onClick={() => handleEditInit(course)} style={{ background: '#8b5cf6', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                                  Editar
-                                </button>
-                                <button className="btn-action btn-delete" onClick={() => handleDeleteCourse(course.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                                  Excluir
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>

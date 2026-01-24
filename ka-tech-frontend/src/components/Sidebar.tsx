@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
 
@@ -12,6 +12,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const location = useLocation();
+  const navigate = useNavigate(); // Inicialização do navigate para corrigir o erro
   const [userName, setUserName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -106,7 +107,6 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           height: auto;
           display: block;
           object-fit: contain;
-          /* Glow roxo característico da marca */
           filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.4)); 
         }
 
@@ -185,14 +185,21 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📚</span> <span>Meus Cursos</span>
           </Link>
+          
+          <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>
+            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏆</span> <span>Minhas Conquistas</span>
+          </Link>
+
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Explorar</span>
           </Link>
+
           {(userRole === 'admin' || userRole === 'teacher') && (
             <Link to="/admin" className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>
               <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
             </Link>
           )}
+
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>⚙️</span> <span>Ajustes</span>
           </Link>
