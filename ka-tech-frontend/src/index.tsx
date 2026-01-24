@@ -11,6 +11,7 @@ import Cursos from './pages/cursos';
 import Admin from './pages/admin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Player from './pages/Player';
+import Settings from './pages/Settings';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -26,6 +27,7 @@ root.render(
         <Route path="/cursos" element={<Cursos />} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/course/:courseId" element={<Player />} />
+        <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
