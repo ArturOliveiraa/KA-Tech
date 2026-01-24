@@ -15,21 +15,44 @@ interface LessonSidebarProps {
 
 export default function LessonSidebar({ course_id, currentLessonId, onSelectLesson }: LessonSidebarProps) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [completedLessonIds, setCompletedLessonIds] = useState<number[]>([]); // Novo estado
 
-  // Memorizando a busca para evitar alertas de build
+  // 1. Busca as aulas do curso (mantém igual)
   const fetchCourseLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
       .select("id, title, order")
       .eq("course_id", course_id)
-      .order("order", { ascending: true }); //
+      .order("order", { ascending: true });
 
     if (data) setLessons(data);
   }, [course_id]);
 
+  // 2. BUSCA O PROGRESSO DO USUÁRIO
+  const fetchUserProgress = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("user_progress")
+      .select("lesson_id")
+      .eq("user_id", user.id)
+      .eq("course_id", course_id)
+      .eq("is_completed", true);
+
+    if (data) {
+      setCompletedLessonIds(data.map((p) => p.lesson_id));
+    }
+  }, [course_id]);
+
   useEffect(() => {
     fetchCourseLessons();
-  }, [fetchCourseLessons]);
+    fetchUserProgress();
+
+    // 3. OUVE O EVENTO DE PROGRESSO PARA ATUALIZAR EM TEMPO REAL
+    window.addEventListener("progressUpdated", fetchUserProgress);
+    return () => window.removeEventListener("progressUpdated", fetchUserProgress);
+  }, [fetchCourseLessons, fetchUserProgress]);
 
   return (
     <div className="lesson-sidebar-inner">
@@ -50,33 +73,54 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
           gap: 12px;
           transition: 0.2s;
           border-bottom: 1px solid #1a1d23;
+          position: relative;
         }
         .lesson-item:hover { background: #1a1d23; }
         .lesson-item.active {
-          background: rgba(0, 229, 255, 0.1);
-          border-left: 4px solid #00e5ff;
+          background: rgba(139, 92, 246, 0.1);
+          border-left: 4px solid #8b5cf6;
         }
         .lesson-num {
-          color: #00e5ff;
+          color: #8b5cf6;
           font-weight: bold;
           font-size: 0.8rem;
           min-width: 20px;
         }
-        .lesson-txt { color: #fff; font-size: 0.85rem; }
+        .lesson-txt { color: #fff; font-size: 0.85rem; flex: 1; }
+        
+        /* Estilo para o Check de Conclusão */
+        .lesson-check {
+          color: #10b981;
+          font-size: 0.9rem;
+          font-weight: bold;
+        }
+        .lesson-item.completed .lesson-num {
+          color: #10b981; /* Muda a cor do número se concluída */
+        }
       `}</style>
 
       <h3 className="sidebar-title-lessons">Grade do Curso</h3>
       <nav>
-        {lessons.map((lesson) => (
-          <div
-            key={lesson.id}
-            className={`lesson-item ${currentLessonId === lesson.id ? "active" : ""}`}
-            onClick={() => onSelectLesson(lesson.id)}
-          >
-            <span className="lesson-num">#{lesson.order}</span>
-            <span className="lesson-txt">{lesson.title}</span>
-          </div>
-        ))}
+        {lessons.map((lesson) => {
+          const isCompleted = completedLessonIds.includes(lesson.id);
+          const isActive = currentLessonId === lesson.id;
+
+          return (
+            <div
+              key={lesson.id}
+              className={`lesson-item ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}`}
+              onClick={() => onSelectLesson(lesson.id)}
+            >
+              <span className="lesson-num">
+                {isCompleted ? "✓" : `#${lesson.order}`}
+              </span>
+              <span className="lesson-txt" style={{ opacity: isCompleted && !isActive ? 0.6 : 1 }}>
+                {lesson.title}
+              </span>
+              {isCompleted && <span className="lesson-check">✅</span>}
+            </div>
+          );
+        })}
       </nav>
     </div>
   );

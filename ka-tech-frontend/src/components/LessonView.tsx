@@ -15,13 +15,11 @@ export default function LessonView({
   const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCompleted, setIsCompleted] = useState(false);
   
   const playerRef = useRef<any>(null);
   const lastValidTimeRef = useRef(initialTime); 
   const onProgressUpdateRef = useRef(onProgressUpdate);
 
-  // --- FIX PARA ESLINT: Sincroniza o ref do progresso ---
   useEffect(() => {
     onProgressUpdateRef.current = onProgressUpdate;
   }, [onProgressUpdate]);
@@ -64,7 +62,6 @@ export default function LessonView({
 
   useEffect(() => { fetchLesson(); }, [fetchLesson]);
 
-  // --- LÓGICA DO PLAYER (Com correção de dependências) ---
   useEffect(() => {
     if (!lesson?.videoId || loading || error) return;
 
@@ -89,9 +86,6 @@ export default function LessonView({
             modestbranding: 1,
             origin: window.location.origin,
             enablejsapi: 1,
-            // Usamos o initialTime aqui. O ESLint vai reclamar se não estiver no array,
-            // mas como queremos que ele rode apenas quando o videoId mudar,
-            // vamos desabilitar a linha específica ou garantir que o videoId controle isso.
             start: Math.floor(initialTime)
           },
           events: {
@@ -111,8 +105,8 @@ export default function LessonView({
             },
             onStateChange: (event: any) => {
               if (event.data === (window as any).YT.PlayerState.ENDED) {
+                // Notifica a conclusão para o Player.tsx salvar no banco
                 onProgressUpdateRef.current?.(event.target.getDuration(), true);
-                setIsCompleted(true);
               }
             }
           }
@@ -138,8 +132,6 @@ export default function LessonView({
         try { playerRef.current.destroy(); } catch(e){}
       }
     };
-    // Adicionamos initialTime aqui para satisfazer o ESLint. 
-    // Como o LessonView é desmontado/remontado ao trocar de aula, isso não causará loops.
   }, [lesson?.videoId, loading, error, initialTime]); 
 
   useEffect(() => {
@@ -149,7 +141,7 @@ export default function LessonView({
     }
   }, [seekTo]);
 
-  if (loading) return <div style={{ color: '#8b5cf6', padding: '40px' }}>Carregando vídeo...</div>;
+  if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', textAlign: 'center' }}>Sincronizando vídeo...</div>;
   if (error) return <div style={{ color: '#ef4444', padding: '40px' }}>{error}</div>;
 
   return (
@@ -159,14 +151,6 @@ export default function LessonView({
         borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' 
       }}>
         <div id="youtube-player" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></div>
-      </div>
-      
-      <div style={{ marginTop: '20px', padding: '24px', background: '#09090b', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h1 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{lesson?.title}</h1>
-          {isCompleted && <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.8rem', padding: '6px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px' }}>✓ CONCLUÍDA</span>}
-        </div>
-        <p style={{ color: '#94a3b8', lineHeight: '1.6', fontSize: '0.95rem' }}>{lesson?.content}</p>
       </div>
     </div>
   );

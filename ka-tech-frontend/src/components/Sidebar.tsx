@@ -100,6 +100,20 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           width: 100%;
         }
 
+        /* NOVO: Estilo para o link da logo */
+        .logo-link {
+          display: flex;
+          width: 100%;
+          justify-content: center;
+          text-decoration: none;
+          transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .logo-link:hover {
+          opacity: 0.85;
+          transform: scale(1.02);
+        }
+
         .logo-img {
           width: 100%;
           max-width: 240px;
@@ -173,11 +187,14 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
       <aside className="sidebar-container">
         <div className="sidebar-logo">
-          <img
-            src={logo}
-            alt="KA Tech"
-            className="logo-img"
-          />
+          {/* LOGO ENVOLVIDA COM LINK PARA O DASHBOARD */}
+          <Link to="/dashboard" className="logo-link">
+            <img
+              src={logo}
+              alt="KA Tech"
+              className="logo-img"
+            />
+          </Link>
         </div>
 
         <nav className="sidebar-nav">
@@ -193,7 +210,6 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Trilhas</span>
           </Link>
 
-          {/* NOVO: RANKINGS (VISÍVEL PARA TODOS OS ALUNOS) */}
           <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏅</span> <span>Rankings</span>
           </Link>

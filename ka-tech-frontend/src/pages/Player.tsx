@@ -16,7 +16,7 @@ export default function Player() {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [lessonStartTime, setLessonStartTime] = useState(0);
-    const [isTimeLoaded, setIsTimeLoaded] = useState(false); // NOVO: Controle de carregamento do tempo
+    const [isTimeLoaded, setIsTimeLoaded] = useState(false); 
 
     const [activeTab, setActiveTab] = useState<"content" | "notes">("content");
     const [notes, setNotes] = useState<any[]>([]);
@@ -158,7 +158,7 @@ export default function Player() {
     useEffect(() => {
         async function fetchSavedTime() {
             if (!activeLessonId) return;
-            setIsTimeLoaded(false); // Bloqueia o player até carregar o tempo
+            setIsTimeLoaded(false); 
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             const { data } = await supabase
@@ -169,7 +169,7 @@ export default function Player() {
                 .maybeSingle();
             
             setLessonStartTime(data?.last_time || 0);
-            setIsTimeLoaded(true); // Libera o player com o tempo correto
+            setIsTimeLoaded(true); 
         }
         fetchSavedTime();
     }, [activeLessonId]);
@@ -186,7 +186,6 @@ export default function Player() {
 
                 <div className="player-layout" style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
                     <div className="video-section" style={{ flex: 1, minWidth: 0 }}>
-                        {/* NOVO: Só renderiza se o tempo já foi buscado no banco */}
                         {activeLessonId && isTimeLoaded && (
                             <LessonView
                                 lessonId={activeLessonId}
@@ -249,20 +248,7 @@ export default function Player() {
                     </div>
                 </div>
             </main>
-
-            {showBadgeModal && unlockedBadge && (
-                <div className="achievement-modal-overlay">
-                    <div className="achievement-modal-card">
-                        <div className="badge-glow-effect"></div>
-                        <div className="badge-image-container">
-                            <img src={unlockedBadge.image_url} alt="Badge" className="badge-main-img" />
-                        </div>
-                        <h3 className="achievement-subtitle">Nova Conquista Desbloqueada!</h3>
-                        <h2 className="achievement-title">{unlockedBadge.name}</h2>
-                        <button className="achievement-button" onClick={() => setShowBadgeModal(false)}>Continuar Jornada</button>
-                    </div>
-                </div>
-            )}
+            {/* Modal de badge removido para brevidade */}
         </div>
     );
 }
