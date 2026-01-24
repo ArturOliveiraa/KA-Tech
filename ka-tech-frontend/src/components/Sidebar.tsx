@@ -199,6 +199,13 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
             </Link>
           )}
 
+          {/* NOVA FEATURE: RELATÓRIOS (SOMENTE ADMIN) */}
+          {userRole === 'admin' && (
+            <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
+              <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📊</span> <span>Relatórios</span>
+            </Link>
+          )}
+
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>⚙️</span> <span>Ajustes</span>
           </Link>

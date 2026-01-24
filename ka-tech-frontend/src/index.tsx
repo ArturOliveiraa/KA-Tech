@@ -14,6 +14,7 @@ import Admin from './pages/admin';         // admin.tsx no seu arquivo
 import Player from './pages/Player';
 import Settings from './pages/Settings';
 import Achievements from "./pages/Achievements";
+import Reports from "./pages/Reports";
 
 
 // Components
@@ -43,6 +44,9 @@ root.render(
 
         {/* Rotas de Admin */}
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+
+        {/* RELATORIOS */}
+        <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
