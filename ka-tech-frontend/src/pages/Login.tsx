@@ -17,6 +17,28 @@ function Login() {
 
   const navigate = useNavigate();
 
+  // Função para Login Social (Google e Discord)
+  async function handleSocialLogin(provider: 'google' | 'discord') {
+    setLoading(true);
+    setErrorMessage("");
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // Garante que o usuário volte para a URL correta após o login
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || `Erro ao entrar com ${provider}.`);
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -63,7 +85,6 @@ function Login() {
 
   return (
     <div className="auth-page">
-      {/* CSS SINCRONIZADO E RESPONSIVO */}
       <style>{`
         .social-google, .social-discord {
           transition: all 0.3s ease !important;
@@ -75,7 +96,6 @@ function Login() {
           box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
-        /* AJUSTES PARA MOBILE */
         @media (max-width: 1024px) {
           .auth-page {
             flex-direction: column !important;
@@ -100,7 +120,7 @@ function Login() {
             margin-bottom: 25px !important;
           }
           .brand-logo {
-            height: 200px !important; /* Ajustado para 200px conforme solicitado */
+            height: 200px !important;
             width: auto !important;
             object-fit: contain !important;
           }
@@ -216,7 +236,7 @@ function Login() {
             )}
 
             <button className="primary-button" type="submit" disabled={loading}>
-              {loading ? "Entrando..." : "Entrar na plataforma"}
+              {loading ? "Processando..." : "Entrar na plataforma"}
             </button>
 
             <div className="divider">
@@ -228,7 +248,8 @@ function Login() {
                 type="button"
                 className="social-button social-google"
                 style={{ border: "1px solid rgba(255, 255, 255, 0.4)" }}
-                onClick={() => alert("Login com Google ainda não implementado.")}
+                onClick={() => handleSocialLogin('google')}
+                disabled={loading}
               >
                 <span className="social-icon">G</span>
                 <span>Google</span>
@@ -238,7 +259,8 @@ function Login() {
                 type="button"
                 className="social-button social-discord"
                 style={{ border: "1px solid rgba(255, 255, 255, 0.4)" }}
-                onClick={() => alert("Login com Discord ainda não implementado.")}
+                onClick={() => handleSocialLogin('discord')}
+                disabled={loading}
               >
                 <img src={discordLogo} alt="Discord" className="social-icon-img" />
                 <span>Discord</span>
