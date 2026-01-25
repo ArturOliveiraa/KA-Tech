@@ -12,7 +12,6 @@ export default function Player() {
     const [course, setCourse] = useState<any>(null);
     const [realCourseId, setRealCourseId] = useState<number | null>(null);
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
-    // REMOVIDO: userRole state
     const [loading, setLoading] = useState(true);
     const [lessonStartTime, setLessonStartTime] = useState(0);
     const [isTimeLoaded, setIsTimeLoaded] = useState(false); 
@@ -26,6 +25,15 @@ export default function Player() {
     const [newNote, setNewNote] = useState("");
     const [currentVideoTime, setCurrentVideoTime] = useState(0); 
     const [seekTo, setSeekTo] = useState<number | null>(null); 
+
+    // Estado para detectar mobile
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
@@ -125,8 +133,6 @@ export default function Player() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return navigate("/");
             
-            // REMOVIDO: Busca de 'role' do perfil que não era usada
-            
             const { data: courseData } = await supabase.from("courses").select("id, title").eq("slug", slug).single();
             if (!courseData) return navigate("/dashboard");
             setCourse(courseData);
@@ -165,13 +171,26 @@ export default function Player() {
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
             <Sidebar/>
             
-            <main className="dashboard-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px 40px', marginLeft: '260px' }}>
+            <main className="dashboard-content" style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                flex: 1, 
+                padding: isMobile ? '15px' : '20px 40px', 
+                marginLeft: isMobile ? '0' : '260px',
+                width: '100%',
+                overflowX: 'hidden'
+            }}>
                 <header style={{ marginBottom: '24px' }}>
-                    <h2 style={{ color: '#fff', fontSize: '1.8rem', fontWeight: 800 }}>{course?.title}</h2>
+                    <h2 style={{ color: '#fff', fontSize: isMobile ? '1.3rem' : '1.8rem', fontWeight: 800 }}>{course?.title}</h2>
                 </header>
 
-                <div className="player-layout" style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
-                    <div className="video-section" style={{ flex: 1, minWidth: 0 }}>
+                <div className="player-layout" style={{ 
+                    display: 'flex', 
+                    flexDirection: isMobile ? 'column' : 'row', 
+                    gap: isMobile ? '20px' : '30px', 
+                    alignItems: 'flex-start' 
+                }}>
+                    <div className="video-section" style={{ flex: 1, minWidth: 0, width: '100%' }}>
                         {activeLessonId && isTimeLoaded && (
                             <LessonView
                                 lessonId={activeLessonId}
@@ -181,23 +200,23 @@ export default function Player() {
                             />
                         )}
                         {!isTimeLoaded && (
-                            <div style={{ width: '100%', paddingTop: '56.25%', background: '#000', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
+                            <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
                                 Sincronizando...
                             </div>
                         )}
                     </div>
 
-                    <div className="sidebar-section" style={{ width: '340px', flexShrink: 0 }}>
+                    <div className="sidebar-section" style={{ width: isMobile ? '100%' : '340px', flexShrink: 0 }}>
                         <div style={{ display: 'flex', background: '#09090b', borderRadius: '12px', padding: '4px', marginBottom: '15px' }}>
                             <button onClick={() => setActiveTab('content')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'content' ? '#1e1b4b' : 'transparent', color: activeTab === 'content' ? '#a78bfa' : '#64748b', fontWeight: 800, fontSize: '0.75rem' }}>AULAS</button>
                             <button onClick={() => setActiveTab('notes')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'notes' ? '#1e1b4b' : 'transparent', color: activeTab === 'notes' ? '#a78bfa' : '#64748b', fontWeight: 800, fontSize: '0.75rem' }}>ANOTAÇÕES</button>
                         </div>
-                        <div style={{ background: '#09090b', borderRadius: '20px', border: '1px solid rgba(139, 92, 246, 0.1)', padding: '20px', minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ background: '#09090b', borderRadius: '20px', border: '1px solid rgba(139, 92, 246, 0.1)', padding: '20px', minHeight: isMobile ? '300px' : '500px', display: 'flex', flexDirection: 'column' }}>
                             {activeTab === 'content' ? (
                                 realCourseId && <LessonSidebar course_id={realCourseId} currentLessonId={activeLessonId || 0} onSelectLesson={setActiveLessonId} />
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
-                                    <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
+                                    <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px', maxHeight: isMobile ? '300px' : 'none' }}>
                                         {notes.map(note => (
                                             <div key={note.id} style={{ background: '#020617', padding: '12px', borderRadius: '12px', border: '1px solid rgba(139, 92, 246, 0.1)', marginBottom: '12px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -219,20 +238,21 @@ export default function Player() {
                 </div>
             </main>
 
+            {/* Modal de Insígnia Adaptado */}
             {showBadgeModal && unlockedBadge && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)' }}>
-                    <div style={{ background: '#09090b', padding: '40px', borderRadius: '24px', border: '1px solid #8b5cf6', textAlign: 'center', maxWidth: '400px', width: '90%', boxShadow: '0 0 50px rgba(139, 92, 246, 0.3)' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎊</div>
-                        <h2 style={{ color: '#fff', fontSize: '1.8rem', fontWeight: 900, marginBottom: '10px' }}>Parabéns!</h2>
-                        <p style={{ color: '#9ca3af', marginBottom: '25px' }}>Você concluiu o curso e desbloqueou uma nova insígnia:</p>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)', padding: '20px' }}>
+                    <div style={{ background: '#09090b', padding: isMobile ? '25px' : '40px', borderRadius: '24px', border: '1px solid #8b5cf6', textAlign: 'center', maxWidth: '400px', width: '100%', boxShadow: '0 0 50px rgba(139, 92, 246, 0.3)' }}>
+                        <div style={{ fontSize: isMobile ? '3rem' : '4rem', marginBottom: '15px' }}>🎊</div>
+                        <h2 style={{ color: '#fff', fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 900, marginBottom: '10px' }}>Parabéns!</h2>
+                        <p style={{ color: '#9ca3af', marginBottom: '25px', fontSize: '0.9rem' }}>Você concluiu o curso e desbloqueou uma nova insígnia:</p>
                         
                         <div style={{ marginBottom: '30px' }}>
-                            <img src={unlockedBadge.image_url} alt={unlockedBadge.name} style={{ width: '120px', height: '120px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px #8b5cf6)' }} />
+                            <img src={unlockedBadge.image_url} alt={unlockedBadge.name} style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px #8b5cf6)' }} />
                             <h3 style={{ color: '#8b5cf6', marginTop: '15px', fontWeight: 800 }}>{unlockedBadge.name}</h3>
                         </div>
 
-                        <button onClick={() => navigate('/conquistas')} style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', width: '100%' }}>Ver Minhas Conquistas</button>
-                        <button onClick={() => setShowBadgeModal(false)} style={{ background: 'transparent', color: '#64748b', border: 'none', marginTop: '15px', cursor: 'pointer', fontSize: '0.85rem' }}>Continuar aqui</button>
+                        <button onClick={() => navigate('/conquistas')} style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', width: '100%', marginBottom: '10px' }}>Ver Minhas Conquistas</button>
+                        <button onClick={() => setShowBadgeModal(false)} style={{ background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}>Continuar aqui</button>
                     </div>
                 </div>
             )}
