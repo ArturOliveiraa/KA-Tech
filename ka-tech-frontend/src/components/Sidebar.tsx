@@ -105,11 +105,11 @@ const Sidebar: React.FC = () => {
           background: rgba(0, 0, 0, 0.2);
         }
 
-        /* --- AJUSTE MOBILE (EXPOSIÇÃO TOTAL SEM ARRASTAR) --- */
+        /* --- AJUSTE MOBILE --- */
         @media (max-width: 1024px) {
           .sidebar-container {
             width: 100% !important; 
-            height: 75px !important; 
+            height: 70px !important; /* Reduzi levemente a altura */
             bottom: 0 !important; 
             top: auto !important; 
             flex-direction: row !important;
@@ -123,26 +123,26 @@ const Sidebar: React.FC = () => {
 
           .sidebar-nav { 
             flex-direction: row !important; 
-            justify-content: space-around !important; /* Distribui todos os ícones na largura total */
-            padding: 0 !important; 
+            justify-content: space-around !important; 
+            padding: 0 4px !important; 
             gap: 0 !important;
-            overflow: hidden !important; /* Remove qualquer possibilidade de scroll */
+            overflow: hidden !important; 
             width: 100% !important;
             align-items: center !important;
           }
 
           .nav-link { 
             flex-direction: column !important; 
-            font-size: 0.55rem !important; /* Texto levemente menor para caber tudo */
-            padding: 12px 0 8px 0 !important; /* Mantém a logo abaixada como solicitado */
-            gap: 4px !important;
+            font-size: 0.5rem !important; /* Fonte levemente menor para comportar 7 itens */
+            padding: 8px 2px !important; 
+            gap: 2px !important;
             color: #64748b;
-            flex: 1 !important; /* Força cada item a ocupar uma fração igual da tela */
-            min-width: 0 !important; /* Remove largura mínima anterior */
+            flex: 1 !important; 
+            min-width: 0 !important; 
             text-align: center !important;
           }
 
-          .nav-icon { margin-right: 0 !important; font-size: 1.1rem !important; }
+          .nav-icon { margin-right: 0 !important; font-size: 1rem !important; }
 
           .nav-link.active { 
             background: none !important;
@@ -150,7 +150,7 @@ const Sidebar: React.FC = () => {
             border-top: 3px solid var(--primary-color) !important;
             border-radius: 0 !important;
             color: var(--primary-color) !important;
-            padding-top: 9px !important; /* Ajuste para compensar a borda superior */
+            padding-top: 5px !important; 
           }
 
           .hide-mobile { display: none !important; }
@@ -177,7 +177,8 @@ const Sidebar: React.FC = () => {
             <span className="nav-icon">🏅</span> <span>Ranking</span>
           </Link>
 
-          <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''} hide-mobile`}>
+          {/* REMOVIDO A CLASSE hide-mobile AQUI */}
+          <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>
             <span className="nav-icon">🏆</span> <span>Conquistas</span>
           </Link>
 
