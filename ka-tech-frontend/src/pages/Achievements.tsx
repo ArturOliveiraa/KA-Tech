@@ -85,12 +85,12 @@ export default function Achievements() {
     };
 
     return (
-        <div className="dashboard-wrapper" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
+        <div className="dashboard-wrapper">
             <Sidebar/>
 
-            <main style={{ flex: 1, padding: '40px', marginLeft: '260px' }}>
+            <main className="achievements-content">
                 <header style={{ marginBottom: '40px' }}>
-                    <h1 style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 800, marginBottom: '25px' }}>Minhas Conquistas</h1>
+                    <h1 className="page-title">Minhas Conquistas</h1>
                     
                     <div className="stats-grid">
                         <div className="stat-card">
@@ -110,7 +110,7 @@ export default function Achievements() {
                     </div>
                 </header>
 
-                {loading ? <p style={{ color: '#8b5cf6' }}>Carregando troféus...</p> : (
+                {loading ? <p style={{ color: '#8b5cf6', textAlign: 'center' }}>Carregando troféus...</p> : (
                     <div className="achievements-grid">
                         {achievements.map((item, index) => {
                             const badge = Array.isArray(item.badges) ? item.badges[0] : item.badges;
@@ -118,7 +118,6 @@ export default function Achievements() {
                             const lessonCount = course?.lessons?.[0]?.count || 0;
                             const uniqueId = `pdf-template-${index}`;
 
-                            // Lógica para filtrar instrutores (quem não tem role 'student')
                             const instructorNames = course?.course_enrollments
                                 ?.filter((e: any) => e.role !== 'student') 
                                 .map((e: any) => e.profiles?.full_name)
@@ -126,6 +125,7 @@ export default function Achievements() {
 
                             return (
                                 <div key={index} className="achievement-card">
+                                    {/* Template Oculto para o PDF */}
                                     <div id={uniqueId} style={{ 
                                         display: 'none', 
                                         width: '1000px', 
@@ -135,12 +135,10 @@ export default function Achievements() {
                                         position: 'relative'
                                     }}>
                                         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '25px', background: 'linear-gradient(to bottom, #7c3aed, #a855f7)' }}></div>
-
                                         <div style={{ padding: '60px 80px', height: '100%', display: 'flex', flexDirection: 'column' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                                                 <img src={logo} alt="KA Tech" style={{ width: '180px' }} />
                                             </div>
-
                                             <div style={{ textAlign: 'left', marginTop: 'auto', marginBottom: 'auto' }}>
                                                 <p style={{ color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '3px', fontWeight: 800, fontSize: '14px', marginBottom: '10px' }}>
                                                     Certificado de Conclusão
@@ -152,13 +150,11 @@ export default function Achievements() {
                                                     Certificamos que o aluno(a) <strong style={{ color: '#0f172a' }}>{userName}</strong> concluiu com êxito este treinamento online com carga horária total de <strong>{lessonCount} aulas</strong>.
                                                 </p>
                                             </div>
-
                                             <div style={{ marginTop: 'auto' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '30px', marginBottom: '20px' }}>
                                                     <div>
                                                         <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Emitido em <strong>{new Date(item.earned_at).toLocaleDateString('pt-BR')}</strong></p>
                                                     </div>
-
                                                     <div style={{ textAlign: 'left', maxWidth: '400px' }}>
                                                         <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b', fontWeight: 700, marginBottom: '5px' }}>Instrutores:</p>
                                                         <p style={{ margin: 0, fontSize: '1rem', color: '#475569', lineHeight: '1.4' }}>{instructorNames}</p>
@@ -180,7 +176,7 @@ export default function Achievements() {
                                     </div>
                                     <div className="lesson-count-txt">📁 {lessonCount} Aulas finalizadas</div>
                                     <button className="btn-pdf" onClick={() => handleGeneratePDF(badge?.name, uniqueId)}>
-                                        📄 Baixar Certificado (PDF)
+                                        📄 Baixar Certificado
                                     </button>
                                 </div>
                             );
@@ -190,7 +186,18 @@ export default function Achievements() {
             </main>
 
             <style>{`
-                .stats-grid { display: flex; gap: 20px; }
+                .dashboard-wrapper { display: flex; min-height: 100vh; backgroundColor: #020617; fontFamily: 'Sora', sans-serif; }
+                
+                .achievements-content { 
+                    flex: 1; 
+                    padding: 40px; 
+                    margin-left: 260px; 
+                    transition: all 0.3s ease;
+                }
+
+                .page-title { color: #fff; font-size: 2.2rem; fontWeight: 800; marginBottom: 25px; }
+
+                .stats-grid { display: flex; gap: 20px; flex-wrap: wrap; }
                 .stat-card { 
                     background: #09090b; 
                     padding: 25px 30px; 
@@ -199,13 +206,21 @@ export default function Achievements() {
                     align-items: center; 
                     gap: 20px; 
                     flex: 1; 
+                    min-width: 250px;
                     border: 1px solid rgba(139, 92, 246, 0.15);
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
                 }
                 .stat-icon { font-size: 2.5rem; }
                 .stat-value { color: #fff; font-size: 2rem; font-weight: 900; margin: 0; line-height: 1; }
                 .stat-label { color: #94a3b8; font-size: 0.75rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
-                .achievements-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 25px; }
+                
+                .achievements-grid { 
+                    display: grid; 
+                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+                    gap: 25px; 
+                    margin-top: 20px;
+                }
+
                 .achievement-card { 
                     background: #09090b; 
                     padding: 30px 20px; 
@@ -214,21 +229,43 @@ export default function Achievements() {
                     border: 1px solid rgba(139, 92, 246, 0.1);
                     transition: transform 0.2s ease;
                 }
+
                 .badge-wrapper { 
-                    width: 120px; height: 120px; margin: 0 auto 20px; 
+                    width: 100px; height: 100px; margin: 0 auto 20px; 
                     background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%); 
                     border-radius: 50%; display: flex; align-items: center; justify-content: center;
                     border: 1px solid rgba(139, 92, 246, 0.1);
                 }
-                .badge-wrapper img { width: 80px; height: 80px; object-fit: contain; }
-                .course-title { color: #fff; font-size: 1.2rem; font-weight: 800; margin-bottom: 12px; }
+                .badge-wrapper img { width: 70px; height: 70px; object-fit: contain; }
+                .course-title { color: #fff; font-size: 1.1rem; font-weight: 800; margin-bottom: 12px; }
                 .tag-container { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 12px; }
-                .tag-pill { background: rgba(139, 92, 246, 0.1); color: #a78bfa; padding: 4px 10px; border-radius: 10px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+                .tag-pill { background: rgba(139, 92, 246, 0.1); color: #a78bfa; padding: 4px 10px; border-radius: 10px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; }
                 .lesson-count-txt { color: #94a3b8; font-size: 0.8rem; margin-bottom: 20px; font-weight: 600; }
                 .btn-pdf { 
                     width: 100%; padding: 14px; border-radius: 12px; border: none; 
                     background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
-                    color: #fff; font-weight: 800; cursor: pointer; font-size: 0.85rem;
+                    color: #fff; font-weight: 800; cursor: pointer; font-size: 0.8rem;
+                }
+
+                /* RESPONSIVIDADE MOBILE */
+                @media (max-width: 1024px) {
+                    .achievements-content { 
+                        margin-left: 0; 
+                        padding: 20px;
+                        padding-bottom: 100px; /* Espaço para o bottom bar mobile, se houver */
+                    }
+                    .page-title { font-size: 1.8rem; text-align: center; }
+                    .stats-grid { flex-direction: column; }
+                    .stat-card { padding: 20px; }
+                    .stat-icon { font-size: 2rem; }
+                    .stat-value { font-size: 1.6rem; }
+                }
+
+                @media (max-width: 480px) {
+                    .achievements-grid {
+                        grid-template-columns: 1fr;
+                    }
+                    .achievement-card { padding: 25px 15px; }
                 }
             `}</style>
         </div>
