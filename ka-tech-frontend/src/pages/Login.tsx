@@ -26,7 +26,6 @@ function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // Garante que o usuário volte para a URL correta após o login
           redirectTo: `${window.location.origin}/dashboard`,
         },
       });
@@ -178,6 +177,7 @@ function Login() {
           </header>
 
           <form className="login-form" onSubmit={handleSubmit}>
+            {/* ... Campos de e-mail e senha (sem alterações) ... */}
             <div className="field">
               <label htmlFor="email">E-mail ou celular</label>
               <div className="input-wrapper">
@@ -247,7 +247,6 @@ function Login() {
               <button
                 type="button"
                 className="social-button social-google"
-                style={{ border: "1px solid rgba(255, 255, 255, 0.4)" }}
                 onClick={() => handleSocialLogin('google')}
                 disabled={loading}
               >
@@ -258,7 +257,6 @@ function Login() {
               <button
                 type="button"
                 className="social-button social-discord"
-                style={{ border: "1px solid rgba(255, 255, 255, 0.4)" }}
                 onClick={() => handleSocialLogin('discord')}
                 disabled={loading}
               >
@@ -278,16 +276,24 @@ function Login() {
               </button>
             </p>
 
-            {/* Link para Política de Privacidade exigido pelo Google */}
+            {/* AJUSTE PARA O GOOGLE: Link real com <a> em vez de <button> */}
             <p className="signup-hint" style={{ marginTop: '15px' }}>
-              <button
-                type="button"
+              <a
+                href="/privacidade"
                 className="link-button"
-                style={{ fontSize: '0.8rem', opacity: 0.7 }}
-                onClick={() => navigate("/privacidade")}
+                style={{ 
+                  fontSize: '0.8rem', 
+                  opacity: 0.7, 
+                  textDecoration: 'none',
+                  cursor: 'pointer' 
+                }}
+                onClick={(e) => {
+                  e.preventDefault(); // Evita o reload da página
+                  navigate("/privacidade"); // Mantém a navegação do SPA
+                }}
               >
                 Política de Privacidade
-              </button>
+              </a>
             </p>
           </form>
         </div>
