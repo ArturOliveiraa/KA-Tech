@@ -105,47 +105,55 @@ const Sidebar: React.FC = () => {
           background: rgba(0, 0, 0, 0.2);
         }
 
+        /* --- AJUSTE MOBILE (EXPOSIÇÃO TOTAL SEM ARRASTAR) --- */
         @media (max-width: 1024px) {
           .sidebar-container {
-            width: 100%; 
-            height: 75px; 
-            bottom: 0; 
-            top: auto; 
-            flex-direction: row;
-            border-right: none;
-            border-top: 1px solid rgba(139, 92, 246, 0.15);
-            background: rgba(2, 6, 23, 0.95);
+            width: 100% !important; 
+            height: 75px !important; 
+            bottom: 0 !important; 
+            top: auto !important; 
+            flex-direction: row !important;
+            border-right: none !important;
+            border-top: 1px solid rgba(139, 92, 246, 0.15) !important;
+            background: rgba(2, 6, 23, 0.98) !important;
             backdrop-filter: blur(10px);
           }
-          .sidebar-logo, .sidebar-footer { display: none; }
+
+          .sidebar-logo, .sidebar-footer { display: none !important; }
+
           .sidebar-nav { 
-            flex-direction: row; 
-            justify-content: space-around; 
-            padding: 0 10px; 
-            gap: 0;
-            overflow: hidden; 
-            width: 100%;
-            align-items: center;
+            flex-direction: row !important; 
+            justify-content: space-around !important; /* Distribui todos os ícones na largura total */
+            padding: 0 !important; 
+            gap: 0 !important;
+            overflow: hidden !important; /* Remove qualquer possibilidade de scroll */
+            width: 100% !important;
+            align-items: center !important;
           }
+
           .nav-link { 
-            flex-direction: column; 
-            font-size: 0.65rem; 
-            padding: 5px; 
-            gap: 4px;
+            flex-direction: column !important; 
+            font-size: 0.55rem !important; /* Texto levemente menor para caber tudo */
+            padding: 12px 0 8px 0 !important; /* Mantém a logo abaixada como solicitado */
+            gap: 4px !important;
             color: #64748b;
-            min-width: 60px;
-            text-align: center;
+            flex: 1 !important; /* Força cada item a ocupar uma fração igual da tela */
+            min-width: 0 !important; /* Remove largura mínima anterior */
+            text-align: center !important;
           }
-          .nav-icon { margin-right: 0; font-size: 1.3rem; }
+
+          .nav-icon { margin-right: 0 !important; font-size: 1.1rem !important; }
+
           .nav-link.active { 
-            background: none;
-            border-left: none;
-            border-top: 3px solid var(--primary-color);
-            border-radius: 0;
-            color: var(--primary-color);
-            padding-top: 2px;
+            background: none !important;
+            border-left: none !important;
+            border-top: 3px solid var(--primary-color) !important;
+            border-radius: 0 !important;
+            color: var(--primary-color) !important;
+            padding-top: 9px !important; /* Ajuste para compensar a borda superior */
           }
-          .hide-mobile { display: none; }
+
+          .hide-mobile { display: none !important; }
         }
       `}</style>
 
@@ -173,7 +181,6 @@ const Sidebar: React.FC = () => {
             <span className="nav-icon">🏆</span> <span>Conquistas</span>
           </Link>
 
-          {/* Área de Gestão Condicional */}
           {(userRole === 'admin' || userRole === 'teacher') && (
             <>
               <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}>
