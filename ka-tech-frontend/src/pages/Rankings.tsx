@@ -3,9 +3,6 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import Avatar from "../components/Avatar";
 
-// Import da logo para o cabeçalho mobile
-import logo from "../assets/ka-tech-logo.png";
-
 type RankingCategory = "badges" | "maratonistas" | "tempo" | "on_fire";
 
 interface RankingUser {
@@ -88,9 +85,7 @@ export default function Rankings() {
             <Sidebar/>
 
             <main className="ranking-main-content">
-                <div className="brand-logo-mobile">
-                    <img src={logo} alt="KA Tech Logo" />
-                </div>
+                {/* Logo removida daqui para não aparecer no mobile */}
 
                 <header className="ranking-header">
                     <h1>Hall da Fama</h1>
@@ -202,9 +197,6 @@ export default function Rankings() {
                     max-width: 100%;
                 }
 
-                .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 20px; }
-                .brand-logo-mobile img { height: 140px; filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.4)); object-fit: contain; }
-
                 .ranking-header h1 { color: #fff; font-size: 2.2rem; font-weight: 900; margin: 0; letter-spacing: -1px; }
                 .ranking-header p { color: #94a3b8; margin-top: 5px; font-size: 1rem; }
 
@@ -268,7 +260,6 @@ export default function Rankings() {
 
                 @media (max-width: 1024px) {
                     .ranking-main-content { margin-left: 0; padding: 20px 15px 160px 15px; width: 100%; }
-                    .brand-logo-mobile { display: flex; margin-top: 10px; }
                     .ranking-header { text-align: center; }
                     .ranking-tabs { justify-content: center; }
                     .podium-container { gap: 10px; margin-bottom: 30px; }
@@ -285,7 +276,6 @@ export default function Rankings() {
                     .podium-rank { position: static; width: 25px; height: 25px; flex-shrink: 0; font-size: 0.7rem; }
                     .podium-name { margin: 0; text-align: left; flex: 1; font-size: 0.9rem; }
                     .podium-score { margin: 0; text-align: right; font-size: 0.85rem; }
-                    /* FIX COROA MOBILE */
                     .crown { position: absolute; top: -10px; right: 10px; font-size: 1.2rem; transform: rotate(15deg); }
                     .avatar-wrapper-podium { width: 45px; height: 45px; }
                     .first-place { width: 45px; height: 45px; }

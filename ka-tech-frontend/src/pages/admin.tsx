@@ -4,9 +4,6 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext"; 
 
-// Import da logo para o cabeçalho mobile
-import logo from "../assets/ka-tech-logo.png";
-
 interface Tag { id: string; name: string; }
 interface Category { id: number; name: string; slug: string; }
 
@@ -85,7 +82,7 @@ function Admin() {
             --card-glass: rgba(15, 23, 42, 0.7); 
         }
         
-        * { box-sizing: border-box; } /* Crucial para evitar que o padding extrapole a largura */
+        * { box-sizing: border-box; }
 
         .dashboard-wrapper { 
             display: flex; 
@@ -98,7 +95,7 @@ function Admin() {
 
         .dashboard-content { 
           flex: 1; 
-          margin-left: 260px; /* Sidebar fixa no desktop */
+          margin-left: 260px; 
           padding: 40px; 
           transition: 0.3s;
           width: 100%;
@@ -106,16 +103,14 @@ function Admin() {
           flex-direction: column;
         }
 
-        .brand-logo-mobile {
-          display: none; 
-          width: 100%; 
-          justify-content: center; 
-          margin-bottom: 30px;
+        .dashboard-header {
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 40px;
         }
-        .brand-logo-mobile img { height: 180px; filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.4)); object-fit: contain; }
 
         .dashboard-header h1 { color: #fff; font-size: 2.5rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: -1px; }
-        .dashboard-header p { color: #9ca3af; margin: 0 0 40px 0; }
+        .dashboard-header p { color: #9ca3af; margin: 0; }
 
         .nav-card { 
           background: linear-gradient(135deg, rgba(30, 30, 46, 0.8) 0%, rgba(17, 17, 22, 0.8) 100%); 
@@ -134,7 +129,7 @@ function Admin() {
           background: var(--card-glass); 
           border-radius: 24px; 
           padding: 30px; 
-          flex: 1 1 400px; /* Cards crescem e ocupam no mínimo 400px antes de quebrar linha */
+          flex: 1 1 400px; 
           max-width: 100%;
           border: 1px solid rgba(255, 255, 255, 0.05); 
           box-shadow: 0 15px 35px rgba(0,0,0,0.3);
@@ -171,12 +166,22 @@ function Admin() {
         @media (max-width: 1024px) {
           .dashboard-content { 
               margin-left: 0; 
-              padding: 20px 20px 150px 20px; 
+              padding: 40px 20px 150px 20px; 
           }
-          .brand-logo-mobile { display: flex; }
-          .dashboard-header { text-align: center; }
-          .dashboard-header h1 { font-size: 2.2rem; }
-          .admin-card-local { flex: 1 1 100%; } /* Cards ocupam largura total no mobile */
+          /* Correção do bug do texto ao lado do título */
+          .dashboard-header { 
+            text-align: center;
+            align-items: center;
+            margin-top: 20px;
+          }
+          .dashboard-header h1 { 
+            font-size: 2.2rem; 
+            width: 100%;
+          }
+          .dashboard-header p {
+            width: 100%;
+          }
+          .admin-card-local { flex: 1 1 100%; }
         }
       `}</style>
 
@@ -187,10 +192,6 @@ function Admin() {
           <div className="loading-container">Sincronizando portal administrativo...</div>
         ) : (
           <>
-            <div className="brand-logo-mobile">
-              <img src={logo} alt="KA Tech Logo" />
-            </div>
-
             <header className="dashboard-header">
               <h1>Gestão de Estrutura</h1>
               <p>Gerencie as Trilhas e Tags principais da plataforma <strong style={{ color: '#8b5cf6' }}>KA Tech</strong>.</p>
@@ -211,7 +212,7 @@ function Admin() {
             <div className="admin-content-container">
               <div className="admin-card-local">
                 <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                   📁 Trilhas (Categorias)
+                    📁 Trilhas (Categorias)
                 </h2>
                 <form onSubmit={handleCreateCategory}>
                   <div className="local-input-wrapper">
@@ -234,7 +235,7 @@ function Admin() {
 
               <div className="admin-card-local">
                 <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                   🏷️ Tags (Habilidades)
+                    🏷️ Tags (Habilidades)
                 </h2>
                 <form onSubmit={handleCreateTag}>
                   <div className="local-input-wrapper">
