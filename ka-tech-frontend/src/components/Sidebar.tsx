@@ -61,7 +61,18 @@ const Sidebar: React.FC = () => {
           flex-direction: column; 
           padding: 20px 16px; 
           gap: 8px;
+          /* SOLUÇÃO PARA A BARRA LATERAL NO DESKTOP */
           overflow-y: auto;
+          overflow-x: hidden; 
+        }
+
+        /* Custom Scrollbar para Desktop */
+        .sidebar-nav::-webkit-scrollbar {
+          width: 4px;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+          background: rgba(139, 92, 246, 0.1);
+          border-radius: 10px;
         }
 
         .nav-link { 
@@ -117,7 +128,7 @@ const Sidebar: React.FC = () => {
             justify-content: space-around; 
             padding: 0 10px; 
             gap: 0;
-            overflow-y: hidden;
+            overflow: hidden; /* Impede scroll no mobile bar */
             width: 100%;
             align-items: center;
           }
@@ -143,7 +154,6 @@ const Sidebar: React.FC = () => {
             padding-top: 2px;
           }
 
-          /* Ocultar itens menos importantes no mobile para não amontoar */
           .hide-mobile { display: none; }
         }
       `}</style>
