@@ -233,7 +233,7 @@ export default function Reports() {
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-            <Sidebar userRole={userRole} />
+            <Sidebar/>
 
             {showToast && <div className="toast-success"><span>{toastMsg}</span></div>}
 

@@ -149,7 +149,7 @@ export default function ContentManagement() {
 
   return (
     <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif", overflowX: 'hidden' }}>
-      <Sidebar userRole={userRole} />
+      <Sidebar/>
       
       <style>{`
         .form-label { color: #f3f4f6; display: block; margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }

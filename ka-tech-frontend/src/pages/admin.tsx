@@ -122,7 +122,7 @@ function Admin() {
         .nav-card { background: linear-gradient(135deg, #1e1e2e 0%, #111116 100%); padding: 40px; border-radius: 20px; text-align: center; border: 1px solid #8b5cf6; width: 100%; margin-bottom: 30px; }
       `}</style>
 
-      <Sidebar userRole={userRole} />
+      <Sidebar/>
 
       <main className="dashboard-content">
         <header className="dashboard-header" style={{marginBottom: '40px'}}>

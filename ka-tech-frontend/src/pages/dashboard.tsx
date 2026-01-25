@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import { useUser } from "../components/UserContext"; 
 
 interface Course {
   id: number;
@@ -12,12 +13,10 @@ interface Course {
 }
 
 function Dashboard() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<number[]>([]); 
-  const [completedCourseIds, setCompletedCourseIds] = useState<number[]>([]); // Novo estado para cursos concluídos
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("");
-  const [userRole, setUserRole] = useState<string | null>(null);
+  
+  const { userName } = useUser(); 
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,35 +30,30 @@ function Dashboard() {
           return;
         }
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, role")
-          .eq("id", user.id)
-          .single();
-
-        if (profile) {
-          setUserName(profile.full_name || "Aluno");
-          setUserRole(profile.role);
-        }
-
-        // Busca cursos, matrículas e progresso simultaneamente
-        const [coursesRes, enrollmentsRes, progressRes] = await Promise.all([
-          supabase.from("courses").select("*"),
-          supabase.from("course_enrollments").select("courseId").eq("userId", user.id),
-          supabase.from("user_progress")
+        // Lógica: Busca apenas cursos onde o usuário está matriculado e não concluiu
+        const [enrollmentsRes, progressRes] = await Promise.all([
+          supabase
+            .from("course_enrollments")
+            .select(`
+              courseId,
+              courses (id, title, slug, description, thumbnailUrl)
+            `)
+            .eq("userId", user.id),
+          supabase
+            .from("user_progress")
             .select("course_id")
             .eq("user_id", user.id)
-            .eq("is_completed", true) // Filtra apenas o que já foi finalizado
+            .eq("is_completed", true)
         ]);
 
-        setCourses(coursesRes.data || []);
+        const completedIds = progressRes.data?.map(p => p.course_id) || [];
         
         if (enrollmentsRes.data) {
-          setEnrolledCourseIds(enrollmentsRes.data.map(e => e.courseId));
-        }
-
-        if (progressRes.data) {
-          setCompletedCourseIds(progressRes.data.map(p => p.course_id));
+          const activeCourses = enrollmentsRes.data
+            .map((e: any) => e.courses)
+            .filter((c: any) => c && !completedIds.includes(c.id));
+          
+          setEnrolledCourses(activeCourses);
         }
 
       } catch (err) {
@@ -71,111 +65,105 @@ function Dashboard() {
     loadDashboardData();
   }, [navigate]);
 
-  // Lógica para Inscrição ou Acesso
-  const handleCourseAction = async (course: Course) => {
-    const isEnrolled = enrolledCourseIds.includes(course.id);
+  return (
+    <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617' }}>
+      
+      <Sidebar />
 
-    if (!isEnrolled) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Insere a matrícula oficial na tabela course_enrollments
-        const { error } = await supabase
-          .from("course_enrollments")
-          .insert([
-            { 
-              userId: user.id, 
-              courseId: course.id, 
-              role: 'STUDENT' 
-            }
-          ]);
-
-        if (error) {
-          console.error("Erro na inscrição:", error.message);
-          return;
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
-        setEnrolledCourseIds([...enrolledCourseIds, course.id]);
-      }
-    }
+        .course-card-premium {
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 20px;
+          overflow: hidden;
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          cursor: pointer;
+          animation: fadeIn 0.5s ease forwards;
+        }
 
-    navigate(`/curso/${course.slug || course.id}`);
-  };
+        .course-card-premium:hover {
+          transform: translateY(-10px) scale(1.02);
+          border-color: #8b5cf6;
+          box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
+          background: rgba(30, 27, 75, 0.4);
+        }
 
-  return (
-    <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-      
-      <Sidebar userRole={userRole} />
+        .card-thumb { height: 200px; overflow: hidden; position: relative; }
+        .card-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+        .course-card-premium:hover .card-thumb img { transform: scale(1.1); }
 
-      <main className="dashboard-content" style={{ flex: 1, padding: '2rem' }}>
-        <header className="dashboard-header" style={{ marginBottom: '30px' }}>
-          <div className="header-info">
-            <h1 style={{ color: '#fff', fontSize: '2rem', marginBottom: '8px', fontWeight: 800 }}>Área do Aluno</h1>
-            <p style={{ color: '#9ca3af' }}>Bem-vindo de volta, <strong style={{ color: '#8b5cf6' }}>{userName}</strong>!</p>
-          </div>
+        .btn-access {
+          background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+          color: white; border: none; padding: 12px; border-radius: 12px;
+          font-weight: 800; transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+          cursor: pointer;
+        }
+
+        .empty-dashboard {
+          background: rgba(30, 27, 75, 0.1);
+          border: 2px dashed rgba(139, 92, 246, 0.2);
+          border-radius: 24px; padding: 60px; text-align: center; width: 100%;
+        }
+      `}</style>
+
+      <main className="dashboard-content" style={{ flex: 1, padding: '60px 40px', marginLeft: '260px' }}>
+        <header style={{ marginBottom: '50px' }}>
+            <h1 style={{ color: '#fff', fontSize: '2.5rem', marginBottom: '12px', fontWeight: 900, letterSpacing: '-1px' }}>
+              Minha <span style={{ color: '#8b5cf6' }}>Jornada</span>
+            </h1>
+            <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>
+              Bem-vindo de volta, <strong style={{ color: '#fff' }}>{userName}</strong>. Continue de onde parou.
+            </p>
         </header>
 
         {loading ? (
-          <div className="loading-box" style={{ color: '#8b5cf6', fontWeight: 600 }}>Sincronizando seus cursos...</div>
+          <div style={{ color: '#8b5cf6', fontWeight: 600, textAlign: 'center', marginTop: '100px' }}>
+            Sincronizando treinamentos...
+          </div>
         ) : (
-          <div className="admin-content-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
-            {courses.length > 0 ? (
-              courses
-                .filter(course => !completedCourseIds.includes(course.id)) // REMOVE OS CURSOS CONCLUÍDOS DO DASHBOARD
-                .map((course) => {
-                const isEnrolled = enrolledCourseIds.includes(course.id);
-
-                return (
-                  <div key={course.id} className="course-card-v2" style={{ 
-                    background: '#09090b', 
-                    borderRadius: '16px', 
-                    border: isEnrolled ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)', 
-                    overflow: 'hidden',
-                    flex: '1 1 300px',
-                    maxWidth: '400px',
-                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)'
-                  }}>
-                    <div className="card-thumb" style={{ height: '180px', background: '#111116', overflow: 'hidden' }}>
-                      {course.thumbnailUrl ? (
-                        <img src={course.thumbnailUrl} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#1f2937', fontWeight: 800, fontSize: '1.5rem' }}>KA Tech</div>
-                      )}
-                    </div>
-                    
-                    <div className="card-body" style={{ padding: '20px' }}>
-                      <h3 style={{ color: '#fff', marginBottom: '10px', fontSize: '1.2rem', fontWeight: 600 }}>{course.title}</h3>
-                      <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '20px', height: '40px', overflow: 'hidden', lineHeight: '1.5' }}>
-                        {course.description}
-                      </p>
-                      
-                      <button 
-                        className="local-primary-button"
-                        onClick={() => handleCourseAction(course)}
-                        style={{
-                          width: '100%', 
-                          padding: '12px', 
-                          borderRadius: '12px', 
-                          background: isEnrolled 
-                            ? 'rgba(139, 92, 246, 0.1)' 
-                            : 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', 
-                          color: isEnrolled ? '#8b5cf6' : '#fff', 
-                          border: isEnrolled ? '1px solid #8b5cf6' : 'none',
-                          fontWeight: 700, 
-                          cursor: 'pointer',
-                          fontFamily: "'Sora', sans-serif",
-                          boxShadow: isEnrolled ? 'none' : '0 4px 15px rgba(124, 58, 237, 0.3)',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        {isEnrolled ? "Ver Progresso" : "Confirmar Inscrição"}
-                      </button>
-                    </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '30px' }}>
+            {enrolledCourses.length > 0 ? (
+              enrolledCourses.map((course) => (
+                <div 
+                  key={course.id} 
+                  className="course-card-premium"
+                  onClick={() => navigate(`/curso/${course.slug}`)}
+                >
+                  <div className="card-thumb">
+                    {course.thumbnailUrl ? (
+                      <img src={course.thumbnailUrl} alt={course.title} />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#1e1b4b', color: '#8b5cf6', fontWeight: 900, fontSize: '2rem' }}>KA</div>
+                    )}
                   </div>
-                );
-              })
+                  
+                  <div style={{ padding: '24px' }}>
+                    <h3 style={{ color: '#fff', marginBottom: '12px', fontSize: '1.3rem', fontWeight: 700 }}>{course.title}</h3>
+                    <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '25px', height: '45px', overflow: 'hidden', lineHeight: '1.5' }}>
+                      {course.description}
+                    </p>
+                    <button className="btn-access" style={{ width: '100%' }}>CONTINUAR</button>
+                  </div>
+                </div>
+              ))
             ) : (
-              <div className="empty-state" style={{ textAlign: 'center', width: '100%', padding: '40px', color: '#9ca3af' }}>
-                <p>Nenhum curso disponível no momento.</p>
+              <div className="empty-dashboard">
+                <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🚀</div>
+                <h3 style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '10px' }}>Seu Dashboard está vazio</h3>
+                <p style={{ color: '#94a3b8', marginBottom: '30px' }}>Inscreva-se em novos cursos na aba Trilhas.</p>
+                <button 
+                  onClick={() => navigate('/cursos')}
+                  style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid #8b5cf6', padding: '12px 30px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Explorar Trilhas
+                </button>
               </div>
             )}
           </div>

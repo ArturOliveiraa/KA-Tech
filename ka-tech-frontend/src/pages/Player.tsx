@@ -164,7 +164,7 @@ export default function Player() {
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-            <Sidebar userRole={userRole} />
+            <Sidebar/>
             
             <main className="dashboard-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px 40px', marginLeft: '260px' }}>
                 <header style={{ marginBottom: '24px' }}>

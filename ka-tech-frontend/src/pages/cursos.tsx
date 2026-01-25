@@ -49,7 +49,7 @@ function Cursos() {
 
   return (
     <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-      <Sidebar userRole={userRole} />
+      <Sidebar/>
 
       <main style={{ flex: 1, padding: '40px', marginLeft: '260px', boxSizing: 'border-box' }}>
         

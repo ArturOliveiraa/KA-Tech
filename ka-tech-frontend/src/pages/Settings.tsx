@@ -167,7 +167,7 @@ function Settings() {
         }
       `}</style>
 
-      <Sidebar userRole={userRole} />
+      <Sidebar/>
 
       <main className="dashboard-content">
         <header className="dashboard-header" style={{ marginBottom: '40px' }}>

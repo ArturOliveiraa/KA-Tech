@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import { useUser } from "../components/UserContext"; 
 
 interface Course {
   id: number;
@@ -20,83 +21,87 @@ interface Category {
 export default function CategoryDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { loading: userLoading } = useUser();
 
   const [category, setCategory] = useState<Category | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<number[]>([]);
+  const [completedCourseIds, setCompletedCourseIds] = useState<number[]>([]); // Estado para conclusões
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return navigate("/");
+
+      const { data: catData, error: catError } = await supabase
+        .from("categories")
+        .select("id, name, description")
+        .eq("slug", slug)
+        .single();
+
+      if (catError || !catData) return navigate("/cursos");
+      setCategory(catData);
+
+      // BUSCA: Cursos, Matrículas e Progressos Concluídos
+      const [coursesRes, enrollmentsRes, progressRes] = await Promise.all([
+        supabase.from("courses").select("*").eq("category_id", catData.id).order("createdAt", { ascending: false }),
+        supabase.from("course_enrollments").select("courseId").eq("userId", user.id),
+        supabase.from("user_progress").select("course_id").eq("user_id", user.id).eq("is_completed", true)
+      ]);
+
+      setCourses(coursesRes.data || []);
+      setEnrolledCourseIds(enrollmentsRes.data?.map(e => e.courseId) || []);
+      setCompletedCourseIds(progressRes.data?.map(p => p.course_id) || []);
+
+    } catch (err) {
+      console.error("Erro ao carregar dados:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [slug, navigate]);
 
   useEffect(() => {
-    async function fetchCategoryAndCourses() {
-      try {
-        setLoading(true);
-        
-        // 1. Buscar Perfil do Usuário para a Sidebar
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-          setUserRole(profile?.role || null);
+    fetchData();
+  }, [fetchData]);
+
+  const handleCourseAction = async (course: Course) => {
+    const isEnrolled = enrolledCourseIds.includes(course.id);
+
+    if (!isEnrolled) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from("course_enrollments")
+          .insert([{ userId: user.id, courseId: course.id, role: 'STUDENT' }]);
+
+        if (error) {
+          console.error("Erro ao se inscrever:", error.message);
+          return;
         }
-
-        // 2. Buscar dados da Categoria pelo Slug
-        const { data: catData, error: catError } = await supabase
-          .from("categories")
-          .select("id, name, description")
-          .eq("slug", slug)
-          .single();
-
-        if (catError || !catData) {
-          console.error("Categoria não encontrada");
-          return navigate("/cursos");
-        }
-
-        setCategory(catData);
-
-        // 3. Buscar Cursos desta Categoria
-        const { data: coursesData } = await supabase
-          .from("courses")
-          .select("*")
-          .eq("category_id", catData.id)
-          .order("createdAt", { ascending: false });
-
-        setCourses(coursesData || []);
-      } catch (err) {
-        console.error("Erro geral:", err);
-      } finally {
-        setLoading(false);
+        setEnrolledCourseIds(prev => [...prev, course.id]);
       }
     }
-
-    fetchCategoryAndCourses();
-  }, [slug, navigate]);
+    navigate(`/curso/${course.slug}`);
+  };
 
   return (
     <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-      <Sidebar userRole={userRole} />
+      <Sidebar />
 
       <main style={{ flex: 1, padding: '40px', marginLeft: '260px', boxSizing: 'border-box' }}>
         
-        {/* Cabeçalho de Navegação */}
         <button 
           onClick={() => navigate("/cursos")}
-          style={{ 
-            background: 'transparent', 
-            color: '#8b5cf6', 
-            border: 'none', 
-            cursor: 'pointer', 
-            fontWeight: 700, 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            marginBottom: '30px'
-          }}
+          style={{ background: 'transparent', color: '#8b5cf6', border: 'none', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '30px' }}
         >
           ← Voltar para Trilhas
         </button>
 
-        {loading ? (
+        {(loading || userLoading) ? (
           <div style={{ color: '#8b5cf6', textAlign: 'center', padding: '100px', fontWeight: 700 }}>
-            Carregando treinamentos...
+            Sincronizando trilha...
           </div>
         ) : (
           <>
@@ -105,64 +110,87 @@ export default function CategoryDetail() {
                 {category?.name}
               </h1>
               <p style={{ color: '#9ca3af', fontSize: '1.1rem', maxWidth: '700px' }}>
-                {category?.description || "Aproveite os cursos disponíveis nesta trilha."}
+                {category?.description}
               </p>
             </header>
 
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-              gap: '25px' 
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
               {courses.length > 0 ? (
-                courses.map((course) => (
-                  <div 
-                    key={course.id}
-                    onClick={() => navigate(`/curso/${course.slug}`)}
-                    style={{ 
-                      background: 'rgba(9, 9, 11, 0.6)', 
-                      borderRadius: '24px', 
-                      border: '1px solid rgba(139, 92, 246, 0.1)', 
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      transition: '0.3s',
-                      backdropFilter: 'blur(10px)'
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-5px)')}
-                    onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                  >
-                    {/* Thumbnail */}
-                    <div style={{ width: '100%', height: '180px', background: '#1e293b', position: 'relative' }}>
-                      <img 
-                        src={course.thumbnailUrl || "https://via.placeholder.com/400x225"} 
-                        alt={course.title} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    </div>
+                courses.map((course) => {
+                  const isEnrolled = enrolledCourseIds.includes(course.id);
+                  const isCompleted = completedCourseIds.includes(course.id);
 
-                    {/* Informações */}
-                    <div style={{ padding: '25px' }}>
-                      <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800, marginBottom: '10px' }}>
-                        {course.title}
-                      </h3>
-                      <p style={{ 
-                        color: '#94a3b8', 
-                        fontSize: '0.85rem', 
-                        lineHeight: '1.5',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}>
-                        {course.description}
-                      </p>
-                      
-                      <div style={{ marginTop: '20px', color: '#8b5cf6', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        Começar curso <span>→</span>
+                  return (
+                    <div 
+                      key={course.id}
+                      style={{ 
+                        background: 'rgba(9, 9, 11, 0.6)', 
+                        borderRadius: '24px', 
+                        border: isCompleted 
+                          ? '1px solid #22c55e' // Borda verde se concluído
+                          : isEnrolled ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)', 
+                        overflow: 'hidden',
+                        transition: '0.3s',
+                        backdropFilter: 'blur(10px)',
+                        display: 'flex',
+                        flexDirection: 'column'
+                      }}
+                    >
+                      <div style={{ width: '100%', height: '180px', background: '#1e293b', position: 'relative' }}>
+                        <img 
+                          src={course.thumbnailUrl || "https://via.placeholder.com/400x225"} 
+                          alt={course.title} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isCompleted ? 0.6 : 1 }}
+                        />
+                        {/* BADGE DINÂMICO */}
+                        {(isEnrolled || isCompleted) && (
+                          <div style={{ 
+                            position: 'absolute', top: '15px', right: '15px', 
+                            background: isCompleted ? '#22c55e' : '#8b5cf6', 
+                            color: '#fff', padding: '4px 12px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800 
+                          }}>
+                            {isCompleted ? "CONCLUÍDO ✅" : "INSCRITO"}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ padding: '25px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800, marginBottom: '10px' }}>
+                          {course.title}
+                        </h3>
+                        <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', marginBottom: '20px', flex: 1 }}>
+                          {course.description}
+                        </p>
+                        
+                        <button 
+                          onClick={() => handleCourseAction(course)}
+                          style={{
+                            width: '100%',
+                            padding: '14px',
+                            borderRadius: '14px',
+                            cursor: 'pointer',
+                            fontWeight: 800,
+                            fontFamily: 'Sora',
+                            transition: '0.3s',
+                            border: 'none',
+                            background: isCompleted
+                              ? 'rgba(34, 197, 94, 0.1)' // Verde claro para concluído
+                              : isEnrolled 
+                                ? 'rgba(139, 92, 246, 0.1)' 
+                                : 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                            color: isCompleted ? '#22c55e' : (isEnrolled ? '#a78bfa' : '#fff'),
+                            boxShadow: (isEnrolled || isCompleted) ? 'none' : '0 10px 20px rgba(124, 58, 237, 0.2)',
+                            borderStyle: 'solid',
+                            borderWidth: (isEnrolled || isCompleted) ? '1px' : '0',
+                            borderColor: isCompleted ? '#22c55e' : (isEnrolled ? '#8b5cf6' : 'transparent')
+                          }}
+                        >
+                          {isCompleted ? "REVISAR CONTEÚDO" : (isEnrolled ? "ACESSAR TREINAMENTO" : "CONFIRMAR INSCRIÇÃO")}
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px', color: '#9ca3af' }}>
                    Nenhum curso disponível para esta categoria no momento.

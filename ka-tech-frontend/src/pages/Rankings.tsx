@@ -98,7 +98,7 @@ export default function Rankings() {
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-            <Sidebar userRole={userRole} />
+            <Sidebar/>
 
             <main style={{ flex: 1, padding: '40px', marginLeft: '260px' }}>
                 <header style={{ marginBottom: '40px' }}>

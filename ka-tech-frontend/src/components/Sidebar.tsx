@@ -1,46 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
-
-// Import da sua logo
 import logo from "../assets/ka-tech-logo.png";
+import { useUser } from "./UserContext"; 
 
-interface SidebarProps {
-  userRole: string | null;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
+const Sidebar: React.FC = () => {
   const location = useLocation();
-  const [userName, setUserName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  // --- DEFAULT PARA O ROXO KA TECH ---
-  const [themeColor, setThemeColor] = useState("#8b5cf6");
-
-  useEffect(() => {
-    async function getProfileData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("full_name, avatar_url, theme_color")
-          .eq("id", user.id)
-          .single();
-
-        if (data) {
-          setUserName(data.full_name || "Usuário");
-          setAvatarUrl(data.avatar_url);
-
-          if (data.theme_color) {
-            setThemeColor(data.theme_color);
-            document.documentElement.style.setProperty('--primary-color', data.theme_color);
-          }
-        }
-      }
-    }
-    getProfileData();
-  }, []);
+  const { userRole, userName, avatarUrl, themeColor, loading } = useUser();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -49,49 +16,30 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
   const LARGURA_SIDEBAR = "260px";
 
+  if (loading) return <aside className="sidebar-container" style={{ width: LARGURA_SIDEBAR, backgroundColor: '#020617' }} />;
+
   return (
     <>
       <style>{`
-        /* --- VARIÁVEIS DE TEMA --- */
         :root { 
           --primary-color: ${themeColor}; 
-          --bg-sidebar: #020617; /* Navy Profundo */
+          --bg-sidebar: #020617; 
           --font-main: 'Sora', sans-serif;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body, #root { 
-          width: 100% !important; 
-          min-height: 100vh;
+        .sidebar-container {
+          width: ${LARGURA_SIDEBAR};
+          height: 100vh;
           background-color: var(--bg-sidebar);
-          font-family: var(--font-main);
+          border-right: 1px solid rgba(139, 92, 246, 0.1);
+          display: flex;
+          flex-direction: column;
+          position: fixed;
+          left: 0;
+          top: 0;
+          z-index: 1000;
         }
 
-        /* --- LAYOUT PARA PC --- */
-        @media (min-width: 769px) {
-          .sidebar-container {
-            width: ${LARGURA_SIDEBAR};
-            height: 100vh;
-            background-color: var(--bg-sidebar);
-            border-right: 1px solid rgba(139, 92, 246, 0.1);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            left: 0;
-            top: 0;
-            z-index: 1000;
-          }
-
-          .dashboard-content {
-            margin-left: ${LARGURA_SIDEBAR} !important;
-            width: calc(100% - ${LARGURA_SIDEBAR}) !important;
-            min-height: 100vh;
-            padding: 40px;
-          }
-        }
-
-        /* --- AJUSTE DA LOGO --- */
         .sidebar-logo { 
           padding: 20px 10px;
           display: flex; 
@@ -100,26 +48,20 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           width: 100%;
         }
 
-        /* NOVO: Estilo para o link da logo */
         .logo-link {
           display: flex;
           width: 100%;
           justify-content: center;
           text-decoration: none;
-          transition: transform 0.2s ease, opacity 0.2s ease;
+          transition: transform 0.2s ease;
         }
 
-        .logo-link:hover {
-          opacity: 0.85;
-          transform: scale(1.02);
-        }
+        .logo-link:hover { transform: scale(1.02); }
 
         .logo-img {
           width: 100%;
           max-width: 240px;
           height: auto;
-          display: block;
-          object-fit: contain;
           filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.4)); 
         }
 
@@ -139,7 +81,6 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           text-decoration: none; 
           border-radius: 12px; 
           font-size: 0.9rem; 
-          font-weight: 400;
           transition: all 0.3s ease; 
         }
 
@@ -148,7 +89,6 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
           color: #fff; 
         }
         
-        /* --- ESTADO ATIVO NEON --- */
         .nav-link.active { 
           background: linear-gradient(90deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%); 
           color: var(--primary-color); 
@@ -165,35 +105,19 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
         @media (max-width: 768px) {
           .sidebar-container {
-            width: 100%; 
-            height: 70px; 
-            background-color: #09090b;
-            position: fixed; 
-            bottom: 0; 
-            left: 0; 
-            z-index: 1000;
-            border-top: 1px solid rgba(139, 92, 246, 0.2);
+            width: 100%; height: 70px; bottom: 0; top: auto; border-top: 1px solid rgba(139, 92, 246, 0.2); border-right: none;
           }
-          .sidebar-logo { display: none !important; }
-          .sidebar-nav { 
-            flex-direction: row; 
-            justify-content: space-around; 
-            padding: 10px; 
-          }
-          .nav-link { padding: 8px; flex-direction: column; font-size: 0.7rem; gap: 4px; }
+          .sidebar-logo { display: none; }
+          .sidebar-nav { flex-direction: row; justify-content: space-around; padding: 10px; }
+          .nav-link { flex-direction: column; font-size: 0.7rem; padding: 8px; }
           .nav-link.active { border-left: none; border-bottom: 3px solid var(--primary-color); border-radius: 0; }
         }
       `}</style>
 
       <aside className="sidebar-container">
         <div className="sidebar-logo">
-          {/* LOGO ENVOLVIDA COM LINK PARA O DASHBOARD */}
           <Link to="/dashboard" className="logo-link">
-            <img
-              src={logo}
-              alt="KA Tech"
-              className="logo-img"
-            />
+            <img src={logo} alt="KA Tech" className="logo-img" />
           </Link>
         </div>
 
@@ -206,25 +130,25 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏆</span> <span>Minhas Conquistas</span>
           </Link>
 
+          {/* BOTÃO TRILHAS RECUPERADO */}
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Trilhas</span>
           </Link>
 
+          {(userRole === 'admin' || userRole === 'teacher') && (
+            <>
+              <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}>
+                <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
+              </Link>
+              <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
+                <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📊</span> <span>Relatórios</span>
+              </Link>
+            </>
+          )}
+
           <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏅</span> <span>Rankings</span>
           </Link>
-
-          {(userRole === 'admin' || userRole === 'teacher') && (
-            <Link to="/admin" className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}>
-              <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
-            </Link>
-          )}
-
-          {(userRole === 'admin' || userRole === 'teacher') && (
-            <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
-              <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📊</span> <span>Relatórios</span>
-            </Link>
-          )}
 
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
             <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>⚙️</span> <span>Ajustes</span>
@@ -234,23 +158,11 @@ const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
         <div className="sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Avatar src={avatarUrl} name={userName} />
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-              <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                 {userName}
               </span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#ef4444',
-                  fontSize: '0.75rem',
-                  padding: 0,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontWeight: 500
-                }}
-              >
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left' }}>
                 Encerrar Sessão
               </button>
             </div>
