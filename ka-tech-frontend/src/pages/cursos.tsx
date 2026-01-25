@@ -14,23 +14,22 @@ interface Category {
 function Cursos() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState(""); // Estado para a busca
+  const [searchTerm, setSearchTerm] = useState(""); 
   const navigate = useNavigate();
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        const [profileRes, categoriesRes] = await Promise.all([
-          user ? supabase.from("profiles").select("role").eq("id", user.id).single() : { data: null },
-          supabase.from("categories").select("*").order('name', { ascending: true })
-        ]);
+        // Buscamos apenas as categorias, já que o userRole não é usado aqui
+        const { data: categoriesRes, error } = await supabase
+          .from("categories")
+          .select("*")
+          .order('name', { ascending: true });
 
-        if (profileRes.data) setUserRole(profileRes.data.role);
-        setCategories(categoriesRes.data || []);
+        if (error) throw error;
+
+        setCategories(categoriesRes || []);
       } catch (err) {
         console.error("Erro ao carregar categorias:", err);
       } finally {
@@ -40,7 +39,6 @@ function Cursos() {
     loadData();
   }, []);
 
-  // Lógica de filtragem reativa
   const filteredCategories = useMemo(() => {
     return categories.filter(cat => 
       cat.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -53,7 +51,6 @@ function Cursos() {
 
       <main style={{ flex: 1, padding: '40px', marginLeft: '260px', boxSizing: 'border-box' }}>
         
-        {/* Header com Busca */}
         <header style={{ 
           marginBottom: '50px', 
           display: 'flex', 
@@ -67,7 +64,6 @@ function Cursos() {
             <p style={{ color: '#9ca3af', fontSize: '1.1rem' }}>Escolha um caminho e comece a sua jornada.</p>
           </div>
 
-          {/* Barra de Busca (Lupa) */}
           <div style={{ position: 'relative', width: '100%', maxWidth: '350px' }}>
             <span style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', fontSize: '1.2rem', zIndex: 10 }}>🔍</span>
             <input 
@@ -121,7 +117,6 @@ function Cursos() {
                   }}
                   className="category-card"
                 >
-                  {/* Detalhe estético de fundo */}
                   <div style={{ 
                     position: 'absolute', 
                     top: '-20px', 
@@ -172,14 +167,6 @@ function Cursos() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '10px'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = '#8b5cf6';
-                      e.currentTarget.style.color = '#fff';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
-                      e.currentTarget.style.color = '#a78bfa';
                     }}
                   >
                     Acessar Cursos <span>→</span>
