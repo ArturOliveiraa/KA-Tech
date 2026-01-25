@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import Avatar from "../components/Avatar";
+
+// Import da logo para o cabeçalho mobile
+import logo from "../assets/ka-tech-logo.png";
 
 type RankingCategory = "badges" | "maratonistas" | "tempo" | "on_fire";
 
@@ -13,18 +16,10 @@ interface RankingUser {
 
 export default function Rankings() {
     const [loading, setLoading] = useState(true);
-    // REMOVIDO: userRole state
     const [activeCategory, setActiveCategory] = useState<RankingCategory>("badges");
     const [rankingList, setRankingList] = useState<RankingUser[]>([]);
 
-    // REMOVIDO: useEffect que buscava o cargo do usuário (não utilizado nesta página)
-
-    useEffect(() => {
-        loadRanking();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeCategory]);
-
-    const loadRanking = async () => {
+    const loadRanking = useCallback(async () => {
         setLoading(true);
         let tableName = "";
         let scoreColumn = "";
@@ -50,7 +45,11 @@ export default function Rankings() {
             setRankingList(formattedData);
         }
         setLoading(false);
-    };
+    }, [activeCategory]);
+
+    useEffect(() => {
+        loadRanking();
+    }, [loadRanking]);
 
     const formatScore = (score: number) => {
         if (activeCategory === "badges") return `${score} insígnias`;
@@ -67,7 +66,7 @@ export default function Rankings() {
                     fontWeight: 900,
                     textShadow: score >= 7 ? '0 0 10px rgba(245, 158, 11, 0.5)' : 'none'
                 }}>
-                    {score} dias {fireEmoji}
+                    {score} {fireEmoji}
                 </span>
             );
         }
@@ -75,9 +74,9 @@ export default function Rankings() {
     };
 
     const categories = [
-        { id: "badges", label: "🏆 Reis das Insígnias" },
-        { id: "maratonistas", label: "⚡ Maratonistas" },
-        { id: "tempo", label: "⏳ Tempo de Voo" },
+        { id: "badges", label: "🏆 Reis" }, 
+        { id: "maratonistas", label: "⚡ Maratonas" },
+        { id: "tempo", label: "⏳ Tempo" },
         { id: "on_fire", label: "🔥 Ofensiva" }
     ];
 
@@ -85,16 +84,20 @@ export default function Rankings() {
     const remainders = rankingList.slice(3, 10);
 
     return (
-        <div className="dashboard-wrapper" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
+        <div className="dashboard-wrapper">
             <Sidebar/>
 
-            <main style={{ flex: 1, padding: '40px', marginLeft: '260px' }}>
-                <header style={{ marginBottom: '40px' }}>
-                    <h1 style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 800 }}>Hall da Fama</h1>
-                    <p style={{ color: '#94a3b8' }}>A elite da KAtech. Onde os melhores se encontram.</p>
+            <main className="ranking-main-content">
+                <div className="brand-logo-mobile">
+                    <img src={logo} alt="KA Tech Logo" />
+                </div>
+
+                <header className="ranking-header">
+                    <h1>Hall da Fama</h1>
+                    <p>A elite da <strong style={{color: '#8b5cf6'}}>KA Tech</strong>.</p>
                 </header>
 
-                <div className="ranking-tabs" style={{ display: 'flex', gap: '15px', marginBottom: '40px', flexWrap: 'wrap' }}>
+                <div className="ranking-tabs">
                     {categories.map(cat => (
                         <button
                             key={cat.id}
@@ -106,17 +109,19 @@ export default function Rankings() {
                     ))}
                 </div>
 
-                {loading ? <p style={{ color: '#8b5cf6', textAlign: 'center' }}>Sincronizando pódio...</p> : (
+                {loading ? (
+                    <div className="loading-state">Sincronizando pódio...</div>
+                ) : (
                     <>
                         <div className="podium-container">
                             {/* 2º LUGAR */}
                             {podium[1] && (
                                 <div className="podium-item silver">
                                     <div className="podium-rank">2</div>
-                                    <div className="avatar-wrapper-podium" style={{ width: '70px', height: '70px' }}>
+                                    <div className="avatar-wrapper-podium silver-border">
                                         <Avatar src={podium[1].avatar_url} name={podium[1].full_name} />
                                     </div>
-                                    <span className="podium-name">{podium[1].full_name}</span>
+                                    <span className="podium-name">{podium[1].full_name.split(' ')[0]}</span>
                                     <span className="podium-score">{formatScore(podium[1].score)}</span>
                                 </div>
                             )}
@@ -126,10 +131,10 @@ export default function Rankings() {
                                 <div className="podium-item gold">
                                     <div className="podium-rank">1</div>
                                     <div className="crown">👑</div>
-                                    <div className="avatar-wrapper-podium" style={{ width: '90px', height: '90px' }}>
+                                    <div className="avatar-wrapper-podium gold-border first-place">
                                         <Avatar src={podium[0].avatar_url} name={podium[0].full_name} />
                                     </div>
-                                    <span className="podium-name">{podium[0].full_name}</span>
+                                    <span className="podium-name">{podium[0].full_name.split(' ')[0]}</span>
                                     <span className="podium-score">{formatScore(podium[0].score)}</span>
                                 </div>
                             )}
@@ -138,69 +143,153 @@ export default function Rankings() {
                             {podium[2] && (
                                 <div className="podium-item bronze">
                                     <div className="podium-rank">3</div>
-                                    <div className="avatar-wrapper-podium" style={{ width: '70px', height: '70px' }}>
+                                    <div className="avatar-wrapper-podium bronze-border">
                                         <Avatar src={podium[2].avatar_url} name={podium[2].full_name} />
                                     </div>
-                                    <span className="podium-name">{podium[2].full_name}</span>
+                                    <span className="podium-name">{podium[2].full_name.split(' ')[0]}</span>
                                     <span className="podium-score">{formatScore(podium[2].score)}</span>
                                 </div>
                             )}
                         </div>
 
                         <div className="ranking-list-card">
-                            <table className="ranking-table">
-                                <thead>
-                                    <tr>
-                                        <th>RANK</th>
-                                        <th>ESTUDANTE</th>
-                                        <th style={{ textAlign: 'right' }}>PONTUAÇÃO</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {remainders.map((user, index) => (
-                                        <tr key={index}>
-                                            <td style={{ fontWeight: 800, color: '#94a3b8' }}>#{index + 4}</td>
-                                            <td>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div style={{ width: '30px', height: '30px' }}>
-                                                        <Avatar src={user.avatar_url} name={user.full_name} />
-                                                    </div>
-                                                    <span style={{ color: '#fff', fontWeight: 600 }}>{user.full_name}</span>
-                                                </div>
-                                            </td>
-                                            <td style={{ textAlign: 'right', fontWeight: 800, color: '#8b5cf6' }}>
-                                                {formatScore(user.score)}
-                                            </td>
+                            <div className="table-responsive">
+                                <table className="ranking-table">
+                                    <thead>
+                                        <tr>
+                                            <th>RANK</th>
+                                            <th>ESTUDANTE</th>
+                                            <th style={{ textAlign: 'right' }}>PONTOS</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {remainders.map((user, index) => (
+                                            <tr key={index}>
+                                                <td className="rank-number">#{index + 4}</td>
+                                                <td>
+                                                    <div className="user-info-cell">
+                                                        <div className="avatar-mini">
+                                                            <Avatar src={user.avatar_url} name={user.full_name} />
+                                                        </div>
+                                                        <span className="user-name-text">{user.full_name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="score-cell">
+                                                    {formatScore(user.score)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </>
                 )}
             </main>
 
             <style>{`
-                .tab-btn { background: #0f172a; color: #94a3b8; border: 1px solid rgba(139, 92, 246, 0.2); padding: 10px 20px; border-radius: 12px; cursor: pointer; transition: 0.3s; font-family: 'Sora', sans-serif; font-size: 0.8rem; font-weight: 600; }
+                :root { --primary: #8b5cf6; --bg-dark: #020617; --card-glass: rgba(15, 23, 42, 0.7); }
+                * { box-sizing: border-box; }
+
+                .dashboard-wrapper { display: flex; min-height: 100vh; background-color: #020617; font-family: 'Sora', sans-serif; overflow-x: hidden; }
+                
+                .ranking-main-content { 
+                    flex: 1; 
+                    padding: 40px; 
+                    margin-left: 260px; 
+                    transition: 0.3s;
+                    width: calc(100% - 260px);
+                    max-width: 100%;
+                }
+
+                .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 20px; }
+                .brand-logo-mobile img { height: 140px; filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.4)); object-fit: contain; }
+
+                .ranking-header h1 { color: #fff; font-size: 2.2rem; font-weight: 900; margin: 0; letter-spacing: -1px; }
+                .ranking-header p { color: #94a3b8; margin-top: 5px; font-size: 1rem; }
+
+                .ranking-tabs { display: flex; gap: 8px; margin-bottom: 30px; flex-wrap: wrap; margin-top: 20px; }
+                
+                .tab-btn { 
+                    background: #0f172a; color: #94a3b8; border: 1px solid rgba(139, 92, 246, 0.2); 
+                    padding: 10px 15px; border-radius: 12px; cursor: pointer; transition: 0.3s; 
+                    font-family: 'Sora'; font-size: 0.75rem; font-weight: 700; 
+                }
                 .tab-btn.active { background: #8b5cf6; color: #fff; box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); border-color: #8b5cf6; }
                 
-                .podium-container { display: flex; align-items: flex-end; justify-content: center; gap: 20px; margin-bottom: 50px; padding: 20px; }
-                .podium-item { display: flex; flex-direction: column; align-items: center; background: #09090b; padding: 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); min-width: 180px; position: relative; }
-                .podium-item.gold { border-color: #ffd700; transform: scale(1.1); z-index: 2; }
+                .loading-state { color: #8b5cf6; text-align: center; padding: 100px; font-weight: 800; font-size: 1.2rem; }
+
+                .podium-container { display: flex; align-items: flex-end; justify-content: center; gap: 15px; margin-bottom: 40px; padding: 10px; width: 100%; }
+                
+                .podium-item { 
+                    display: flex; flex-direction: column; align-items: center; 
+                    background: #09090b; padding: 20px; border-radius: 24px; 
+                    border: 1px solid rgba(255,255,255,0.05); flex: 1; position: relative; 
+                    max-width: 180px; transition: 0.3s;
+                }
+                
+                .podium-item.gold { border-color: #ffd700; transform: scale(1.1); z-index: 2; padding-top: 30px; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.1); }
                 .podium-item.silver { border-color: #c0c0c0; }
                 .podium-item.bronze { border-color: #cd7f32; }
 
-                .avatar-wrapper-podium { overflow: hidden; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #1e293b; }
+                .avatar-wrapper-podium { 
+                    width: 60px; height: 60px; overflow: hidden; border-radius: 50%; 
+                    display: flex; align-items: center; justify-content: center; 
+                    background: #1e293b; border: 3px solid transparent; 
+                }
+                .first-place { width: 80px; height: 80px; }
+                .silver-border { border-color: #c0c0c0; }
+                .gold-border { border-color: #ffd700; }
+                .bronze-border { border-color: #cd7f32; }
                 
-                .podium-rank { position: absolute; top: -15px; background: #020617; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 2px solid #1f2937; border-radius: 50%; font-weight: 900; font-size: 0.8rem; color: #fff; }
-                .podium-name { color: #fff; font-weight: 700; margin-top: 12px; font-size: 0.9rem; }
-                .podium-score { color: #8b5cf6; font-weight: 800; font-size: 1.1rem; }
-                .crown { font-size: 1.5rem; margin-bottom: 5px; }
+                .podium-rank { 
+                    position: absolute; top: -10px; background: #020617; 
+                    width: 28px; height: 28px; display: flex; align-items: center; 
+                    justify-content: center; border: 2px solid #1f2937; 
+                    border-radius: 50%; font-weight: 900; font-size: 0.75rem; color: #fff; 
+                }
+                
+                .podium-name { color: #fff; font-weight: 800; margin-top: 12px; font-size: 0.85rem; text-align: center; }
+                .podium-score { color: #8b5cf6; font-weight: 900; font-size: 0.8rem; text-align: center; margin-top: 4px; }
+                .crown { font-size: 1.5rem; position: absolute; top: -25px; z-index: 3; }
 
-                .ranking-list-card { background: #09090b; border-radius: 20px; border: 1px solid rgba(139, 92, 246, 0.08); padding: 20px; }
-                .ranking-table { width: 100%; border-collapse: collapse; }
-                .ranking-table th { text-align: left; padding: 12px; color: #64748b; font-size: 0.7rem; border-bottom: 1px solid #1f2937; }
-                .ranking-table td { padding: 15px 12px; border-bottom: 1px solid #111827; }
+                .ranking-list-card { background: #09090b; border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.03); padding: 15px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); width: 100%; }
+                .table-responsive { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+                .ranking-table { width: 100%; border-collapse: collapse; min-width: 320px; }
+                
+                .ranking-table th { text-align: left; padding: 15px 10px; color: #ffffff; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; border-bottom: 1px solid #1f2937; }
+                .ranking-table td { padding: 15px 10px; border-bottom: 1px solid #111827; }
+                
+                .rank-number { font-weight: 900; color: #94a3b8; font-size: 0.8rem; }
+                .user-info-cell { display: flex; align-items: center; gap: 10px; }
+                .avatar-mini { width: 30px; height: 30px; flex-shrink: 0; }
+                .user-name-text { color: #fff; font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .score-cell { text-align: right; font-weight: 900; color: #8b5cf6; font-size: 0.85rem; }
+
+                @media (max-width: 1024px) {
+                    .ranking-main-content { margin-left: 0; padding: 20px 15px 160px 15px; width: 100%; }
+                    .brand-logo-mobile { display: flex; margin-top: 10px; }
+                    .ranking-header { text-align: center; }
+                    .ranking-tabs { justify-content: center; }
+                    .podium-container { gap: 10px; margin-bottom: 30px; }
+                    .podium-item { padding: 15px 10px; }
+                }
+
+                @media (max-width: 600px) {
+                    .ranking-header h1 { font-size: 1.7rem; }
+                    .podium-container { flex-direction: column; align-items: center; gap: 15px; }
+                    .podium-item { width: 100%; max-width: none; flex-direction: row; gap: 15px; padding: 12px 15px; border-radius: 18px; }
+                    .podium-item.gold { transform: none; order: 1; padding-top: 12px; }
+                    .podium-item.silver { order: 2; }
+                    .podium-item.bronze { order: 3; }
+                    .podium-rank { position: static; width: 25px; height: 25px; flex-shrink: 0; font-size: 0.7rem; }
+                    .podium-name { margin: 0; text-align: left; flex: 1; font-size: 0.9rem; }
+                    .podium-score { margin: 0; text-align: right; font-size: 0.85rem; }
+                    /* FIX COROA MOBILE */
+                    .crown { position: absolute; top: -10px; right: 10px; font-size: 1.2rem; transform: rotate(15deg); }
+                    .avatar-wrapper-podium { width: 45px; height: 45px; }
+                    .first-place { width: 45px; height: 45px; }
+                }
             `}</style>
         </div>
     );
