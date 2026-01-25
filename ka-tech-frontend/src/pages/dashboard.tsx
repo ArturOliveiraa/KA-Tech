@@ -40,24 +40,27 @@ function Dashboard() {
             if (!course) return null;
 
             const currentCourseId = Number(course.id);
+            
+            // --- NOVA LÓGICA DE CÁLCULO POR QUANTIDADE DE AULAS ---
             const courseLessons = (lessonsRes.data || []).filter(l => Number(l.course_id) === currentCourseId);
-            const totalCourseMinutes = Number(course.total_duration) || 0;
-            
-            const watchedMinutes = courseLessons.reduce((acc, lesson) => {
+            const totalLessonsCount = courseLessons.length;
+
+            const completedLessonsCount = courseLessons.filter(lesson => {
               const lessonProg = (progressRes.data || []).find(p => Number(p.lesson_id) === Number(lesson.id));
-              if (!lessonProg) return acc;
-              const timeFromThisLesson = lessonProg.is_completed ? (Number(lesson.duration) || 0) : (Number(lessonProg.last_time) / 60 || 0);
-              return acc + timeFromThisLesson;
-            }, 0);
-            
-            const percent = totalCourseMinutes > 0 ? Math.round((watchedMinutes / totalCourseMinutes) * 100) : 0;
+              return lessonProg?.is_completed === true; // Só conta se estiver marcado como concluído
+            }).length;
+
+            // Progresso exato: (Aulas Concluídas / Total de Aulas) * 100
+            const percent = totalLessonsCount > 0 
+              ? Math.round((completedLessonsCount / totalLessonsCount) * 100) 
+              : 0;
 
             return { 
               ...course, 
               enrolledAt: en.createdAt,
               progress: Math.min(percent, 100)
             };
-          }).filter((c): c is Course => c !== null && c.progress < 100);
+          }).filter((c): c is Course => c !== null && c.progress < 100); // FILTRO: Remove se for 100%
 
           setEnrolledCourses(processed);
         }
@@ -92,7 +95,6 @@ function Dashboard() {
           animation: slideUp 0.6s ease-out;
         }
 
-        /* LOGO: Escondida por padrão no Desktop (fica só na Sidebar) */
         .brand-logo-container {
           display: none; 
           width: 100%; 
@@ -104,7 +106,6 @@ function Dashboard() {
         .header-container h1 { font-size: 2.5rem; font-weight: 900; color: #fff; margin: 0; }
         .header-container p { color: #94a3b8; margin-top: 5px; font-size: 1.1rem; }
 
-        /* CARDS */
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
         .premium-card {
           background: var(--card-glass); backdrop-filter: blur(12px);
@@ -135,14 +136,10 @@ function Dashboard() {
         .custom-table th { padding: 20px; text-align: left; color: var(--primary); font-size: 0.7rem; text-transform: uppercase; }
         .custom-table td { padding: 20px; color: #e5e7eb; border-top: 1px solid rgba(255,255,255,0.02); }
 
-        /* RESPONSIVIDADE MOBILE */
         @media (max-width: 1024px) {
           .dashboard-content { margin-left: 0; padding: 0 20px 100px 20px; }
-          
-          /* Ativa a logo no Dashboard apenas quando a Sidebar desktop sumir */
           .brand-logo-container { display: flex; margin-top: 20px; }
           .brand-logo-container img { height: 200px; filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.5)); }
-          
           .header-container { text-align: center; }
           .custom-table thead { display: none; }
           .custom-table tr { display: flex; flex-direction: column; background: rgba(255,255,255,0.02); margin-bottom: 15px; border-radius: 20px; padding: 15px; }
@@ -151,7 +148,6 @@ function Dashboard() {
       `}</style>
 
       <main className="dashboard-content">
-        {/* Renderiza apenas se estiver no Mobile (via CSS display) */}
         <div className="brand-logo-container">
           <img src={logo} alt="KA Tech Logo" />
         </div>
