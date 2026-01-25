@@ -277,6 +277,18 @@ function Login() {
                 Cadastre-se
               </button>
             </p>
+
+            {/* Link para Política de Privacidade exigido pelo Google */}
+            <p className="signup-hint" style={{ marginTop: '15px' }}>
+              <button
+                type="button"
+                className="link-button"
+                style={{ fontSize: '0.8rem', opacity: 0.7 }}
+                onClick={() => navigate("/privacidade")}
+              >
+                Política de Privacidade
+              </button>
+            </p>
           </form>
         </div>
       </div>

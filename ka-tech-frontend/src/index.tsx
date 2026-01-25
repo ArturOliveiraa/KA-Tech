@@ -20,6 +20,7 @@ import Achievements from "./pages/Achievements";
 import Reports from "./pages/Reports";
 import Rankings from "./pages/Rankings";
 import ProtectedRoute from './components/ProtectedRoute';
+import Privacy from './pages/Privacy';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -59,6 +60,8 @@ root.render(
 
           {/* Rota de Rankings */}
           <Route path="/rankings" element={<Rankings />} />
+
+          <Route path="/privacidade" element={<Privacy />} />
         </Routes>
       </BrowserRouter>
     </UserProvider>
