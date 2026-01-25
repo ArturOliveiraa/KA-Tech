@@ -23,12 +23,12 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [order, setOrder] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // CORREÇÃO 1: Alterado de "courseId" para "course_id" para bater com o SQL
+  // Busca as aulas no banco (Coluna course_id corrigida)
   const fetchLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
       .select("*")
-      .eq("course_id", courseId) // <--- Nome da coluna no banco é course_id
+      .eq("course_id", courseId)
       .order("order", { ascending: true });
     if (data) setLessons(data);
   }, [courseId]);
@@ -41,14 +41,13 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     e.preventDefault();
     setLoading(true);
 
-    // CORREÇÃO 2: Alterado o campo no insert para "course_id"
     const { error } = await supabase.from("lessons").insert([
       { 
         title, 
         videoUrl, 
         content, 
         order, 
-        course_id: courseId // <--- Chave correta para a coluna do banco
+        course_id: courseId 
       }
     ]);
 
@@ -74,39 +73,48 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   };
 
   return (
-    <div className="admin-card-local" style={{ maxWidth: '100%', marginTop: '20px', flex: '1 1 100%' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-        <div>
-          <button 
-            onClick={onBack} 
-            style={{ 
-              background: 'transparent', 
-              color: '#8b5cf6', // Ajustado para combinar com seu novo tema roxo
-              border: 'none', 
-              cursor: 'pointer', 
-              fontSize: '0.8rem', 
-              padding: '0', 
-              marginBottom: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              fontWeight: 700
-            }}
-          >
-            ← Voltar para Cursos
-          </button>
-          <h2 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800 }}>Gerenciar Aulas: {courseTitle}</h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Adicione conteúdo e organize a grade das aulas.</p>
-        </div>
+    <div className="ka-lessons-wrapper" style={{ maxWidth: '100%', marginTop: '20px' }}>
+      <header style={{ marginBottom: '30px' }}>
+        <button 
+          onClick={onBack} 
+          style={{ 
+            background: 'transparent', 
+            color: '#8b5cf6', 
+            border: 'none', 
+            cursor: 'pointer', 
+            fontSize: '0.85rem', 
+            marginBottom: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontWeight: 700,
+            padding: 0
+          }}
+        >
+          ← Voltar para Cursos
+        </button>
+        <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: 900, margin: 0 }}>
+          Gerenciar Aulas: <span style={{ color: '#8b5cf6' }}>{courseTitle}</span>
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '5px' }}>
+          Adicione conteúdo e organize a grade das aulas.
+        </p>
       </header>
 
       <form onSubmit={handleCreateLesson}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '20px' }}>
           <div className="local-field">
             <label className="form-label">Título da Aula</label>
             <div className="input-with-icon">
               <span className="input-emoji">📝</span>
-              <input className="form-input" type="text" placeholder="Ex: Introdução ao Módulo" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <input 
+                className="form-input" 
+                type="text" 
+                placeholder="Ex: Introdução ao Módulo" 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                required 
+              />
             </div>
           </div>
 
@@ -114,7 +122,13 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
             <label className="form-label">Ordem</label>
             <div className="input-with-icon">
               <span className="input-emoji">🔢</span>
-              <input className="form-input" style={{ paddingLeft: '52px' }} type="number" value={order} onChange={(e) => setOrder(Number(e.target.value))} required />
+              <input 
+                className="form-input" 
+                type="number" 
+                value={order} 
+                onChange={(e) => setOrder(Number(e.target.value))} 
+                required 
+              />
             </div>
           </div>
         </div>
@@ -123,34 +137,50 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
           <label className="form-label">URL do Vídeo</label>
           <div className="input-with-icon">
             <span className="input-emoji">🔗</span>
-            <input className="form-input" type="text" placeholder="Link do YouTube" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} required />
+            <input 
+              className="form-input" 
+              type="text" 
+              placeholder="Link do YouTube" 
+              value={videoUrl} 
+              onChange={(e) => setVideoUrl(e.target.value)} 
+              required 
+            />
           </div>
         </div>
 
         <div className="local-field" style={{ marginTop: '20px' }}>
           <label className="form-label">Descrição / Conteúdo</label>
           <div className="input-with-icon">
-            <span className="input-emoji" style={{ top: '16px' }}>📄</span>
+            <span className="input-emoji" style={{ top: '22px' }}>📄</span>
             <textarea 
+              className="form-input"
               placeholder="O que será abordado nesta aula?" 
               value={content} 
               onChange={(e) => setContent(e.target.value)} 
               required 
-              style={{ height: '100px' }}
+              style={{ height: '120px', resize: 'none' }}
             />
           </div>
         </div>
 
-        <button className="local-primary-button" type="submit" disabled={loading} style={{ width: '100%', marginTop: '30px' }}>
-          {loading ? "Processando..." : "Publicar Aula"}
+        <button type="submit" disabled={loading}>
+          {loading ? "PROCESSANDO..." : "PUBLICAR AULA"}
         </button>
       </form>
 
       <div style={{ marginTop: '50px' }}>
-        <h4 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.1rem', fontWeight: 700 }}>Grade de Aulas Cadastradas</h4>
+        <h4 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.2rem', fontWeight: 900 }}>
+          Grade de Aulas Cadastradas
+        </h4>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {lessons.length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center', padding: '30px', border: '1px dashed rgba(139,92,246,0.2)', borderRadius: '16px' }}>
+            <p style={{ 
+              color: '#64748b', 
+              textAlign: 'center', 
+              padding: '40px', 
+              border: '2px dashed rgba(139, 92, 246, 0.1)', 
+              borderRadius: '20px' 
+            }}>
               Nenhuma aula cadastrada ainda.
             </p>
           ) : (
@@ -158,22 +188,41 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
               <div 
                 key={l.id} 
                 style={{ 
-                  padding: '16px 24px', 
-                  background: 'rgba(15, 23, 42, 0.4)', 
-                  borderRadius: '14px', 
-                  border: '1px solid rgba(255,255,255,0.05)',
+                  padding: '18px 25px', 
+                  background: 'rgba(255, 255, 255, 0.03)', 
+                  borderRadius: '18px', 
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
                   display: 'flex', 
                   justifyContent: 'space-between',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  transition: '0.3s'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <span style={{ color: '#8b5cf6', fontWeight: 800 }}>#{l.order}</span>
-                  <span style={{ color: '#fff', fontWeight: 600 }}>{l.title}</span>
+                  <span style={{ 
+                    color: '#8b5cf6', 
+                    fontWeight: 900, 
+                    background: 'rgba(139, 92, 246, 0.1)', 
+                    padding: '5px 10px', 
+                    borderRadius: '8px',
+                    fontSize: '0.8rem'
+                  }}>
+                    #{l.order}
+                  </span>
+                  <span style={{ color: '#fff', fontWeight: 700 }}>{l.title}</span>
                 </div>
                 <button 
                   onClick={() => handleDeleteLesson(l.id)}
-                  style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}
+                  style={{ 
+                    background: 'transparent', 
+                    border: 'none', 
+                    color: '#ef4444', 
+                    cursor: 'pointer', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
                 >
                   Excluir
                 </button>
