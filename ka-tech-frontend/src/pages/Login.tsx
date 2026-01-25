@@ -7,7 +7,7 @@ import "../App.css";
 import logoKaTech from "../assets/ka-tech-logo.png";
 import discordLogo from "../assets/discord-logo.png";
 
-function Login() { // Renomeado de App para Login
+function Login() { 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,6 @@ function Login() { // Renomeado de App para Login
     setSuccessMessage("");
 
     try {
-      // Login via Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -39,18 +38,15 @@ function Login() { // Renomeado de App para Login
         throw new Error("Sessão não criada.");
       }
 
-      // Gerencia o token local se "Lembrar de mim" estiver marcado
       if (remember) {
         localStorage.setItem("ka-tech-token", session.access_token);
       } else {
         localStorage.removeItem("ka-tech-token");
       }
 
-      // Tenta pegar o nome dos metadados ou usa o email
       const displayName = user.user_metadata?.name || user.email;
       setSuccessMessage(`Bem-vindo, ${displayName}! Redirecionando...`);
 
-      // Redireciona para o dashboard após um breve delay
       setTimeout(() => {
         navigate("/dashboard");
       }, 1000);
@@ -67,7 +63,78 @@ function Login() { // Renomeado de App para Login
 
   return (
     <div className="auth-page">
-      {/* Lado esquerdo – marca e visual KA Tech */}
+      {/* CSS SINCRONIZADO E RESPONSIVO */}
+      <style>{`
+        .social-google, .social-discord {
+          transition: all 0.3s ease !important;
+        }
+        .social-google:hover, .social-discord:hover {
+          filter: brightness(1.2);
+          transform: translateY(-2px);
+          background: rgba(255, 255, 255, 0.05) !important;
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* AJUSTES PARA MOBILE */
+        @media (max-width: 1024px) {
+          .auth-page {
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: 100vh;
+            padding: 40px 20px !important;
+            overflow-y: auto;
+            justify-content: flex-start !important;
+          }
+          .auth-left {
+            display: flex !important;
+            width: 100% !important;
+            padding: 0 0 40px 0 !important;
+            align-items: center;
+            text-align: center;
+            flex-direction: column !important;
+          }
+          .brand {
+            display: flex !important;
+            justify-content: center !important;
+            width: 100% !important;
+            margin-bottom: 25px !important;
+          }
+          .brand-logo {
+            height: 200px !important; /* Ajustado para 200px conforme solicitado */
+            width: auto !important;
+            object-fit: contain !important;
+          }
+          .left-content {
+            margin: 0 !important;
+            max-width: 100% !important;
+          }
+          .left-content h2 {
+            font-size: 1.6rem !important;
+            line-height: 1.2 !important;
+            margin-bottom: 15px;
+          }
+          .left-content p {
+            font-size: 0.9rem !important;
+            display: block !important;
+            color: #94a3b8 !important;
+          }
+          .abstract-graphic {
+            display: none;
+          }
+          .auth-right {
+            width: 100% !important;
+            padding: 0 !important;
+            display: flex;
+            justify-content: center;
+          }
+          .login-card {
+            width: 100% !important;
+            max-width: 450px !important;
+            margin: 0 auto !important;
+          }
+        }
+      `}</style>
+
       <div className="auth-left">
         <div className="brand">
           <img src={logoKaTech} alt="KA Tech" className="brand-logo" />
@@ -83,7 +150,6 @@ function Login() { // Renomeado de App para Login
         </div>
       </div>
 
-      {/* Lado direito – formulário de login */}
       <div className="auth-right">
         <div className="login-card">
           <header className="login-header">
@@ -161,6 +227,7 @@ function Login() { // Renomeado de App para Login
               <button
                 type="button"
                 className="social-button social-google"
+                style={{ border: "1px solid rgba(255, 255, 255, 0.4)" }}
                 onClick={() => alert("Login com Google ainda não implementado.")}
               >
                 <span className="social-icon">G</span>
@@ -170,6 +237,7 @@ function Login() { // Renomeado de App para Login
               <button
                 type="button"
                 className="social-button social-discord"
+                style={{ border: "1px solid rgba(255, 255, 255, 0.4)" }}
                 onClick={() => alert("Login com Discord ainda não implementado.")}
               >
                 <img src={discordLogo} alt="Discord" className="social-icon-img" />
@@ -194,4 +262,4 @@ function Login() { // Renomeado de App para Login
   );
 }
 
-export default Login; // Exportado como Login
+export default Login;
