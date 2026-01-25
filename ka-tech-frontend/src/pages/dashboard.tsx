@@ -3,20 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext"; 
+import logo from "../assets/ka-tech-logo.png"; 
 
 interface Course {
   id: number;
   title: string;
   slug: string;
-  description: string;
   thumbnailUrl: string | null;
+  progress: number;
+  total_duration: number; 
+  enrolledAt: string;
 }
 
 function Dashboard() {
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const { userName } = useUser(); 
+  const { userName, loading: contextLoading } = useUser(); 
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,40 +26,47 @@ function Dashboard() {
       try {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          navigate("/");
-          return;
-        }
+        if (!user) return navigate("/");
 
-        // Lógica: Busca apenas cursos onde o usuário está matriculado e não concluiu
-        const [enrollmentsRes, progressRes] = await Promise.all([
-          supabase
-            .from("course_enrollments")
-            .select(`
-              courseId,
-              courses (id, title, slug, description, thumbnailUrl)
-            `)
-            .eq("userId", user.id),
-          supabase
-            .from("user_progress")
-            .select("course_id")
-            .eq("user_id", user.id)
-            .eq("is_completed", true)
+        const [enrollmentsRes, lessonsRes, progressRes] = await Promise.all([
+          supabase.from("course_enrollments").select(`createdAt, courses (*)`).eq("userId", user.id),
+          supabase.from("lessons").select("id, course_id, duration"),
+          supabase.from("user_progress").select("course_id, lesson_id, is_completed, last_time").eq("user_id", user.id)
         ]);
 
-        const completedIds = progressRes.data?.map(p => p.course_id) || [];
-        
         if (enrollmentsRes.data) {
-          const activeCourses = enrollmentsRes.data
-            .map((e: any) => e.courses)
-            .filter((c: any) => c && !completedIds.includes(c.id));
-          
-          setEnrolledCourses(activeCourses);
-        }
+          const processed = enrollmentsRes.data.map((en: any) => {
+            const course = en.courses;
+            if (!course) return null;
 
+            const currentCourseId = Number(course.id);
+            const courseLessons = (lessonsRes.data || []).filter(l => Number(l.course_id) === currentCourseId);
+            const totalCourseMinutes = Number(course.total_duration) || 0;
+            
+            const watchedMinutes = courseLessons.reduce((acc, lesson) => {
+              const lessonProg = (progressRes.data || []).find(p => Number(p.lesson_id) === Number(lesson.id));
+              if (!lessonProg) return acc;
+
+              const timeFromThisLesson = lessonProg.is_completed 
+                ? (Number(lesson.duration) || 0) 
+                : (Number(lessonProg.last_time) / 60 || 0);
+
+              return acc + timeFromThisLesson;
+            }, 0);
+            
+            const percent = totalCourseMinutes > 0 ? Math.round((watchedMinutes / totalCourseMinutes) * 100) : 0;
+
+            return { 
+              ...course, 
+              enrolledAt: en.createdAt,
+              progress: Math.min(percent, 100)
+            };
+          }).filter((c): c is Course => c !== null && c.progress < 100);
+
+          setEnrolledCourses(processed);
+        }
       } catch (err) {
-        console.error("Erro ao carregar dashboard:", err); 
+        console.error("Erro no processamento:", err); 
       } finally {
         setLoading(false);
       }
@@ -65,108 +74,169 @@ function Dashboard() {
     loadDashboardData();
   }, [navigate]);
 
+  const topThreeRecent = [...enrolledCourses]
+    .sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime())
+    .slice(0, 3);
+
+  const tableCourses = [...enrolledCourses].sort((a, b) => b.progress - a.progress);
+
   return (
-    <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617' }}>
-      
+    <div className="dashboard-wrapper">
       <Sidebar />
 
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
+        :root { --primary: #8b5cf6; --bg-dark: #020617; --card-glass: rgba(15, 23, 42, 0.7); }
+        
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); }
+
+        .dashboard-content { 
+          flex: 1; margin-left: 260px; padding: 40px 60px; transition: 0.3s; 
+          animation: slideUp 0.6s ease-out;
         }
 
-        .course-card-premium {
-          background: rgba(15, 23, 42, 0.6);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 20px;
-          overflow: hidden;
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          cursor: pointer;
-          animation: fadeIn 0.5s ease forwards;
+        /* MOBILE HEADER LOGO - ATUALIZADO */
+        .mobile-nav-top {
+          display: none; 
+          width: 100%; 
+          padding: 40px 20px 20px 20px; 
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(to bottom, rgba(139, 92, 246, 0.15), transparent);
+        }
+        /* Ajuste de 200px solicitado */
+        .mobile-nav-top img { 
+          height: 200px; 
+          width: auto; 
+          filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.5)); 
+          object-fit: contain;
         }
 
-        .course-card-premium:hover {
-          transform: translateY(-10px) scale(1.02);
-          border-color: #8b5cf6;
-          box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
-          background: rgba(30, 27, 75, 0.4);
+        .header-container { margin-bottom: 40px; }
+        .header-container h1 { font-size: 2.5rem; font-weight: 900; color: #fff; margin: 0; }
+        .header-container p { color: #94a3b8; margin-top: 5px; font-size: 1.1rem; }
+
+        /* CARDS */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
+        .premium-card {
+          background: var(--card-glass); backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 24px;
+          overflow: hidden; transition: 0.4s; cursor: pointer;
+        }
+        .premium-card:hover { transform: translateY(-8px); border-color: var(--primary); }
+
+        .thumb-box { height: 180px; background: #000; position: relative; }
+        .thumb-box img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+
+        .card-body { padding: 24px; }
+        .card-body h3 { font-size: 1.2rem; color: #fff; margin-bottom: 15px; font-weight: 800; }
+
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 900; color: var(--primary); margin-bottom: 8px; }
+        .progress-track { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #d946ef); transition: width 1s ease; }
+
+        .btn-main {
+          width: 100%; margin-top: 20px; padding: 14px; border-radius: 14px; border: none;
+          background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff;
+          font-weight: 800; cursor: pointer; transition: 0.3s;
         }
 
-        .card-thumb { height: 200px; overflow: hidden; position: relative; }
-        .card-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
-        .course-card-premium:hover .card-thumb img { transform: scale(1.1); }
+        .table-section { margin-top: 60px; padding-bottom: 50px; }
+        .list-container { background: rgba(15, 23, 42, 0.3); border-radius: 30px; border: 1px solid rgba(255,255,255,0.03); padding: 10px; }
+        .custom-table { width: 100%; border-collapse: collapse; }
+        .custom-table th { padding: 20px; text-align: left; color: var(--primary); font-size: 0.7rem; text-transform: uppercase; }
+        .custom-table td { padding: 20px; color: #e5e7eb; border-top: 1px solid rgba(255,255,255,0.02); }
 
-        .btn-access {
-          background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
-          color: white; border: none; padding: 12px; border-radius: 12px;
-          font-weight: 800; transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-          cursor: pointer;
+        /* RESPONSIVIDADE */
+        @media (max-width: 1024px) {
+          .dashboard-content { margin-left: 0; padding: 0 20px 100px 20px; }
+          .mobile-nav-top { display: flex; }
+          .header-container { text-align: center; margin-top: 20px; }
         }
 
-        .empty-dashboard {
-          background: rgba(30, 27, 75, 0.1);
-          border: 2px dashed rgba(139, 92, 246, 0.2);
-          border-radius: 24px; padding: 60px; text-align: center; width: 100%;
+        @media (max-width: 768px) {
+          .dashboard-grid { grid-template-columns: 1fr; }
+          .custom-table thead { display: none; }
+          .custom-table tr { display: flex; flex-direction: column; background: rgba(255,255,255,0.02); margin-bottom: 15px; border-radius: 20px; padding: 15px; }
+          .custom-table td { border: none; padding: 8px; width: 100% !important; text-align: center !important; }
         }
       `}</style>
 
-      <main className="dashboard-content" style={{ flex: 1, padding: '60px 40px', marginLeft: '260px' }}>
-        <header style={{ marginBottom: '50px' }}>
-            <h1 style={{ color: '#fff', fontSize: '2.5rem', marginBottom: '12px', fontWeight: 900, letterSpacing: '-1px' }}>
-              Minha <span style={{ color: '#8b5cf6' }}>Jornada</span>
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>
-              Bem-vindo de volta, <strong style={{ color: '#fff' }}>{userName}</strong>. Continue de onde parou.
-            </p>
+      <main className="dashboard-content">
+        <div className="mobile-nav-top">
+          <img src={logo} alt="KA Tech Logo" />
+        </div>
+
+        <header className="header-container">
+            <h1>Minha <span style={{ color: '#8b5cf6' }}>Jornada</span></h1>
+            <p>Olá, <strong style={{ color: '#fff' }}>{userName}</strong>. Continue de onde parou!</p>
         </header>
 
-        {loading ? (
-          <div style={{ color: '#8b5cf6', fontWeight: 600, textAlign: 'center', marginTop: '100px' }}>
-            Sincronizando treinamentos...
-          </div>
+        {(loading || contextLoading) ? (
+          <div style={{ padding: '100px', textAlign: 'center', color: '#8b5cf6', fontWeight: 800 }}>Calculando sua evolução...</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '30px' }}>
+          <>
             {enrolledCourses.length > 0 ? (
-              enrolledCourses.map((course) => (
-                <div 
-                  key={course.id} 
-                  className="course-card-premium"
-                  onClick={() => navigate(`/curso/${course.slug}`)}
-                >
-                  <div className="card-thumb">
-                    {course.thumbnailUrl ? (
-                      <img src={course.thumbnailUrl} alt={course.title} />
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#1e1b4b', color: '#8b5cf6', fontWeight: 900, fontSize: '2rem' }}>KA</div>
-                    )}
-                  </div>
-                  
-                  <div style={{ padding: '24px' }}>
-                    <h3 style={{ color: '#fff', marginBottom: '12px', fontSize: '1.3rem', fontWeight: 700 }}>{course.title}</h3>
-                    <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '25px', height: '45px', overflow: 'hidden', lineHeight: '1.5' }}>
-                      {course.description}
-                    </p>
-                    <button className="btn-access" style={{ width: '100%' }}>CONTINUAR</button>
-                  </div>
+              <>
+                <div className="dashboard-grid">
+                  {topThreeRecent.map((course) => (
+                    <div key={course.id} className="premium-card" onClick={() => navigate(`/curso/${course.slug}`)}>
+                      <div className="thumb-box">
+                        <img src={course.thumbnailUrl || ""} alt={course.title} />
+                      </div>
+                      <div className="card-body">
+                        <h3>{course.title}</h3>
+                        <div className="progress-label">
+                          <span>EVOLUÇÃO REAL</span><span>{course.progress}%</span>
+                        </div>
+                        <div className="progress-track">
+                          <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                        </div>
+                        <button className="btn-main">CONTINUAR</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))
+
+                <section className="table-section">
+                  <h2 style={{ color: '#fff', fontSize: '1.4rem', marginBottom: '20px', marginLeft: '10px' }}>Cursos Ativos</h2>
+                  <div className="list-container">
+                    <table className="custom-table">
+                      <thead>
+                        <tr><th>Treinamento</th><th>Progresso</th><th style={{ textAlign: 'right' }}>Ação</th></tr>
+                      </thead>
+                      <tbody>
+                        {tableCourses.map((course) => (
+                          <tr key={course.id}>
+                            <td style={{ fontWeight: 700 }}>{course.title}</td>
+                            <td style={{ width: '40%' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div className="progress-track" style={{ height: '4px' }}>
+                                  <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                                </div>
+                                <span style={{ color: '#8b5cf6', fontSize: '0.8rem', fontWeight: 800 }}>{course.progress}%</span>
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button onClick={() => navigate(`/curso/${course.slug}`)} className="btn-main" style={{ marginTop: 0, padding: '10px 20px', width: 'auto' }}>ABRIR</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </>
             ) : (
-              <div className="empty-dashboard">
-                <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🚀</div>
-                <h3 style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '10px' }}>Seu Dashboard está vazio</h3>
-                <p style={{ color: '#94a3b8', marginBottom: '30px' }}>Inscreva-se em novos cursos na aba Trilhas.</p>
-                <button 
-                  onClick={() => navigate('/cursos')}
-                  style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: '1px solid #8b5cf6', padding: '12px 30px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
-                >
-                  Explorar Trilhas
-                </button>
+              <div style={{ textAlign: 'center', padding: '100px 20px' }}>
+                <h2 style={{ color: '#fff' }}>Tudo pronto por aqui! 🚀</h2>
+                <p style={{ color: '#94a3b8', marginBottom: '30px' }}>Você concluiu todos os seus treinamentos pendentes.</p>
+                <button onClick={() => navigate('/cursos')} className="btn-main" style={{ width: '250px' }}>Explorar Trilhas</button>
               </div>
             )}
-          </div>
+          </>
         )}
       </main>
     </div>
