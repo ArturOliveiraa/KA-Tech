@@ -21,7 +21,7 @@ export default function Achievements() {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                // Query que conecta as insígnias ao curso e seus professores
+                // AJUSTE NA QUERY: Agora buscamos também o 'total_duration' do curso
                 const [profileRes, badgesRes, progressRes, settingsRes] = await Promise.all([
                     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
                     supabase.from("user_badges").select(`
@@ -31,6 +31,7 @@ export default function Achievements() {
                             image_url, 
                             courses (
                                 id,
+                                total_duration,
                                 lessons:lessons(count),
                                 course_enrollments (
                                     role,
@@ -121,10 +122,14 @@ export default function Achievements() {
                             const badge = item.badges;
                             const course = Array.isArray(badge?.courses) ? badge.courses[0] : badge?.courses;
                             
+                            // LÓGICA DE CARGA HORÁRIA
+                            const totalMinutes = course?.total_duration || 0;
+                            const totalHours = (totalMinutes / 60).toFixed(1).replace('.0', '');
+                            const durationText = `${totalHours} ${parseFloat(totalHours) === 1 ? 'hora' : 'horas'}`;
+
                             const lessonCount = course?.lessons?.[0]?.count || 0;
                             const lessonText = lessonCount === 1 ? "1 aula" : `${lessonCount} aulas`;
 
-                            // EXTRAÇÃO DE PROFESSORES: Agora filtra pelo role 'TEACHER'
                             const teacherList = course?.course_enrollments
                                 ?.filter((e: any) => e.role === 'TEACHER')
                                 ?.map((e: any) => e.profiles?.full_name)
@@ -165,8 +170,9 @@ export default function Achievements() {
                                                 {badge?.name}
                                             </h1>
 
+                                            {/* ALTERAÇÃO SOLICITADA: Carga horária em horas */}
                                             <p style={{ fontSize: '24px', color: '#475569', maxWidth: '820px', lineHeight: '1.6', margin: 0, textAlign: 'left' }}>
-                                                Certificamos que o aluno(a) <strong style={{ color: '#0f172a' }}>{userName}</strong> concluiu com êxito este treinamento online com carga horária total de <strong>{lessonText}</strong>.
+                                                Certificamos que o aluno(a) <strong style={{ color: '#0f172a' }}>{userName}</strong> concluiu com êxito este treinamento online com carga horária total de <strong>{durationText}</strong>.
                                             </p>
 
                                             <div style={{ 
