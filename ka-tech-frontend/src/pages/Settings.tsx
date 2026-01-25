@@ -4,19 +4,17 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
 function Settings() {
-  const [userRole, setUserRole] = useState<string | null>(null);
+  // REMOVIDO: userRole state
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   
   const [profileId, setProfileId] = useState<string>("");
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  // Estado da cor do tema - Ajustado para o Roxo KA Tech
   const [themeColor, setThemeColor] = useState("#8b5cf6"); 
 
   const navigate = useNavigate();
 
-  // Aplica a cor no CSS do navegador em tempo real
   useEffect(() => {
     document.documentElement.style.setProperty('--primary-color', themeColor);
   }, [themeColor]);
@@ -28,7 +26,7 @@ function Settings() {
 
       const { data: profile} = await supabase
         .from("profiles")
-        .select("id, full_name, role, avatar_url, theme_color")
+        .select("id, full_name, avatar_url, theme_color") // Mantido os campos necessários
         .eq("id", user.id)
         .single();
 
@@ -36,7 +34,7 @@ function Settings() {
         setProfileId(profile.id);
         setFullName(profile.full_name || "");
         setAvatarUrl(profile.avatar_url || "");
-        setUserRole(profile.role);
+        // REMOVIDO: setUserRole(profile.role);
         if (profile.theme_color) setThemeColor(profile.theme_color);
       }
       setLoading(false);
@@ -106,8 +104,6 @@ function Settings() {
       <style>{`
         :root { --primary-color: ${themeColor}; }
         .dashboard-content { flex: 1; padding: 40px; margin-left: 260px; width: 100%; }
-        
-        /* CARD PRETO PREMIUM */
         .admin-card-local { 
           background: #09090b; 
           border-radius: 16px; 
@@ -116,13 +112,10 @@ function Settings() {
           border: 1px solid rgba(139, 92, 246, 0.1); 
           box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
         }
-
         .local-field { margin-bottom: 24px; display: flex; flex-direction: column; gap: 10px; }
         .local-field label { color: #e5e7eb; font-size: 1rem; font-weight: 600; }
-        
         .local-input-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
         .local-icon { position: absolute; left: 18px; font-size: 1.2rem; filter: opacity(0.8); }
-        
         .local-input-wrapper input {
           width: 100%; background-color: #020617 !important; color: white !important;
           border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 14px 14px 14px 52px; 
@@ -130,8 +123,6 @@ function Settings() {
           font-family: 'Sora', sans-serif;
         }
         .local-input-wrapper input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
-
-        /* BOTÃO ROXO NEON FREESTYLE */
         .local-primary-button { 
           width: 100%; padding: 16px; margin-top: 15px; border-radius: 999px; border: none; 
           background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
@@ -141,7 +132,6 @@ function Settings() {
         }
         .local-primary-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5); filter: brightness(1.1); }
         .local-primary-button:disabled { opacity: 0.5; cursor: not-allowed; }
-        
         .avatar-preview-container { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 35px; }
         .avatar-big { 
           width: 140px; height: 140px; border-radius: 50%; object-fit: cover; 
@@ -154,13 +144,11 @@ function Settings() {
           font-size: 3.5rem; color: #8b5cf6; font-weight: 800;
           border: 2px dashed rgba(139, 92, 246, 0.3); 
         }
-        
         .color-input {
           height: 55px; width: 100%; background: #020617; border: 1px solid rgba(139, 92, 246, 0.2); 
           border-radius: 12px; cursor: pointer; padding: 6px; transition: 0.3s;
         }
         .color-input:hover { border-color: var(--primary-color); }
-
         @media (max-width: 768px) {
           .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; }
           .admin-card-local { padding: 25px; }
@@ -179,7 +167,6 @@ function Settings() {
 
         <div className="admin-card-local">
           <form onSubmit={handleSaveProfile}>
-            
             <div className="avatar-preview-container">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="avatar-big" />

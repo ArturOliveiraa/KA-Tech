@@ -12,12 +12,11 @@ export default function Player() {
     const [course, setCourse] = useState<any>(null);
     const [realCourseId, setRealCourseId] = useState<number | null>(null);
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
-    const [userRole, setUserRole] = useState<string | null>(null);
+    // REMOVIDO: userRole state
     const [loading, setLoading] = useState(true);
     const [lessonStartTime, setLessonStartTime] = useState(0);
     const [isTimeLoaded, setIsTimeLoaded] = useState(false); 
 
-    // --- ESTADOS DE PROGRESSO E CONQUISTA ---
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [showBadgeModal, setShowBadgeModal] = useState(false);
     const [unlockedBadge, setUnlockedBadge] = useState<any>(null);
@@ -28,7 +27,6 @@ export default function Player() {
     const [currentVideoTime, setCurrentVideoTime] = useState(0); 
     const [seekTo, setSeekTo] = useState<number | null>(null); 
 
-    // --- FUNÇÃO AUXILIAR DE FORMATAÇÃO DE TEMPO (CORREÇÃO DO ERRO) ---
     const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
         const s = Math.floor(seconds % 60);
@@ -126,8 +124,9 @@ export default function Player() {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return navigate("/");
-            const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-            setUserRole(profile?.role || "student");
+            
+            // REMOVIDO: Busca de 'role' do perfil que não era usada
+            
             const { data: courseData } = await supabase.from("courses").select("id, title").eq("slug", slug).single();
             if (!courseData) return navigate("/dashboard");
             setCourse(courseData);

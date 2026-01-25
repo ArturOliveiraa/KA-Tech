@@ -13,20 +13,11 @@ interface RankingUser {
 
 export default function Rankings() {
     const [loading, setLoading] = useState(true);
-    const [userRole, setUserRole] = useState<string | null>(null);
+    // REMOVIDO: userRole state
     const [activeCategory, setActiveCategory] = useState<RankingCategory>("badges");
     const [rankingList, setRankingList] = useState<RankingUser[]>([]);
 
-    useEffect(() => {
-        async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-                setUserRole(prof?.role || 'user');
-            }
-        }
-        checkUser();
-    }, []);
+    // REMOVIDO: useEffect que buscava o cargo do usuário (não utilizado nesta página)
 
     useEffect(() => {
         loadRanking();
@@ -61,17 +52,14 @@ export default function Rankings() {
         setLoading(false);
     };
 
-    // Função auxiliar para formatar a pontuação com o texto correto
     const formatScore = (score: number) => {
-        // ADICIONADO: Texto para insignias
         if (activeCategory === "badges") return `${score} insígnias`;
         if (activeCategory === "tempo") return `${score} min`;
         if (activeCategory === "maratonistas") return `${score} aulas`;
         if (activeCategory === "on_fire") {
-            // Define a intensidade do fogo com base nos dias consecutivos
             let fireEmoji = "🔥";
-            if (score >= 7) fireEmoji = "🔥⚡"; // Super quente após 1 semana
-            if (score >= 30) fireEmoji = "🔥👑"; // Lendário após 1 mês
+            if (score >= 7) fireEmoji = "🔥⚡"; 
+            if (score >= 30) fireEmoji = "🔥👑"; 
 
             return (
                 <span style={{

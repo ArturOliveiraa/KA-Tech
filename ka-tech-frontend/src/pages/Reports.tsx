@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 
 export default function Reports() {
     const [loading, setLoading] = useState(true);
-    const [userRole, setUserRole] = useState<string | null>(null);
+    // REMOVIDO: userRole state
     
     // Estados de Dados Gerais
     const [platformStats, setPlatformStats] = useState({ totalStudents: 0, totalCourses: 0, totalLessonsFinished: 0 });
@@ -33,11 +33,8 @@ export default function Reports() {
     useEffect(() => {
         async function loadData() {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-                setUserRole(prof?.role || 'user');
-            }
+            
+            // REMOVIDO: Lógica de verificação de cargo (userRole)
 
             const [profilesRes, coursesRes, progressRes, listCoursesRes, tagPopRes] = await Promise.all([
                 supabase.from("profiles").select("id", { count: 'exact', head: true }),
@@ -296,7 +293,7 @@ export default function Reports() {
                             </div>
                         </section>
 
-                        {/* MINI TABELA: TOP 5 CATEGORIAS (TAGS) - AJUSTADA COM BOTÕES AO LADO DO TÍTULO */}
+                        {/* MINI TABELA: TOP 5 CATEGORIAS (TAGS) */}
                         <section className="report-section" style={{ gridColumn: "1 / -1", marginBottom: "20px" }}>
                             <div className="card-header-flex">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -410,17 +407,12 @@ export default function Reports() {
                 .btn-delete-action { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.8rem; }
                 .toast-success { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 12px 30px; border-radius: 50px; font-weight: 800; z-index: 10000; }
                 .card-header-flex { display: flex; justify-content: space-between; align-items: center; }
-                
-                /* AJUSTE NO BOTÃO APLICAR - RESTAURADO */
                 .btn-apply-filter { background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 10px; font-weight: 700; text-transform: uppercase; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
                 .btn-apply-filter:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); }
                 .btn-apply-filter:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
-
-                /* CSS DO BOTÃO DE SALVAR */
                 .btn-save-batch-top { background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 10px; font-weight: 700; text-transform: uppercase; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
                 .btn-save-batch-top:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); }
                 .btn-save-batch-top:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
-
                 .mini-export { padding: 4px 8px; border-radius: 6px; border: none; font-size: 0.6rem; font-weight: 800; cursor: pointer; margin-left: 5px; }
                 .mini-export.pdf { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
                 .mini-export.excel { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
