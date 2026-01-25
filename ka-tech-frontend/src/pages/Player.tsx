@@ -14,7 +14,7 @@ export default function Player() {
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [lessonStartTime, setLessonStartTime] = useState(0);
-    const [isTimeLoaded, setIsTimeLoaded] = useState(false); 
+    const [isTimeLoaded, setIsTimeLoaded] = useState(false);
 
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [showBadgeModal, setShowBadgeModal] = useState(false);
@@ -23,8 +23,8 @@ export default function Player() {
     const [activeTab, setActiveTab] = useState<"content" | "notes">("content");
     const [notes, setNotes] = useState<any[]>([]);
     const [newNote, setNewNote] = useState("");
-    const [currentVideoTime, setCurrentVideoTime] = useState(0); 
-    const [seekTo, setSeekTo] = useState<number | null>(null); 
+    const [currentVideoTime, setCurrentVideoTime] = useState(0);
+    const [seekTo, setSeekTo] = useState<number | null>(null);
 
     // Estado para detectar mobile
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
@@ -91,11 +91,11 @@ export default function Player() {
 
         if (percent === 100 && stats.percent < 100) {
             const { data: badge } = await supabase.from("badges").select("id, name, image_url").eq("course_id", realCourseId).maybeSingle();
-            
+
             if (badge) {
-                const { error: badgeError } = await supabase.from("user_badges").upsert({ 
-                    user_id: user.id, 
-                    badge_id: badge.id 
+                const { error: badgeError } = await supabase.from("user_badges").upsert({
+                    user_id: user.id,
+                    badge_id: badge.id
                 }, { onConflict: 'user_id,badge_id' });
 
                 if (!badgeError) {
@@ -108,7 +108,7 @@ export default function Player() {
     }, [realCourseId, stats.percent]);
 
     const handleSaveProgress = useCallback(async (time: number, completed: boolean = false) => {
-        setCurrentVideoTime(time); 
+        setCurrentVideoTime(time);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || !activeLessonId || !realCourseId) return;
 
@@ -123,16 +123,16 @@ export default function Player() {
 
         if (completed) {
             window.dispatchEvent(new Event("progressUpdated"));
-            calculateProgress(); 
+            await calculateProgress();
         }
-    }, [activeLessonId, realCourseId, calculateProgress]);
+    }, [activeLessonId, realCourseId, calculateProgress]); // Linha 130 corrigida aqui, [activeLessonId, realCourseId, calculateProgress]);, [activeLessonId, realCourseId, calculateProgress]);
 
     useEffect(() => {
         async function loadPlayerData() {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return navigate("/");
-            
+
             const { data: courseData } = await supabase.from("courses").select("id, title").eq("slug", slug).single();
             if (!courseData) return navigate("/dashboard");
             setCourse(courseData);
@@ -155,12 +155,12 @@ export default function Player() {
     useEffect(() => {
         async function fetchSavedTime() {
             if (!activeLessonId) return;
-            setIsTimeLoaded(false); 
+            setIsTimeLoaded(false);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             const { data } = await supabase.from("user_progress").select("last_time").eq("user_id", user.id).eq("lesson_id", activeLessonId).maybeSingle();
             setLessonStartTime(data?.last_time || 0);
-            setIsTimeLoaded(true); 
+            setIsTimeLoaded(true);
         }
         fetchSavedTime();
     }, [activeLessonId]);
@@ -169,13 +169,13 @@ export default function Player() {
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-            <Sidebar/>
-            
-            <main className="dashboard-content" style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                flex: 1, 
-                padding: isMobile ? '15px' : '20px 40px', 
+            <Sidebar />
+
+            <main className="dashboard-content" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                padding: isMobile ? '15px' : '20px 40px',
                 marginLeft: isMobile ? '0' : '260px',
                 width: '100%',
                 overflowX: 'hidden'
@@ -184,11 +184,11 @@ export default function Player() {
                     <h2 style={{ color: '#fff', fontSize: isMobile ? '1.3rem' : '1.8rem', fontWeight: 800 }}>{course?.title}</h2>
                 </header>
 
-                <div className="player-layout" style={{ 
-                    display: 'flex', 
-                    flexDirection: isMobile ? 'column' : 'row', 
-                    gap: isMobile ? '20px' : '30px', 
-                    alignItems: 'flex-start' 
+                <div className="player-layout" style={{
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: isMobile ? '20px' : '30px',
+                    alignItems: 'flex-start'
                 }}>
                     <div className="video-section" style={{ flex: 1, minWidth: 0, width: '100%' }}>
                         {activeLessonId && isTimeLoaded && (
@@ -245,7 +245,7 @@ export default function Player() {
                         <div style={{ fontSize: isMobile ? '3rem' : '4rem', marginBottom: '15px' }}>🎊</div>
                         <h2 style={{ color: '#fff', fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 900, marginBottom: '10px' }}>Parabéns!</h2>
                         <p style={{ color: '#9ca3af', marginBottom: '25px', fontSize: '0.9rem' }}>Você concluiu o curso e desbloqueou uma nova insígnia:</p>
-                        
+
                         <div style={{ marginBottom: '30px' }}>
                             <img src={unlockedBadge.image_url} alt={unlockedBadge.name} style={{ width: isMobile ? '100px' : '120px', height: isMobile ? '100px' : '120px', objectFit: 'contain', filter: 'drop-shadow(0 0 15px #8b5cf6)' }} />
                             <h3 style={{ color: '#8b5cf6', marginTop: '15px', fontWeight: 800 }}>{unlockedBadge.name}</h3>

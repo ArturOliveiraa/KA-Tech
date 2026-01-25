@@ -27,8 +27,8 @@ const generateSlug = (text: string) => {
 export default function ContentManagement() {
     const navigate = useNavigate();
     const { loading: contextLoading } = useUser();
-    
-    const [loading, setLoading] = useState(true); 
+
+    const [loading, setLoading] = useState(true);
 
     const [courseTitle, setCourseTitle] = useState("");
     const [courseDesc, setCourseDesc] = useState("");
@@ -97,31 +97,71 @@ export default function ContentManagement() {
 
     const handleSaveCourse = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // 1. Validação de Uploads Pendentes
+        if (uploadingThumb || uploadingBadge) {
+            return alert("Aguarde o upload das imagens terminar antes de salvar!");
+        }
+
+        // 2. Validações Básicas do Curso
         if (!selectedCategoryId) return alert("Selecione uma Trilha!");
+        if (!courseThumb) return alert("Por favor, carregue uma capa para o curso!");
+
+        // 3. Validação de Insígnia (Sua solicitação)
+        // Se o usuário digitou um nome para a insígnia, a imagem torna-se OBRIGATÓRIA
+        if (badgeName && !badgeThumb) {
+            return alert("⚠️ Erro ao lançar: Você definiu um nome para a insígnia, mas não carregou a imagem dela.");
+        }
+
         const slug = generateSlug(courseTitle);
-        const courseData = { title: courseTitle, slug, description: courseDesc, thumbnailUrl: courseThumb, category_id: selectedCategoryId };
+        const courseData = {
+            title: courseTitle,
+            slug,
+            description: courseDesc,
+            thumbnailUrl: courseThumb,
+            category_id: selectedCategoryId
+        };
+
         try {
             let currentCourseId = editingCourseId;
+
+            // Salva ou Atualiza o curso
             if (editingCourseId) {
-                await supabase.from("courses").update(courseData).eq("id", editingCourseId);
+                const { error: upError } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
+                if (upError) throw upError;
                 await supabase.from("course_tags").delete().eq("course_id", editingCourseId);
             } else {
-                const { data, error } = await supabase.from("courses").insert([courseData]).select().single();
-                if (error) throw error;
+                const { data, error: insError } = await supabase.from("courses").insert([courseData]).select().single();
+                if (insError) throw insError;
                 currentCourseId = data.id;
             }
+
+            // Salva Tags
             if (currentCourseId && selectedTags.length > 0) {
                 await supabase.from("course_tags").insert(selectedTags.map(tId => ({ course_id: currentCourseId, tag_id: tId })));
             }
+
+            // Salva a Insígnia (Só entra aqui se passar na validação acima)
             if (currentCourseId && badgeName && badgeThumb) {
-                await supabase.from("badges").upsert([{ name: badgeName, image_url: badgeThumb, course_id: currentCourseId }], { onConflict: 'course_id' });
+                const { error: bError } = await supabase
+                    .from("badges")
+                    .upsert([{ name: badgeName, image_url: badgeThumb, course_id: currentCourseId }], { onConflict: 'course_id' });
+
+                if (bError) throw new Error("Erro ao salvar dados da Insígnia: " + bError.message);
             }
-            alert("Dados salvos com sucesso!");
+
+            alert("Curso e Insígnia salvos com sucesso!");
             resetForm();
-            const { data } = await supabase.from("courses").select("*").order("createdAt", { ascending: false });
-            setCourses(data || []);
-        } catch (err: any) { alert(err.message); }
-    };
+
+            // Atualiza a lista
+            const { data: refreshData } = await supabase.from("courses").select("*").order("createdAt", { ascending: false });
+            setCourses(refreshData || []);
+
+        } catch (err: any) {
+            console.error(err);
+            alert(err.message || "Erro desconhecido ao salvar.");
+        }
+    };;
 
     const handleDeleteCourse = async (id: number) => {
         if (!window.confirm("Tem certeza que deseja excluir este curso?")) return;
@@ -291,13 +331,13 @@ export default function ContentManagement() {
 
                 {manageLessonsCourse ? (
                     <div className="glass-card">
-                         <div className="ka-lessons-wrapper">
-                            <ManageLessons 
-                                courseId={manageLessonsCourse.id} 
-                                courseTitle={manageLessonsCourse.title} 
-                                onBack={() => setManageLessonsCourse(null)} 
+                        <div className="ka-lessons-wrapper">
+                            <ManageLessons
+                                courseId={manageLessonsCourse.id}
+                                courseTitle={manageLessonsCourse.title}
+                                onBack={() => setManageLessonsCourse(null)}
                             />
-                         </div>
+                        </div>
                     </div>
                 ) : (
                     <>
@@ -336,8 +376,8 @@ export default function ContentManagement() {
                                         <label className="form-label">🏷️ Tags</label>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                             {tags.map(tag => (
-                                                <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)} 
-                                                    style={{ 
+                                                <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)}
+                                                    style={{
                                                         padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--border)',
                                                         background: selectedTags.includes(tag.id) ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
                                                         color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800
@@ -357,7 +397,7 @@ export default function ContentManagement() {
                                             <input id="file-thumb" type="file" hidden onChange={(e) => handleUpload(e, 'course-thumbs', setCourseThumb, setUploadingThumb)} />
                                             {uploadingThumb ? "✨ Subindo imagem..." : "📤 Clique para Carregar Capa"}
                                         </div>
-                                        {courseThumb && <div style={{marginTop: '15px', borderRadius: '20px', overflow: 'hidden', height: '200px', border: '1px solid var(--primary)'}}><img src={courseThumb} alt="Preview" style={{width: '100%', height: '100%', objectFit: 'cover'}} /></div>}
+                                        {courseThumb && <div style={{ marginTop: '15px', borderRadius: '20px', overflow: 'hidden', height: '200px', border: '1px solid var(--primary)' }}><img src={courseThumb} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>}
                                     </div>
 
                                     <div style={{ background: 'rgba(139, 92, 246, 0.05)', padding: '30px', borderRadius: '25px', border: '1px solid rgba(139, 92, 246, 0.1)' }}>
@@ -370,7 +410,7 @@ export default function ContentManagement() {
                                             <input id="file-badge" type="file" hidden onChange={(e) => handleUpload(e, 'badges-icons', setBadgeThumb, setUploadingBadge)} />
                                             {uploadingBadge ? "Carregando..." : "📸 Upload Ícone da Medalha"}
                                         </button>
-                                        {badgeThumb && <div style={{marginTop: '20px', textAlign: 'center'}}><img src={badgeThumb} alt="Badge" style={{width: '70px', height: '70px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px gold)'}} /></div>}
+                                        {badgeThumb && <div style={{ marginTop: '20px', textAlign: 'center' }}><img src={badgeThumb} alt="Badge" style={{ width: '70px', height: '70px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px gold)' }} /></div>}
                                     </div>
 
                                     <button type="submit" className="btn-submit" style={{ marginTop: '40px' }}>
@@ -383,7 +423,7 @@ export default function ContentManagement() {
                             <div className="glass-card">
                                 <h2 style={{ color: '#fff', marginBottom: '35px', fontSize: '1.5rem', fontWeight: 900 }}>📚 Cursos</h2>
                                 <div style={{ maxHeight: '75vh', overflowY: 'auto', paddingRight: '10px' }}>
-                                    {courses.length === 0 && <p style={{color: '#64748b', textAlign: 'center'}}>Nenhum curso disponível.</p>}
+                                    {courses.length === 0 && <p style={{ color: '#64748b', textAlign: 'center' }}>Nenhum curso disponível.</p>}
                                     {courses.map(c => (
                                         <div key={c.id} className="course-item">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
