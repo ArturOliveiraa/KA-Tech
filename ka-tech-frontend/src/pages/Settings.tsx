@@ -4,7 +4,6 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 
 function Settings() {
-  // REMOVIDO: userRole state
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   
@@ -21,23 +20,36 @@ function Settings() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return navigate("/");
+      try {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          return navigate("/");
+        }
 
-      const { data: profile} = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, theme_color") // Mantido os campos necessários
-        .eq("id", user.id)
-        .single();
+        // Definimos o ID imediatamente para evitar a trava do IF de renderização
+        setProfileId(user.id);
 
-      if (profile) {
-        setProfileId(profile.id);
-        setFullName(profile.full_name || "");
-        setAvatarUrl(profile.avatar_url || "");
-        // REMOVIDO: setUserRole(profile.role);
-        if (profile.theme_color) setThemeColor(profile.theme_color);
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, theme_color")
+          .eq("id", user.id)
+          .maybeSingle(); // Usamos maybeSingle para evitar erro caso o perfil não exista
+
+        if (error) throw error;
+
+        if (profile) {
+          setFullName(profile.full_name || "");
+          setAvatarUrl(profile.avatar_url || "");
+          if (profile.theme_color) setThemeColor(profile.theme_color);
+        }
+      } catch (error: any) {
+        console.error("Erro ao carregar configurações:", error.message);
+        // Se der erro 401, você provavelmente precisa ajustar o RLS no banco
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadProfile();
   }, [navigate]);
@@ -82,7 +94,6 @@ function Settings() {
     if (!profileId) return;
 
     setLoading(true);
-
     const { error } = await supabase
       .from("profiles")
       .update({ 
@@ -97,13 +108,22 @@ function Settings() {
     setLoading(false);
   };
 
-  if (loading && !profileId) return <div className="loading-box" style={{ color: '#8b5cf6', fontFamily: 'Sora', fontWeight: 800, padding: '50px', textAlign: 'center' }}>Carregando configurações...</div>;
+  // Ajuste na condição de renderização para evitar tela branca infinita
+  if (loading && !profileId) {
+    return (
+      <div className="dashboard-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#020617' }}>
+        <div style={{ color: '#8b5cf6', fontFamily: 'Sora', fontWeight: 800 }}>
+          Carregando configurações...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
       <style>{`
         :root { --primary-color: ${themeColor}; }
-        .dashboard-content { flex: 1; padding: 40px; margin-left: 260px; width: 100%; }
+        .dashboard-content { flex: 1; padding: 40px; margin-left: 260px; width: 100%; transition: 0.3s; }
         .admin-card-local { 
           background: #09090b; 
           border-radius: 16px; 
@@ -130,8 +150,6 @@ function Settings() {
           font-size: 1rem; font-family: 'Sora', sans-serif;
           box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
         }
-        .local-primary-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5); filter: brightness(1.1); }
-        .local-primary-button:disabled { opacity: 0.5; cursor: not-allowed; }
         .avatar-preview-container { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 35px; }
         .avatar-big { 
           width: 140px; height: 140px; border-radius: 50%; object-fit: cover; 
@@ -148,10 +166,8 @@ function Settings() {
           height: 55px; width: 100%; background: #020617; border: 1px solid rgba(139, 92, 246, 0.2); 
           border-radius: 12px; cursor: pointer; padding: 6px; transition: 0.3s;
         }
-        .color-input:hover { border-color: var(--primary-color); }
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .dashboard-content { margin-left: 0; padding: 20px; padding-bottom: 100px; }
-          .admin-card-local { padding: 25px; }
         }
       `}</style>
 
@@ -160,8 +176,10 @@ function Settings() {
       <main className="dashboard-content">
         <header className="dashboard-header" style={{ marginBottom: '40px' }}>
           <div className="header-info">
-            <h1 style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Configurações</h1>
-            <p style={{ color: '#9ca3af', fontSize: '1.1rem', marginTop: '5px' }}>Personalize seu perfil na plataforma <strong style={{ color: '#8b5cf6' }}>KA Tech</strong>.</p>
+            <h1 style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 800 }}>Configurações</h1>
+            <p style={{ color: '#9ca3af', fontSize: '1.1rem', marginTop: '5px' }}>
+              Personalize seu perfil na plataforma <strong style={{ color: '#8b5cf6' }}>KA Tech</strong>.
+            </p>
           </div>
         </header>
 
