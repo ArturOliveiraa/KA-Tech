@@ -5,9 +5,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; 
 import * as XLSX from "xlsx";
 
+// Import da logo para o cabeçalho mobile
+import logo from "../assets/ka-tech-logo.png";
+
 export default function Reports() {
     const [loading, setLoading] = useState(true);
-    // REMOVIDO: userRole state
     
     // Estados de Dados Gerais
     const [platformStats, setPlatformStats] = useState({ totalStudents: 0, totalCourses: 0, totalLessonsFinished: 0 });
@@ -34,8 +36,6 @@ export default function Reports() {
         async function loadData() {
             setLoading(true);
             
-            // REMOVIDO: Lógica de verificação de cargo (userRole)
-
             const [profilesRes, coursesRes, progressRes, listCoursesRes, tagPopRes] = await Promise.all([
                 supabase.from("profiles").select("id", { count: 'exact', head: true }),
                 supabase.from("courses").select("id", { count: 'exact', head: true }),
@@ -229,13 +229,18 @@ export default function Reports() {
     };
 
     return (
-        <div className="dashboard-wrapper" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
+        <div className="dashboard-wrapper">
             <Sidebar/>
 
             {showToast && <div className="toast-success"><span>{toastMsg}</span></div>}
 
-            <main style={{ flex: 1, padding: '40px', marginLeft: '260px' }}>
-                <h1 style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 800, marginBottom: '30px' }}>Painel de Controle</h1>
+            <main className="report-main-content">
+                {/* LOGO MOBILE */}
+                <div className="brand-logo-mobile">
+                    <img src={logo} alt="KA Tech Logo" />
+                </div>
+
+                <h1 className="report-title">Painel de Controle</h1>
 
                 <div className="stats-grid">
                     <div className="stat-card"><span className="stat-label">TOTAL USUÁRIOS</span><h2 className="stat-value">{platformStats.totalStudents}</h2></div>
@@ -243,26 +248,28 @@ export default function Reports() {
                     <div className="stat-card"><span className="stat-label">MISSÕES CONCLUÍDAS</span><h2 className="stat-value">{platformStats.totalLessonsFinished}</h2></div>
                 </div>
 
-                {loading ? <p style={{ color: '#8b5cf6', textAlign: 'center' }}>Carregando dados...</p> : (
+                {loading ? <p style={{ color: '#8b5cf6', textAlign: 'center', padding: '50px' }}>Carregando dados...</p> : (
                     <div className="admin-sections">
                         
                         {/* RELATÓRIO POR CURSO */}
-                        <section className="report-section" style={{ gridColumn: "1 / -1", marginBottom: "20px" }}>
+                        <section className="report-section full-width">
                             <div className="card-header-flex">
-                                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                                <div className="filter-controls">
                                     <h3 className="section-header">🔍 Relatório por Curso</h3>
-                                    <select className="gamer-select" value={tempCourseId} onChange={(e) => setTempCourseId(e.target.value)} style={{ minWidth: "200px" }}>
-                                        <option value="">Selecionar curso...</option>
-                                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                                    </select>
-                                    <select className="gamer-select" value={tempStatusFilter} onChange={(e) => setTempStatusFilter(e.target.value)} style={{ minWidth: "150px" }}>
-                                        <option value="all">Todos os Status</option>
-                                        <option value="completed">Concluídos</option>
-                                        <option value="pending">Em Andamento</option>
-                                    </select>
-                                    <button className="btn-apply-filter" onClick={handleApplyFilter} disabled={loadingFilter}>
-                                        {loadingFilter ? "..." : "APLICAR"}
-                                    </button>
+                                    <div className="select-group">
+                                        <select className="gamer-select" value={tempCourseId} onChange={(e) => setTempCourseId(e.target.value)}>
+                                            <option value="">Selecionar curso...</option>
+                                            {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                                        </select>
+                                        <select className="gamer-select" value={tempStatusFilter} onChange={(e) => setTempStatusFilter(e.target.value)}>
+                                            <option value="all">Todos os Status</option>
+                                            <option value="completed">Concluídos</option>
+                                            <option value="pending">Em Andamento</option>
+                                        </select>
+                                        <button className="btn-apply-filter" onClick={handleApplyFilter} disabled={loadingFilter}>
+                                            {loadingFilter ? "..." : "APLICAR"}
+                                        </button>
+                                    </div>
                                     <div className="card-export-group">
                                         <button className="mini-export pdf" onClick={exportFilteredPDF} disabled={studentsByCourse.length === 0}>PDF</button>
                                         <button className="mini-export excel" onClick={exportFilteredExcel} disabled={studentsByCourse.length === 0}>XLS</button>
@@ -270,7 +277,7 @@ export default function Reports() {
                                 </div>
                             </div>
                             <div className="report-content-layout">
-                                <div className="table-container" style={{ flex: 2 }}>
+                                <div className="table-container">
                                     {hasSearched && studentsByCourse.length > 0 ? (
                                         <table className="admin-table">
                                             <thead><tr><th>ALUNO</th><th>CARGO</th><th>STATUS</th></tr></thead>
@@ -286,25 +293,23 @@ export default function Reports() {
                                 </div>
                                 {hasSearched && studentsByCourse.length > 0 && (
                                     <div className="visual-summary-aside">
-                                        <h4 style={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 800, marginBottom: '15px', textAlign: 'center' }}>TAXA DE CONCLUSÃO</h4>
+                                        <h4 style={{ color: '#ffffff', fontSize: '0.7rem', fontWeight: 900, marginBottom: '15px', textAlign: 'center' }}>TAXA DE CONCLUSÃO</h4>
                                         <CoursePieChart />
                                     </div>
                                 )}
                             </div>
                         </section>
 
-                        {/* MINI TABELA: TOP 5 CATEGORIAS (TAGS) */}
-                        <section className="report-section" style={{ gridColumn: "1 / -1", marginBottom: "20px" }}>
+                        {/* MINI TABELA: TOP 5 CATEGORIAS */}
+                        <section className="report-section full-width">
                             <div className="card-header-flex">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <h3 className="section-header">🏆 Top 5 Categorias (Popularidade)</h3>
-                                    <div className="card-export-group">
-                                        <button className="mini-export pdf" onClick={exportTagRankingPDF}>PDF</button>
-                                        <button className="mini-export excel" onClick={exportTagRankingExcel}>XLS</button>
-                                    </div>
+                                <h3 className="section-header">🏆 Top 5 Categorias (Popularidade)</h3>
+                                <div className="card-export-group">
+                                    <button className="mini-export pdf" onClick={exportTagRankingPDF}>PDF</button>
+                                    <button className="mini-export excel" onClick={exportTagRankingExcel}>XLS</button>
                                 </div>
                             </div>
-                            <div className="table-container" style={{ marginTop: "15px" }}>
+                            <div className="table-container">
                                 {tagPopularity.length > 0 ? (
                                     <table className="admin-table">
                                         <thead>
@@ -331,7 +336,7 @@ export default function Reports() {
                         {/* GESTÃO DE MEMBROS */}
                         <section className="report-section">
                             <div className="card-header-flex">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div className="filter-controls">
                                     <h3 className="section-header">🛡️ Gestão de Membros</h3>
                                     <div className="card-export-group">
                                         <button className="mini-export pdf" onClick={exportMembersPDF}>PDF</button>
@@ -339,10 +344,10 @@ export default function Reports() {
                                     </div>
                                 </div>
                                 <button className="btn-save-batch-top" onClick={handleSaveBatch} disabled={isSaving || Object.keys(pendingChanges).length === 0}>
-                                    {isSaving ? "SALVANDO..." : "SALVAR"}
+                                    {isSaving ? "..." : "SALVAR"}
                                 </button>
                             </div>
-                            <div className="table-container" style={{ marginTop: '15px' }}>
+                            <div className="table-container">
                                 <table className="admin-table">
                                     <thead><tr><th>NOME</th><th>CARGO</th><th>AJUSTAR</th></tr></thead>
                                     <tbody>{allProfiles.map(p => (
@@ -371,7 +376,7 @@ export default function Reports() {
                                     <button className="mini-export excel" onClick={exportTagsExcel}>XLS</button>
                                 </div>
                             </div>
-                            <div className="orphan-tag-container" style={{ marginTop: '15px' }}>
+                            <div className="orphan-tag-container">
                                 {orphanTags.length > 0 ? orphanTags.map(t => (
                                     <div key={t.id} className="tag-card"><span>{t.name}</span><button className="btn-delete-action" onClick={() => deleteOrphanTag(t.id)}>🗑️</button></div>
                                 )) : <p className="success-msg">Base de dados higienizada!</p>}
@@ -382,40 +387,88 @@ export default function Reports() {
             </main>
 
             <style>{`
-                .report-content-layout { display: flex; gap: 30px; margin-top: 20px; align-items: flex-start; }
+                .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: #020617; }
+                
+                .report-main-content { 
+                    flex: 1; 
+                    padding: 40px; 
+                    margin-left: 260px; 
+                    transition: 0.3s;
+                    box-sizing: border-box;
+                }
+
+                .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 30px; }
+                .brand-logo-mobile img { height: 180px; filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.4)); object-fit: contain; }
+
+                .report-title { color: #fff; font-size: 2.2rem; fontWeight: 800; margin-bottom: 30px; }
+
+                .stats-grid { display: flex; gap: 15px; margin-bottom: 25px; } 
+                .stat-card { background: #09090b; padding: 18px; border-radius: 12px; flex: 1; border: 1px solid rgba(139, 92, 246, 0.1); }
+                .stat-value { color: #fff; font-size: 1.3rem; font-weight: 900; margin: 0; }
+                .stat-label { color: #94a3b8; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; }
+
+                .admin-sections { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; width: 100%; }
+                .report-section { background: #09090b; padding: 20px; border-radius: 18px; border: 1px solid rgba(139, 92, 246, 0.08); box-sizing: border-box; }
+                .report-section.full-width { grid-column: 1 / -1; }
+                
+                /* TÍTULOS DOS CARDS (CORRIGIDO PARA BRANCO VÍVIDO) */
+                .section-header { color: #ffffff !important; font-weight: 900; font-size: 1rem; margin: 0; }
+
+                .card-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+                .filter-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; }
+                .select-group { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
+
+                .report-content-layout { display: flex; gap: 30px; align-items: flex-start; }
+                .table-container { flex: 2; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+                
+                /* CABEÇALHOS DAS TABELAS (CORRIGIDO PARA BRANCO) */
+                .admin-table { width: 100%; border-collapse: collapse; min-width: 400px; }
+                .admin-table th { color: #ffffff; font-size: 0.7rem; font-weight: 700; text-align: left; padding: 12px 8px; border-bottom: 1px solid #1f2937; }
+                .admin-table td { padding: 12px 8px; border-bottom: 1px solid #111827; color: #fff; font-size: 0.75rem; }
+
                 .visual-summary-aside { background: rgba(139, 92, 246, 0.03); padding: 20px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.1); min-width: 150px; }
                 .circular-chart { display: block; margin: 10px auto; max-width: 100px; }
                 .circle-bg { fill: none; stroke: rgba(139, 92, 246, 0.1); stroke-width: 3.8; }
-                .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; stroke: #8b5cf6; }
+                .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; stroke: #8b5cf6; transition: stroke-dasharray 0.3s ease; }
                 .percentage { fill: #fff; font-size: 0.5rem; text-anchor: middle; font-weight: 800; }
-                .stats-grid { display: flex; gap: 15px; margin-bottom: 25px; } 
-                .stat-card { background: #09090b; padding: 12px 18px; border-radius: 12px; flex: 1; border: 1px solid rgba(139, 92, 246, 0.1); }
-                .stat-value { color: #fff; font-size: 1.3rem; font-weight: 900; }
-                .stat-label { color: #94a3b8; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; }
-                .admin-sections { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
-                .report-section { background: #09090b; padding: 20px; border-radius: 18px; border: 1px solid rgba(139, 92, 246, 0.08); }
-                .section-header { color: #fff; font-weight: 800; font-size: 0.85rem; }
-                .admin-table { width: 100%; border-collapse: collapse; }
-                .admin-table th { color: #94a3b8; font-size: 0.6rem; text-align: left; padding: 8px; border-bottom: 1px solid #1f2937; }
-                .admin-table td { padding: 8px; border-bottom: 1px solid #111827; color: #fff; font-size: 0.75rem; }
+
                 .role-badge { padding: 3px 6px; border-radius: 4px; font-size: 0.5rem; font-weight: 800; }
                 .role-badge.admin { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
                 .role-badge.teacher { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
                 .role-badge.user { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
-                .gamer-select { background: #0f172a; color: #fff; border: 1px solid rgba(139, 92, 246, 0.25); padding: 4px 6px; border-radius: 6px; font-size: 0.65rem; }
-                .tag-card { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 6px 12px; border-radius: 10px; margin-bottom: 6px; font-size: 0.75rem; color: #fff; }
-                .btn-delete-action { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.8rem; }
-                .toast-success { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 12px 30px; border-radius: 50px; font-weight: 800; z-index: 10000; }
-                .card-header-flex { display: flex; justify-content: space-between; align-items: center; }
-                .btn-apply-filter { background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 10px; font-weight: 700; text-transform: uppercase; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
-                .btn-apply-filter:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); }
-                .btn-apply-filter:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
-                .btn-save-batch-top { background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 10px; font-weight: 700; text-transform: uppercase; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
-                .btn-save-batch-top:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4); }
-                .btn-save-batch-top:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
-                .mini-export { padding: 4px 8px; border-radius: 6px; border: none; font-size: 0.6rem; font-weight: 800; cursor: pointer; margin-left: 5px; }
+
+                .gamer-select { background: #0f172a; color: #fff; border: 1px solid rgba(139, 92, 246, 0.25); padding: 8px; border-radius: 6px; font-size: 0.7rem; outline: none; }
+                .btn-apply-filter, .btn-save-batch-top { background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
+                .btn-apply-filter:disabled { background: #1e293b; opacity: 0.5; }
+                
+                .card-export-group { display: flex; gap: 5px; }
+                .mini-export { padding: 6px 10px; border-radius: 6px; border: none; font-size: 0.6rem; font-weight: 800; cursor: pointer; }
                 .mini-export.pdf { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
                 .mini-export.excel { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+
+                .orphan-tag-container { display: flex; flex-direction: column; gap: 8px; }
+                .tag-card { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 10px 15px; border-radius: 10px; font-size: 0.75rem; color: #fff; }
+                .btn-delete-action { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.8rem; }
+                .toast-success { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 12px 30px; border-radius: 50px; font-weight: 800; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+                @media (max-width: 1024px) {
+                    .report-main-content { margin-left: 0; padding: 20px; padding-bottom: 150px; }
+                    .brand-logo-mobile { display: flex; }
+                    .report-title { text-align: center; font-size: 1.8rem; }
+                    .admin-sections { grid-template-columns: 1fr; }
+                    .stats-grid { flex-wrap: wrap; }
+                    .stat-card { min-width: 140px; }
+                }
+
+                @media (max-width: 768px) {
+                    .report-content-layout { flex-direction: column; align-items: center; }
+                    .visual-summary-aside { width: 100%; box-sizing: border-box; margin-top: 20px; }
+                    .filter-controls { flex-direction: column; align-items: stretch; }
+                    .select-group { flex-direction: column; }
+                    .gamer-select, .btn-apply-filter { width: 100%; }
+                    .card-header-flex { flex-direction: column; align-items: flex-start; }
+                    .btn-save-batch-top { width: 100%; margin-top: 10px; }
+                }
             `}</style>
         </div>
     );
