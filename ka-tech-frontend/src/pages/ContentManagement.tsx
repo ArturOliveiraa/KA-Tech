@@ -314,7 +314,7 @@ export default function ContentManagement() {
                         <div className="management-grid">
                             <div className="glass-card">
                                 <h2 style={{ color: '#fff', marginBottom: '35px', fontSize: '1.5rem', fontWeight: 900 }}>
-                                    {editingCourseId ? "✏️ Editar Treinamento" : "✨ Novo Treinamento"}
+                                    {editingCourseId ? "✏️ Editar Treinamento" : "✨ Novo Curso"}
                                 </h2>
                                 <form onSubmit={handleSaveCourse}>
                                     <div style={{ marginBottom: '25px' }}>
@@ -381,7 +381,7 @@ export default function ContentManagement() {
                             </div>
 
                             <div className="glass-card">
-                                <h2 style={{ color: '#fff', marginBottom: '35px', fontSize: '1.5rem', fontWeight: 900 }}>📚 Biblioteca Viva</h2>
+                                <h2 style={{ color: '#fff', marginBottom: '35px', fontSize: '1.5rem', fontWeight: 900 }}>📚 Cursos</h2>
                                 <div style={{ maxHeight: '75vh', overflowY: 'auto', paddingRight: '10px' }}>
                                     {courses.length === 0 && <p style={{color: '#64748b', textAlign: 'center'}}>Nenhum curso disponível.</p>}
                                     {courses.map(c => (
