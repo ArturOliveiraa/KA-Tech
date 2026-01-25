@@ -48,16 +48,6 @@ const Sidebar: React.FC = () => {
           width: 100%;
         }
 
-        .logo-link {
-          display: flex;
-          width: 100%;
-          justify-content: center;
-          text-decoration: none;
-          transition: transform 0.2s ease;
-        }
-
-        .logo-link:hover { transform: scale(1.02); }
-
         .logo-img {
           width: 100%;
           max-width: 240px;
@@ -70,7 +60,8 @@ const Sidebar: React.FC = () => {
           display: flex; 
           flex-direction: column; 
           padding: 20px 16px; 
-          gap: 8px; 
+          gap: 8px;
+          overflow-y: auto;
         }
 
         .nav-link { 
@@ -97,61 +88,98 @@ const Sidebar: React.FC = () => {
           font-weight: 600; 
         }
 
+        .nav-icon { font-size: 1.2rem; margin-right: 12px; }
+
         .sidebar-footer { 
           padding: 20px 16px; 
           border-top: 1px solid rgba(139, 92, 246, 0.1);
           background: rgba(0, 0, 0, 0.2);
         }
 
-        @media (max-width: 768px) {
+        /* --- AJUSTE MOBILE (BOTTOM BAR) --- */
+        @media (max-width: 1024px) {
           .sidebar-container {
-            width: 100%; height: 70px; bottom: 0; top: auto; border-top: 1px solid rgba(139, 92, 246, 0.2); border-right: none;
+            width: 100%; 
+            height: 75px; 
+            bottom: 0; 
+            top: auto; 
+            flex-direction: row;
+            border-right: none;
+            border-top: 1px solid rgba(139, 92, 246, 0.15);
+            background: rgba(2, 6, 23, 0.95);
+            backdrop-filter: blur(10px);
           }
-          .sidebar-logo { display: none; }
-          .sidebar-nav { flex-direction: row; justify-content: space-around; padding: 10px; }
-          .nav-link { flex-direction: column; font-size: 0.7rem; padding: 8px; }
-          .nav-link.active { border-left: none; border-bottom: 3px solid var(--primary-color); border-radius: 0; }
+
+          .sidebar-logo, .sidebar-footer { display: none; }
+
+          .sidebar-nav { 
+            flex-direction: row; 
+            justify-content: space-around; 
+            padding: 0 10px; 
+            gap: 0;
+            overflow-y: hidden;
+            width: 100%;
+            align-items: center;
+          }
+
+          .nav-link { 
+            flex-direction: column; 
+            font-size: 0.65rem; 
+            padding: 5px; 
+            gap: 4px;
+            color: #64748b;
+            min-width: 60px;
+            text-align: center;
+          }
+
+          .nav-icon { margin-right: 0; font-size: 1.3rem; }
+
+          .nav-link.active { 
+            background: none;
+            border-left: none;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 0;
+            color: var(--primary-color);
+            padding-top: 2px;
+          }
+
+          /* Ocultar itens menos importantes no mobile para não amontoar */
+          .hide-mobile { display: none; }
         }
       `}</style>
 
       <aside className="sidebar-container">
         <div className="sidebar-logo">
-          <Link to="/dashboard" className="logo-link">
+          <Link to="/dashboard" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
             <img src={logo} alt="KA Tech" className="logo-img" />
           </Link>
         </div>
 
         <nav className="sidebar-nav">
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📚</span> <span>Meus Cursos</span>
+            <span className="nav-icon">📚</span> <span>Cursos</span>
           </Link>
 
-          <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>
-            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏆</span> <span>Minhas Conquistas</span>
-          </Link>
-
-          {/* BOTÃO TRILHAS RECUPERADO */}
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
-            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🔍</span> <span>Trilhas</span>
+            <span className="nav-icon">🔍</span> <span>Trilhas</span>
+          </Link>
+
+          <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
+            <span className="nav-icon">🏅</span> <span>Ranking</span>
+          </Link>
+
+          <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''} hide-mobile`}>
+            <span className="nav-icon">🏆</span> <span>Conquistas</span>
           </Link>
 
           {(userRole === 'admin' || userRole === 'teacher') && (
-            <>
-              <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}>
-                <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🛠️</span> <span>Gestão</span>
-              </Link>
-              <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
-                <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>📊</span> <span>Relatórios</span>
-              </Link>
-            </>
+            <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}>
+              <span className="nav-icon">🛠️</span> <span>Gestão</span>
+            </Link>
           )}
 
-          <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
-            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>🏅</span> <span>Rankings</span>
-          </Link>
-
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
-            <span style={{ fontSize: '1.2rem', marginRight: '12px' }}>⚙️</span> <span>Ajustes</span>
+            <span className="nav-icon">⚙️</span> <span>Ajustes</span>
           </Link>
         </nav>
 
@@ -162,7 +190,7 @@ const Sidebar: React.FC = () => {
               <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                 {userName}
               </span>
-              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left' }}>
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
                 Encerrar Sessão
               </button>
             </div>
