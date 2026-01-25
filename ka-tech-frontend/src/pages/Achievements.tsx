@@ -21,7 +21,7 @@ export default function Achievements() {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                // Query que conecta as insígnias ao curso e seus instrutores
+                // Query que conecta as insígnias ao curso e seus professores
                 const [profileRes, badgesRes, progressRes, settingsRes] = await Promise.all([
                     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
                     supabase.from("user_badges").select(`
@@ -124,14 +124,14 @@ export default function Achievements() {
                             const lessonCount = course?.lessons?.[0]?.count || 0;
                             const lessonText = lessonCount === 1 ? "1 aula" : `${lessonCount} aulas`;
 
-                            // EXTRAÇÃO DE INSTRUTORES: Filtra quem tem role 'INSTRUCTOR' conforme seu banco
-                            const instructorList = course?.course_enrollments
-                                ?.filter((e: any) => e.role === 'INSTRUCTOR')
+                            // EXTRAÇÃO DE PROFESSORES: Agora filtra pelo role 'TEACHER'
+                            const teacherList = course?.course_enrollments
+                                ?.filter((e: any) => e.role === 'TEACHER')
                                 ?.map((e: any) => e.profiles?.full_name)
                                 .filter(Boolean);
                             
-                            const instructorNames = (instructorList && instructorList.length > 0) 
-                                ? instructorList.join(", ") 
+                            const teacherNames = (teacherList && teacherList.length > 0) 
+                                ? teacherList.join(", ") 
                                 : "Equipe KA Academy";
 
                             const uniqueId = `pdf-template-${index}`;
@@ -150,31 +150,25 @@ export default function Achievements() {
                                         boxSizing: 'border-box',
                                         color: '#0f172a'
                                     }}>
-                                        {/* Barra Lateral Roxa */}
                                         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '30px', backgroundColor: '#7c3aed' }}></div>
                                         
                                         <div style={{ padding: '60px 80px 60px 110px' }}>
-                                            {/* Logo - Alinhada à Esquerda */}
                                             <div style={{ marginBottom: '50px', textAlign: 'left' }}>
                                                 <img src={certLogo} alt="Logo" style={{ height: '55px', objectFit: 'contain' }} />
                                             </div>
 
-                                            {/* Cabeçalho - Alinhado à Esquerda */}
                                             <p style={{ color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '3px', fontWeight: 800, fontSize: '16px', margin: 0, textAlign: 'left' }}>
                                                 Certificado de Conclusão
                                             </p>
                                             
-                                            {/* Título do Curso - Alinhado à Esquerda */}
                                             <h1 style={{ fontSize: '72px', fontWeight: 900, margin: '15px 0 30px 0', lineHeight: '1', textTransform: 'uppercase', textAlign: 'left' }}>
                                                 {badge?.name}
                                             </h1>
 
-                                            {/* Texto Principal - Alinhado à Esquerda */}
                                             <p style={{ fontSize: '24px', color: '#475569', maxWidth: '820px', lineHeight: '1.6', margin: 0, textAlign: 'left' }}>
                                                 Certificamos que o aluno(a) <strong style={{ color: '#0f172a' }}>{userName}</strong> concluiu com êxito este treinamento online com carga horária total de <strong>{lessonText}</strong>.
                                             </p>
 
-                                            {/* RODAPÉ ESTRUTURADO */}
                                             <div style={{ 
                                                 position: 'absolute', 
                                                 bottom: '60px', 
@@ -186,7 +180,6 @@ export default function Achievements() {
                                                 justifyContent: 'space-between',
                                                 alignItems: 'flex-end'
                                             }}>
-                                                {/* Esquerda: Data */}
                                                 <div style={{ width: '30%', textAlign: 'left' }}>
                                                     <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Emitido em</p>
                                                     <p style={{ margin: '5px 0 0 0', fontSize: '18px', fontWeight: 700 }}>
@@ -194,18 +187,16 @@ export default function Achievements() {
                                                     </p>
                                                 </div>
 
-                                                {/* Centro: Texto Institucional */}
                                                 <div style={{ width: '40%', textAlign: 'center' }}>
                                                     <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', margin: 0, color: '#94a3b8', fontWeight: 600 }}>
                                                         EMITIDO POR KA ACADEMY
                                                     </p>
                                                 </div>
 
-                                                {/* Direita: Instrutores */}
                                                 <div style={{ width: '30%', textAlign: 'right' }}>
-                                                    <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Instrutores:</p>
+                                                    <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Professores:</p>
                                                     <p style={{ margin: '5px 0 0 0', fontSize: '18px', fontWeight: 700, lineHeight: '1.2' }}>
-                                                        {instructorNames}
+                                                        {teacherNames}
                                                     </p>
                                                 </div>
                                             </div>
