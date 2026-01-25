@@ -134,7 +134,7 @@ export default function Reports() {
         if (!error) { setOrphanTags(prev => prev.filter(t => t.id !== tagId)); showSuccessToast("🗑️ Tag removida!"); }
     };
 
-    // --- FUNÇÕES DE EXPORTAÇÃO ---
+    // --- FUNÇÕES DE EXPORTAÇÃO (RESTAURADAS E COMPLETAS) ---
     const exportTagRankingExcel = () => {
         const data = tagPopularity.slice(0, 5).map((tag, index) => ({ "Ranking": `#${index + 1}`, "Categoria": tag.tag_name, "Alunos": tag.total_enrollments }));
         const ws = XLSX.utils.json_to_sheet(data);
@@ -146,7 +146,7 @@ export default function Reports() {
 
     const exportTagRankingPDF = () => {
         const doc = new jsPDF();
-        doc.text("Top 5 Categorias mais Populares - KAtech", 14, 15);
+        doc.text("Top 5 Categorias mais Populares - KA Academy", 14, 15);
         autoTable(doc, {
             head: [["Rank", "Categoria", "Alunos"]],
             body: tagPopularity.slice(0, 5).map((tag, index) => [`#${index + 1}`, tag.tag_name, tag.total_enrollments]),
@@ -193,7 +193,7 @@ export default function Reports() {
 
     const exportMembersPDF = () => {
         const doc = new jsPDF();
-        doc.text("Relatório de Membros - KAtech", 14, 15);
+        doc.text("Relatório de Membros - KA Academy", 14, 15);
         autoTable(doc, {
             head: [["Nome", "Cargo"]],
             body: allProfiles.map(p => [p.full_name, p.role?.toUpperCase()]),
@@ -216,7 +216,7 @@ export default function Reports() {
 
     const exportTagsPDF = () => {
         const doc = new jsPDF();
-        doc.text("Tags Sem Uso - KAtech", 14, 15);
+        doc.text("Tags Sem Uso - KA Academy", 14, 15);
         autoTable(doc, {
             head: [["Nome da Tag"]],
             body: orphanTags.map(t => [t.name]),
@@ -235,7 +235,6 @@ export default function Reports() {
             {showToast && <div className="toast-success"><span>{toastMsg}</span></div>}
 
             <main className="report-main-content">
-                {/* LOGO MOBILE */}
                 <div className="brand-logo-mobile">
                     <img src={logo} alt="KA Tech Logo" />
                 </div>
@@ -248,34 +247,35 @@ export default function Reports() {
                     <div className="stat-card"><span className="stat-label">MISSÕES CONCLUÍDAS</span><h2 className="stat-value">{platformStats.totalLessonsFinished}</h2></div>
                 </div>
 
-                {loading ? <p style={{ color: '#8b5cf6', textAlign: 'center', padding: '50px' }}>Carregando dados...</p> : (
+                {loading ? <p className="loading-msg">Carregando dados da plataforma...</p> : (
                     <div className="admin-sections">
                         
-                        {/* RELATÓRIO POR CURSO */}
                         <section className="report-section full-width">
                             <div className="card-header-flex">
-                                <div className="filter-controls">
-                                    <h3 className="section-header">🔍 Relatório por Curso</h3>
-                                    <div className="select-group">
-                                        <select className="gamer-select" value={tempCourseId} onChange={(e) => setTempCourseId(e.target.value)}>
-                                            <option value="">Selecionar curso...</option>
-                                            {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                                        </select>
-                                        <select className="gamer-select" value={tempStatusFilter} onChange={(e) => setTempStatusFilter(e.target.value)}>
-                                            <option value="all">Todos os Status</option>
-                                            <option value="completed">Concluídos</option>
-                                            <option value="pending">Em Andamento</option>
-                                        </select>
-                                        <button className="btn-apply-filter" onClick={handleApplyFilter} disabled={loadingFilter}>
-                                            {loadingFilter ? "..." : "APLICAR"}
-                                        </button>
-                                    </div>
-                                    <div className="card-export-group">
-                                        <button className="mini-export pdf" onClick={exportFilteredPDF} disabled={studentsByCourse.length === 0}>PDF</button>
-                                        <button className="mini-export excel" onClick={exportFilteredExcel} disabled={studentsByCourse.length === 0}>XLS</button>
-                                    </div>
+                                <h3 className="section-header">🔍 Relatório por Curso</h3>
+                                <div className="card-export-group">
+                                    <button className="mini-export pdf" onClick={exportFilteredPDF} disabled={studentsByCourse.length === 0}>PDF</button>
+                                    <button className="mini-export excel" onClick={exportFilteredExcel} disabled={studentsByCourse.length === 0}>XLS</button>
                                 </div>
                             </div>
+
+                            <div className="filter-controls">
+                                <div className="select-group">
+                                    <select className="gamer-select" value={tempCourseId} onChange={(e) => setTempCourseId(e.target.value)}>
+                                        <option value="">Selecionar curso...</option>
+                                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                                    </select>
+                                    <select className="gamer-select" value={tempStatusFilter} onChange={(e) => setTempStatusFilter(e.target.value)}>
+                                        <option value="all">Todos os Status</option>
+                                        <option value="completed">Concluídos</option>
+                                        <option value="pending">Em Andamento</option>
+                                    </select>
+                                    <button className="btn-apply-filter" onClick={handleApplyFilter} disabled={loadingFilter}>
+                                        {loadingFilter ? "..." : "APLICAR"}
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="report-content-layout">
                                 <div className="table-container">
                                     {hasSearched && studentsByCourse.length > 0 ? (
@@ -285,63 +285,51 @@ export default function Reports() {
                                                 <tr key={i}>
                                                     <td>{s.full_name}</td>
                                                     <td><span className={`role-badge ${s.role}`}>{s.role?.toUpperCase()}</span></td>
-                                                    <td><span style={{ fontSize: '0.6rem', padding: '3px 8px', borderRadius: '4px', fontWeight: 800, backgroundColor: s.is_completed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: s.is_completed ? '#10b981' : '#f59e0b', border: `1px solid ${s.is_completed ? '#10b98140' : '#f59e0b40'}` }}>{s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"}</span></td>
+                                                    <td><span className={`status-pill ${s.is_completed ? 'completed' : 'pending'}`}>{s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"}</span></td>
                                                 </tr>
                                             ))}</tbody>
                                         </table>
-                                    ) : <p style={{ color: "#64748b", fontSize: "0.8rem", padding: "10px" }}>Selecione um curso e aplique o filtro.</p>}
+                                    ) : <p className="empty-state-text">Selecione um curso acima para filtrar.</p>}
                                 </div>
                                 {hasSearched && studentsByCourse.length > 0 && (
                                     <div className="visual-summary-aside">
-                                        <h4 style={{ color: '#ffffff', fontSize: '0.7rem', fontWeight: 900, marginBottom: '15px', textAlign: 'center' }}>TAXA DE CONCLUSÃO</h4>
+                                        <h4>CONCLUÍDOS</h4>
                                         <CoursePieChart />
                                     </div>
                                 )}
                             </div>
                         </section>
 
-                        {/* MINI TABELA: TOP 5 CATEGORIAS */}
-                        <section className="report-section full-width">
+                        <section className="report-section">
                             <div className="card-header-flex">
-                                <h3 className="section-header">🏆 Top 5 Categorias (Popularidade)</h3>
+                                <h3 className="section-header">🏆 Top 5 Categorias</h3>
                                 <div className="card-export-group">
                                     <button className="mini-export pdf" onClick={exportTagRankingPDF}>PDF</button>
                                     <button className="mini-export excel" onClick={exportTagRankingExcel}>XLS</button>
                                 </div>
                             </div>
                             <div className="table-container">
-                                {tagPopularity.length > 0 ? (
-                                    <table className="admin-table">
-                                        <thead>
-                                            <tr>
-                                                <th style={{ width: '80px' }}>RANK</th>
-                                                <th>TAG / CATEGORIA</th>
-                                                <th style={{ textAlign: 'right' }}>ALUNOS</th>
+                                <table className="admin-table">
+                                    <thead><tr><th>RANK</th><th>CATEGORIA</th><th style={{ textAlign: 'right' }}>ALUNOS</th></tr></thead>
+                                    <tbody>
+                                        {tagPopularity.slice(0, 5).map((tag, index) => (
+                                            <tr key={index}>
+                                                <td style={{ color: '#8b5cf6', fontWeight: 800 }}>#{index + 1}</td>
+                                                <td style={{ color: '#fff', fontWeight: 600 }}>{tag.tag_name.toUpperCase()}</td>
+                                                <td style={{ textAlign: 'right', fontWeight: 800 }}>{tag.total_enrollments}</td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            {tagPopularity.slice(0, 5).map((tag, index) => (
-                                                <tr key={index}>
-                                                    <td style={{ fontWeight: 800, color: '#8b5cf6' }}>#{index + 1}</td>
-                                                    <td style={{ fontWeight: 700, color: '#fff' }}>{tag.tag_name.toUpperCase()}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 800, color: '#10b981' }}>{tag.total_enrollments}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                ) : <p style={{ color: "#64748b", fontSize: "0.8rem", padding: '10px' }}>Nenhum dado disponível.</p>}
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </section>
 
-                        {/* GESTÃO DE MEMBROS */}
                         <section className="report-section">
                             <div className="card-header-flex">
-                                <div className="filter-controls">
-                                    <h3 className="section-header">🛡️ Gestão de Membros</h3>
-                                    <div className="card-export-group">
-                                        <button className="mini-export pdf" onClick={exportMembersPDF}>PDF</button>
-                                        <button className="mini-export excel" onClick={exportMembersExcel}>XLS</button>
-                                    </div>
+                                <h3 className="section-header">🛡️ Gestão</h3>
+                                <div className="card-export-group">
+                                    <button className="mini-export pdf" onClick={exportMembersPDF}>PDF</button>
+                                    <button className="mini-export excel" onClick={exportMembersExcel}>XLS</button>
                                 </div>
                                 <button className="btn-save-batch-top" onClick={handleSaveBatch} disabled={isSaving || Object.keys(pendingChanges).length === 0}>
                                     {isSaving ? "..." : "SALVAR"}
@@ -349,13 +337,12 @@ export default function Reports() {
                             </div>
                             <div className="table-container">
                                 <table className="admin-table">
-                                    <thead><tr><th>NOME</th><th>CARGO</th><th>AJUSTAR</th></tr></thead>
+                                    <thead><tr><th>NOME</th><th>AJUSTAR</th></tr></thead>
                                     <tbody>{allProfiles.map(p => (
                                         <tr key={p.id}>
-                                            <td>{p.full_name}</td>
-                                            <td><span className={`role-badge ${p.role}`}>{p.role?.toUpperCase()}</span></td>
+                                            <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name}</td>
                                             <td>
-                                                <select className="gamer-select" value={pendingChanges[p.id] || p.role} onChange={(e) => trackChange(p.id, e.target.value)}>
+                                                <select className="gamer-select small" value={pendingChanges[p.id] || p.role} onChange={(e) => trackChange(p.id, e.target.value)}>
                                                     <option value="user">USER</option>
                                                     <option value="teacher">TEACHER</option>
                                                     <option value="admin">ADMIN</option>
@@ -367,8 +354,7 @@ export default function Reports() {
                             </div>
                         </section>
 
-                        {/* TAGS SEM USO */}
-                        <section className="report-section">
+                        <section className="report-section full-width">
                             <div className="card-header-flex">
                                 <h3 className="section-header">🧹 Tags Sem Uso</h3>
                                 <div className="card-export-group">
@@ -376,10 +362,13 @@ export default function Reports() {
                                     <button className="mini-export excel" onClick={exportTagsExcel}>XLS</button>
                                 </div>
                             </div>
-                            <div className="orphan-tag-container">
+                            <div className="orphan-tag-grid">
                                 {orphanTags.length > 0 ? orphanTags.map(t => (
-                                    <div key={t.id} className="tag-card"><span>{t.name}</span><button className="btn-delete-action" onClick={() => deleteOrphanTag(t.id)}>🗑️</button></div>
-                                )) : <p className="success-msg">Base de dados higienizada!</p>}
+                                    <div key={t.id} className="tag-card">
+                                        <span>{t.name}</span>
+                                        <button className="btn-delete-action" onClick={() => deleteOrphanTag(t.id)}>🗑️</button>
+                                    </div>
+                                )) : <p className="success-msg">Base limpa!</p>}
                             </div>
                         </section>
                     </div>
@@ -395,79 +384,85 @@ export default function Reports() {
                     margin-left: 260px; 
                     transition: 0.3s;
                     box-sizing: border-box;
+                    width: calc(100% - 260px);
                 }
 
-                .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 30px; }
-                .brand-logo-mobile img { height: 180px; filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.4)); object-fit: contain; }
+                .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 20px; }
+                .brand-logo-mobile img { height: 120px; filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.4)); }
 
-                .report-title { color: #fff; font-size: 2.2rem; fontWeight: 800; margin-bottom: 30px; }
+                .report-title { color: #fff; font-size: 2rem; fontWeight: 800; margin-bottom: 30px; }
 
-                .stats-grid { display: flex; gap: 15px; margin-bottom: 25px; } 
-                .stat-card { background: #09090b; padding: 18px; border-radius: 12px; flex: 1; border: 1px solid rgba(139, 92, 246, 0.1); }
-                .stat-value { color: #fff; font-size: 1.3rem; font-weight: 900; margin: 0; }
-                .stat-label { color: #94a3b8; font-size: 0.55rem; font-weight: 800; text-transform: uppercase; }
+                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; } 
+                .stat-card { background: #09090b; padding: 20px; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.1); }
+                .stat-value { color: #fff; font-size: 1.5rem; font-weight: 900; margin: 0; }
+                .stat-label { color: #94a3b8; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
 
-                .admin-sections { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; width: 100%; }
-                .report-section { background: #09090b; padding: 20px; border-radius: 18px; border: 1px solid rgba(139, 92, 246, 0.08); box-sizing: border-box; }
+                .admin-sections { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 100%; }
+                .report-section { background: #09090b; padding: 20px; border-radius: 18px; border: 1px solid rgba(139, 92, 246, 0.08); }
                 .report-section.full-width { grid-column: 1 / -1; }
                 
-                /* TÍTULOS DOS CARDS (CORRIGIDO PARA BRANCO VÍVIDO) */
                 .section-header { color: #ffffff !important; font-weight: 900; font-size: 1rem; margin: 0; }
+                .card-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
 
-                .card-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
-                .filter-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; }
-                .select-group { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
+                .filter-controls { width: 100%; margin-bottom: 20px; }
+                .select-group { display: flex; gap: 10px; flex-wrap: wrap; }
+                .gamer-select { flex: 1; min-width: 140px; background: #0f172a; color: #fff; border: 1px solid rgba(139, 92, 246, 0.25); padding: 10px; border-radius: 8px; font-size: 0.75rem; }
+                .gamer-select.small { padding: 5px; min-width: 80px; }
+                .btn-apply-filter, .btn-save-batch-top { background: #8b5cf6; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800; font-size: 0.7rem; cursor: pointer; }
 
-                .report-content-layout { display: flex; gap: 30px; align-items: flex-start; }
-                .table-container { flex: 2; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
-                
-                /* CABEÇALHOS DAS TABELAS (CORRIGIDO PARA BRANCO) */
-                .admin-table { width: 100%; border-collapse: collapse; min-width: 400px; }
-                .admin-table th { color: #ffffff; font-size: 0.7rem; font-weight: 700; text-align: left; padding: 12px 8px; border-bottom: 1px solid #1f2937; }
-                .admin-table td { padding: 12px 8px; border-bottom: 1px solid #111827; color: #fff; font-size: 0.75rem; }
+                /* TEXTO DE ESTADO VAZIO (CLAREADO) */
+                .empty-state-text { color: #cbd5e1; font-size: 0.9rem; padding: 20px; text-align: center; font-weight: 500; }
 
-                .visual-summary-aside { background: rgba(139, 92, 246, 0.03); padding: 20px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.1); min-width: 150px; }
-                .circular-chart { display: block; margin: 10px auto; max-width: 100px; }
+                .report-content-layout { display: flex; gap: 20px; align-items: flex-start; }
+                .table-container { flex: 1; overflow-x: auto; background: rgba(255,255,255,0.02); border-radius: 12px; }
+                .admin-table { width: 100%; border-collapse: collapse; }
+                .admin-table th { color: #cbd5e1; font-size: 0.65rem; text-align: left; padding: 12px; border-bottom: 1px solid #1e293b; text-transform: uppercase; }
+                .admin-table td { padding: 12px; border-bottom: 1px solid #111827; color: #fff; font-size: 0.8rem; }
+
+                .visual-summary-aside { min-width: 180px; background: rgba(139, 92, 246, 0.03); padding: 15px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.1); text-align: center; }
+                .visual-summary-aside h4 { color: #8b5cf6; font-size: 0.6rem; font-weight: 900; margin-bottom: 10px; }
+
+                .circular-chart { max-width: 100px; margin: 0 auto; }
                 .circle-bg { fill: none; stroke: rgba(139, 92, 246, 0.1); stroke-width: 3.8; }
-                .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; stroke: #8b5cf6; transition: stroke-dasharray 0.3s ease; }
+                .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; stroke: #8b5cf6; }
                 .percentage { fill: #fff; font-size: 0.5rem; text-anchor: middle; font-weight: 800; }
 
-                .role-badge { padding: 3px 6px; border-radius: 4px; font-size: 0.5rem; font-weight: 800; }
+                .role-badge { padding: 3px 6px; border-radius: 4px; font-size: 0.55rem; font-weight: 900; }
                 .role-badge.admin { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
                 .role-badge.teacher { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-                .role-badge.user { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
-
-                .gamer-select { background: #0f172a; color: #fff; border: 1px solid rgba(139, 92, 246, 0.25); padding: 8px; border-radius: 6px; font-size: 0.7rem; outline: none; }
-                .btn-apply-filter, .btn-save-batch-top { background: #8b5cf6; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
-                .btn-apply-filter:disabled { background: #1e293b; opacity: 0.5; }
                 
-                .card-export-group { display: flex; gap: 5px; }
-                .mini-export { padding: 6px 10px; border-radius: 6px; border: none; font-size: 0.6rem; font-weight: 800; cursor: pointer; }
-                .mini-export.pdf { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-                .mini-export.excel { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+                .status-pill { padding: 4px 8px; border-radius: 4px; font-size: 0.6rem; font-weight: 800; }
+                .status-pill.completed { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+                .status-pill.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 
-                .orphan-tag-container { display: flex; flex-direction: column; gap: 8px; }
-                .tag-card { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 10px 15px; border-radius: 10px; font-size: 0.75rem; color: #fff; }
-                .btn-delete-action { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.8rem; }
+                .orphan-tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+                .tag-card { display: flex; justify-content: space-between; background: #0f172a; padding: 10px; border-radius: 8px; font-size: 0.8rem; }
+
+                .card-export-group { display: flex; gap: 5px; }
+                .mini-export { padding: 6px; border-radius: 6px; border: none; font-size: 0.55rem; font-weight: 900; cursor: pointer; }
+                .mini-export.pdf { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+                .mini-export.excel { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+
                 .toast-success { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 12px 30px; border-radius: 50px; font-weight: 800; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 
                 @media (max-width: 1024px) {
-                    .report-main-content { margin-left: 0; padding: 20px; padding-bottom: 150px; }
+                    .report-main-content { 
+                        margin-left: 0; 
+                        width: 100%; 
+                        padding: 20px 15px 100px 15px; 
+                    }
                     .brand-logo-mobile { display: flex; }
-                    .report-title { text-align: center; font-size: 1.8rem; }
                     .admin-sections { grid-template-columns: 1fr; }
-                    .stats-grid { flex-wrap: wrap; }
-                    .stat-card { min-width: 140px; }
+                    .report-title { text-align: center; }
+                    .stats-grid { grid-template-columns: repeat(2, 1fr); }
                 }
 
                 @media (max-width: 768px) {
-                    .report-content-layout { flex-direction: column; align-items: center; }
-                    .visual-summary-aside { width: 100%; box-sizing: border-box; margin-top: 20px; }
-                    .filter-controls { flex-direction: column; align-items: stretch; }
+                    .report-content-layout { flex-direction: column; align-items: stretch; }
+                    .visual-summary-aside { width: 100%; margin-top: 20px; }
                     .select-group { flex-direction: column; }
                     .gamer-select, .btn-apply-filter { width: 100%; }
-                    .card-header-flex { flex-direction: column; align-items: flex-start; }
-                    .btn-save-batch-top { width: 100%; margin-top: 10px; }
+                    .stats-grid { grid-template-columns: 1fr; }
                 }
             `}</style>
         </div>

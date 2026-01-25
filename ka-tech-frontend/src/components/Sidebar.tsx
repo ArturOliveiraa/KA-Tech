@@ -61,12 +61,10 @@ const Sidebar: React.FC = () => {
           flex-direction: column; 
           padding: 20px 16px; 
           gap: 8px;
-          /* SOLUÇÃO PARA A BARRA LATERAL NO DESKTOP */
           overflow-y: auto;
           overflow-x: hidden; 
         }
 
-        /* Custom Scrollbar para Desktop */
         .sidebar-nav::-webkit-scrollbar {
           width: 4px;
         }
@@ -107,7 +105,6 @@ const Sidebar: React.FC = () => {
           background: rgba(0, 0, 0, 0.2);
         }
 
-        /* --- AJUSTE MOBILE (BOTTOM BAR) --- */
         @media (max-width: 1024px) {
           .sidebar-container {
             width: 100%; 
@@ -120,19 +117,16 @@ const Sidebar: React.FC = () => {
             background: rgba(2, 6, 23, 0.95);
             backdrop-filter: blur(10px);
           }
-
           .sidebar-logo, .sidebar-footer { display: none; }
-
           .sidebar-nav { 
             flex-direction: row; 
             justify-content: space-around; 
             padding: 0 10px; 
             gap: 0;
-            overflow: hidden; /* Impede scroll no mobile bar */
+            overflow: hidden; 
             width: 100%;
             align-items: center;
           }
-
           .nav-link { 
             flex-direction: column; 
             font-size: 0.65rem; 
@@ -142,9 +136,7 @@ const Sidebar: React.FC = () => {
             min-width: 60px;
             text-align: center;
           }
-
           .nav-icon { margin-right: 0; font-size: 1.3rem; }
-
           .nav-link.active { 
             background: none;
             border-left: none;
@@ -153,7 +145,6 @@ const Sidebar: React.FC = () => {
             color: var(--primary-color);
             padding-top: 2px;
           }
-
           .hide-mobile { display: none; }
         }
       `}</style>
@@ -182,10 +173,17 @@ const Sidebar: React.FC = () => {
             <span className="nav-icon">🏆</span> <span>Conquistas</span>
           </Link>
 
+          {/* Área de Gestão Condicional */}
           {(userRole === 'admin' || userRole === 'teacher') && (
-            <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}>
-              <span className="nav-icon">🛠️</span> <span>Gestão</span>
-            </Link>
+            <>
+              <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}>
+                <span className="nav-icon">🛠️</span> <span>Gestão</span>
+              </Link>
+              
+              <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}>
+                <span className="nav-icon">📊</span> <span>Relatórios</span>
+              </Link>
+            </>
           )}
 
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
