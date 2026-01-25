@@ -46,11 +46,7 @@ function Dashboard() {
             const watchedMinutes = courseLessons.reduce((acc, lesson) => {
               const lessonProg = (progressRes.data || []).find(p => Number(p.lesson_id) === Number(lesson.id));
               if (!lessonProg) return acc;
-
-              const timeFromThisLesson = lessonProg.is_completed 
-                ? (Number(lesson.duration) || 0) 
-                : (Number(lessonProg.last_time) / 60 || 0);
-
+              const timeFromThisLesson = lessonProg.is_completed ? (Number(lesson.duration) || 0) : (Number(lessonProg.last_time) / 60 || 0);
               return acc + timeFromThisLesson;
             }, 0);
             
@@ -96,22 +92,12 @@ function Dashboard() {
           animation: slideUp 0.6s ease-out;
         }
 
-        /* MOBILE HEADER LOGO - ATUALIZADO */
-        .mobile-nav-top {
+        /* LOGO: Escondida por padrão no Desktop (fica só na Sidebar) */
+        .brand-logo-container {
           display: none; 
           width: 100%; 
-          padding: 40px 20px 20px 20px; 
-          flex-direction: column;
-          align-items: center;
           justify-content: center;
-          background: linear-gradient(to bottom, rgba(139, 92, 246, 0.15), transparent);
-        }
-        /* Ajuste de 200px solicitado */
-        .mobile-nav-top img { 
-          height: 200px; 
-          width: auto; 
-          filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.5)); 
-          object-fit: contain;
+          margin-bottom: 40px;
         }
 
         .header-container { margin-bottom: 40px; }
@@ -128,7 +114,7 @@ function Dashboard() {
         .premium-card:hover { transform: translateY(-8px); border-color: var(--primary); }
 
         .thumb-box { height: 180px; background: #000; position: relative; }
-        .thumb-box img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+        .thumb-box img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
 
         .card-body { padding: 24px; }
         .card-body h3 { font-size: 1.2rem; color: #fff; margin-bottom: 15px; font-weight: 800; }
@@ -149,15 +135,15 @@ function Dashboard() {
         .custom-table th { padding: 20px; text-align: left; color: var(--primary); font-size: 0.7rem; text-transform: uppercase; }
         .custom-table td { padding: 20px; color: #e5e7eb; border-top: 1px solid rgba(255,255,255,0.02); }
 
-        /* RESPONSIVIDADE */
+        /* RESPONSIVIDADE MOBILE */
         @media (max-width: 1024px) {
           .dashboard-content { margin-left: 0; padding: 0 20px 100px 20px; }
-          .mobile-nav-top { display: flex; }
-          .header-container { text-align: center; margin-top: 20px; }
-        }
-
-        @media (max-width: 768px) {
-          .dashboard-grid { grid-template-columns: 1fr; }
+          
+          /* Ativa a logo no Dashboard apenas quando a Sidebar desktop sumir */
+          .brand-logo-container { display: flex; margin-top: 20px; }
+          .brand-logo-container img { height: 200px; filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.5)); }
+          
+          .header-container { text-align: center; }
           .custom-table thead { display: none; }
           .custom-table tr { display: flex; flex-direction: column; background: rgba(255,255,255,0.02); margin-bottom: 15px; border-radius: 20px; padding: 15px; }
           .custom-table td { border: none; padding: 8px; width: 100% !important; text-align: center !important; }
@@ -165,7 +151,8 @@ function Dashboard() {
       `}</style>
 
       <main className="dashboard-content">
-        <div className="mobile-nav-top">
+        {/* Renderiza apenas se estiver no Mobile (via CSS display) */}
+        <div className="brand-logo-container">
           <img src={logo} alt="KA Tech Logo" />
         </div>
 
@@ -175,7 +162,7 @@ function Dashboard() {
         </header>
 
         {(loading || contextLoading) ? (
-          <div style={{ padding: '100px', textAlign: 'center', color: '#8b5cf6', fontWeight: 800 }}>Calculando sua evolução...</div>
+          <div style={{ padding: '100px', textAlign: 'center', color: '#8b5cf6', fontWeight: 800 }}>Sincronizando...</div>
         ) : (
           <>
             {enrolledCourses.length > 0 ? (
