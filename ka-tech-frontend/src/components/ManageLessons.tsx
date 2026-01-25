@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
+import axios from "axios";
 
 interface Lesson {
   id: number;
@@ -23,7 +24,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [order, setOrder] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Busca as aulas no banco (Coluna course_id corrigida)
+  // Busca as aulas no banco
   const fetchLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
@@ -37,24 +38,57 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     fetchLessons();
   }, [fetchLessons]);
 
+  // --- FUNÇÃO AUXILIAR PARA DURAÇÃO ---
+  const getVideoDuration = async (url: string): Promise<number> => {
+    try {
+      const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?/\s]{11})/);
+      if (!videoIdMatch) return 0;
+      
+      const videoId = videoIdMatch[1];
+      const apiKey = process.env.REACT_APP_YOUTUBE_API_KEY;
+
+      const { data } = await axios.get(
+        `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${apiKey}`
+      );
+
+      const durationISO = data.items[0]?.contentDetails?.duration;
+      if (!durationISO) return 0;
+
+      const match = durationISO.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      const hours = parseInt(match?.[1] || "0");
+      const minutes = parseInt(match?.[2] || "0");
+      const seconds = parseInt(match?.[3] || "0");
+      
+      return parseFloat(((hours * 60) + minutes + (seconds / 60)).toFixed(2));
+    } catch (err) {
+      console.error("Erro YouTube API:", err);
+      return 0;
+    }
+  };
+
   const handleCreateLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
+    // 1. Busca a duração antes do insert
+    const duration = await getVideoDuration(videoUrl);
+
+    // 2. Insert com o campo duration incluído
     const { error } = await supabase.from("lessons").insert([
       { 
         title, 
         videoUrl, 
         content, 
         order, 
-        course_id: courseId 
+        course_id: courseId,
+        duration: duration // Adicionado aqui
       }
     ]);
 
     if (error) {
       alert("Erro ao lançar aula: " + error.message);
     } else {
-      alert("Aula lançada com sucesso!");
+      alert(`Aula lançada com sucesso! (${duration} min)`);
       setTitle(""); 
       setVideoUrl(""); 
       setContent(""); 
