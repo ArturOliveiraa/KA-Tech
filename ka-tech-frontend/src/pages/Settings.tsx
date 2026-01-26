@@ -62,7 +62,7 @@ function Settings() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/login";
   }
 
   async function handleUploadAvatar(event: React.ChangeEvent<HTMLInputElement>) {

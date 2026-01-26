@@ -11,7 +11,7 @@ const Sidebar: React.FC = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/login";
   };
 
   const LARGURA_SIDEBAR = "260px";
