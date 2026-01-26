@@ -19,6 +19,7 @@ export default function LessonView({
   const playerRef = useRef<any>(null);
   const lastValidTimeRef = useRef(initialTime); 
   const onProgressUpdateRef = useRef(onProgressUpdate);
+  const hasCompletedRef = useRef(false); // Evita disparar conclusão múltiplas vezes
 
   useEffect(() => {
     onProgressUpdateRef.current = onProgressUpdate;
@@ -94,18 +95,32 @@ export default function LessonView({
               intervalId = setInterval(() => {
                 if (event.target?.getCurrentTime) {
                   const curr = event.target.getCurrentTime();
-                  if (curr > lastValidTimeRef.current + 2.5) {
+                  const duration = event.target.getDuration();
+
+                  // --- LÓGICA DE CONCLUSÃO ANTECIPADA (THRESHOLD 1s) ---
+                  // Se faltar menos de 1 segundo para o fim, marca como concluído
+                  if (duration > 0 && curr >= (duration - 1) && !hasCompletedRef.current) {
+                    hasCompletedRef.current = true;
+                    onProgressUpdateRef.current?.(duration, true);
+                  }
+
+                  // Lógica anti-skip
+                  if (curr > lastValidTimeRef.current + 3) {
                     event.target.seekTo(lastValidTimeRef.current, true);
                   } else if (curr > lastValidTimeRef.current) {
                     lastValidTimeRef.current = curr;
-                    onProgressUpdateRef.current?.(curr, false);
+                    // Só envia progresso normal se ainda não completou
+                    if (!hasCompletedRef.current) {
+                        onProgressUpdateRef.current?.(curr, false);
+                    }
                   }
                 }
               }, 1000);
             },
             onStateChange: (event: any) => {
-              if (event.data === (window as any).YT.PlayerState.ENDED) {
-                // Notifica a conclusão para o Player.tsx salvar no banco
+              // Segurança extra: Caso o YouTube dispare o ENDED nativo
+              if (event.data === (window as any).YT.PlayerState.ENDED && !hasCompletedRef.current) {
+                hasCompletedRef.current = true;
                 onProgressUpdateRef.current?.(event.target.getDuration(), true);
               }
             }
@@ -132,7 +147,8 @@ export default function LessonView({
         try { playerRef.current.destroy(); } catch(e){}
       }
     };
-  }, [lesson?.videoId, loading, error, initialTime]); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson?.videoId, loading, error]); 
 
   useEffect(() => {
     if (seekTo !== null && playerRef.current?.seekTo) {

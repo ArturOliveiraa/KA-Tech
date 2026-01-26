@@ -17,6 +17,7 @@ interface Course {
     description: string;
     thumbnailUrl: string;
     category_id: number | null;
+    xp_weight: number; // Adicionado para gamificação
     createdAt: string;
 }
 
@@ -35,6 +36,9 @@ export default function ContentManagement() {
     const [courseThumb, setCourseThumb] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    
+    // NOVO ESTADO: Peso do XP
+    const [xpWeight, setXpWeight] = useState<number>(1);
 
     const [badgeName, setBadgeName] = useState("");
     const [badgeThumb, setBadgeThumb] = useState("");
@@ -98,34 +102,32 @@ export default function ContentManagement() {
     const handleSaveCourse = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // 1. Validação de Uploads Pendentes
         if (uploadingThumb || uploadingBadge) {
             return alert("Aguarde o upload das imagens terminar antes de salvar!");
         }
 
-        // 2. Validações Básicas do Curso
         if (!selectedCategoryId) return alert("Selecione uma Trilha!");
         if (!courseThumb) return alert("Por favor, carregue uma capa para o curso!");
 
-        // 3. Validação de Insígnia (Sua solicitação)
-        // Se o usuário digitou um nome para a insígnia, a imagem torna-se OBRIGATÓRIA
         if (badgeName && !badgeThumb) {
             return alert("⚠️ Erro ao lançar: Você definiu um nome para a insígnia, mas não carregou a imagem dela.");
         }
 
         const slug = generateSlug(courseTitle);
+        
+        // ADICIONADO: xp_weight no objeto de salvamento
         const courseData = {
             title: courseTitle,
             slug,
             description: courseDesc,
             thumbnailUrl: courseThumb,
-            category_id: selectedCategoryId
+            category_id: selectedCategoryId,
+            xp_weight: xpWeight 
         };
 
         try {
             let currentCourseId = editingCourseId;
 
-            // Salva ou Atualiza o curso
             if (editingCourseId) {
                 const { error: upError } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
                 if (upError) throw upError;
@@ -136,12 +138,10 @@ export default function ContentManagement() {
                 currentCourseId = data.id;
             }
 
-            // Salva Tags
             if (currentCourseId && selectedTags.length > 0) {
                 await supabase.from("course_tags").insert(selectedTags.map(tId => ({ course_id: currentCourseId, tag_id: tId })));
             }
 
-            // Salva a Insígnia (Só entra aqui se passar na validação acima)
             if (currentCourseId && badgeName && badgeThumb) {
                 const { error: bError } = await supabase
                     .from("badges")
@@ -150,10 +150,9 @@ export default function ContentManagement() {
                 if (bError) throw new Error("Erro ao salvar dados da Insígnia: " + bError.message);
             }
 
-            alert("Curso e Insígnia salvos com sucesso!");
+            alert("Curso e Configurações de XP salvos!");
             resetForm();
 
-            // Atualiza a lista
             const { data: refreshData } = await supabase.from("courses").select("*").order("createdAt", { ascending: false });
             setCourses(refreshData || []);
 
@@ -161,7 +160,7 @@ export default function ContentManagement() {
             console.error(err);
             alert(err.message || "Erro desconhecido ao salvar.");
         }
-    };;
+    };
 
     const handleDeleteCourse = async (id: number) => {
         if (!window.confirm("Tem certeza que deseja excluir este curso?")) return;
@@ -179,15 +178,23 @@ export default function ContentManagement() {
     const resetForm = () => {
         setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setEditingCourseId(null);
         setSelectedTags([]); setSelectedCategoryId(""); setBadgeName(""); setBadgeThumb("");
+        setXpWeight(1); // Resetar peso para o padrão
     };
 
     const handleEditInit = async (course: Course) => {
-        setEditingCourseId(course.id); setCourseTitle(course.title); setCourseDesc(course.description);
-        setCourseThumb(course.thumbnailUrl); setSelectedCategoryId(course.category_id || "");
+        setEditingCourseId(course.id); 
+        setCourseTitle(course.title); 
+        setCourseDesc(course.description);
+        setCourseThumb(course.thumbnailUrl); 
+        setSelectedCategoryId(course.category_id || "");
+        setXpWeight(course.xp_weight || 1); // Carregar peso existente
+
         const { data: linkedTags } = await supabase.from("course_tags").select("tag_id").eq("course_id", course.id);
         if (linkedTags) setSelectedTags(linkedTags.map(t => t.tag_id));
+        
         const { data: badge } = await supabase.from("badges").select("*").eq("course_id", course.id).maybeSingle();
         if (badge) { setBadgeName(badge.name); setBadgeThumb(badge.image_url); }
+        
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -206,122 +213,25 @@ export default function ContentManagement() {
                     --border: rgba(255, 255, 255, 0.08);
                 }
                 * { box-sizing: border-box; }
-
                 .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: 'Sora', sans-serif; overflow-x: hidden; color: #fff; }
-
-                .main-content { 
-                    flex: 1; 
-                    margin-left: 260px; 
-                    padding: 40px; 
-                    transition: 0.3s ease; 
-                    width: calc(100% - 260px);
-                }
-
+                .main-content { flex: 1; margin-left: 260px; padding: 40px; transition: 0.3s ease; width: calc(100% - 260px); }
                 .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 30px; }
                 .brand-logo-mobile img { height: 80px; filter: drop-shadow(0 0 10px var(--primary)); object-fit: contain; }
-
                 .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; }
                 .header-flex h1 { font-size: 2.2rem; font-weight: 900; margin: 0; color: #fff; letter-spacing: -1px; }
-
                 .management-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: start; }
-
-                .glass-card { 
-                    background: var(--card-glass); 
-                    backdrop-filter: blur(20px); 
-                    border-radius: 30px; 
-                    padding: 40px; 
-                    border: 1px solid var(--border); 
-                    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-                }
-
-                .input-with-icon {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    width: 100%;
-                }
-
-                .input-emoji {
-                    position: absolute;
-                    left: 20px;
-                    font-size: 1.2rem;
-                    z-index: 10;
-                    pointer-events: none;
-                    display: flex;
-                    align-items: center;
-                }
-
-                .form-label { 
-                    display: flex !important; 
-                    flex-direction: row !important;
-                    align-items: center !important; 
-                    gap: 10px !important; 
-                    color: #94a3b8; 
-                    margin-bottom: 12px; 
-                    font-weight: 700; 
-                    font-size: 0.85rem; 
-                    text-transform: uppercase; 
-                    letter-spacing: 1px;
-                }
-
-                .form-input, select, textarea { 
-                    width: 100%; 
-                    padding: 18px 22px; 
-                    border-radius: 18px; 
-                    background: rgba(0, 0, 0, 0.4); 
-                    border: 1px solid var(--border); 
-                    color: #fff; 
-                    outline: none; 
-                    transition: 0.3s; 
-                    font-family: 'Sora'; 
-                    font-size: 1rem;
-                }
-
-                .input-with-icon .form-input, 
-                .input-with-icon textarea {
-                    padding-left: 55px !important;
-                }
-
+                .glass-card { background: var(--card-glass); backdrop-filter: blur(20px); border-radius: 30px; padding: 40px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+                .form-label { display: flex; align-items: center; gap: 10px; color: #94a3b8; margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+                .form-input, select, textarea { width: 100%; padding: 18px 22px; border-radius: 18px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); color: #fff; outline: none; transition: 0.3s; font-family: 'Sora'; font-size: 1rem; }
                 .form-input:focus { border-color: var(--primary); background: #000; box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
-
-                .btn-submit { 
-                    width: 100%; padding: 20px; border-radius: 20px; border: none; 
-                    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
-                    color: white; font-weight: 900; cursor: pointer; transition: 0.4s;
-                    box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4); font-size: 1rem;
-                    text-transform: uppercase; letter-spacing: 1.5px;
-                }
+                .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; font-weight: 900; cursor: pointer; transition: 0.4s; box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4); font-size: 1rem; text-transform: uppercase; letter-spacing: 1.5px; }
                 .btn-submit:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 15px 35px rgba(124, 58, 237, 0.6); }
-
-                .course-item { 
-                    padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; 
-                    margin-bottom: 20px; border: 1px solid var(--border); transition: 0.3s;
-                }
-                .action-btn { 
-                    flex: 1; padding: 12px; border-radius: 14px; border: none; cursor: pointer; 
-                    font-weight: 800; font-size: 0.75rem; text-transform: uppercase; transition: 0.2s;
-                }
+                .course-item { padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
+                .action-btn { flex: 1; padding: 12px; border-radius: 14px; border: none; cursor: pointer; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; transition: 0.2s; }
                 .action-btn.aulas { background: #1e293b; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
                 .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.2); }
                 .action-btn.delete { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
-
-                .ka-lessons-wrapper button[type="submit"] {
-                    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;
-                    color: #fff !important;
-                    margin-top: 20px;
-                    padding: 20px !important;
-                    border-radius: 18px !important;
-                    font-weight: 900 !important;
-                    cursor: pointer !important;
-                    border: none !important;
-                    width: 100% !important;
-                }
-
-                @media (max-width: 1024px) {
-                    .main-content { margin-left: 0; padding: 20px; width: 100%; }
-                    .brand-logo-mobile { display: flex; }
-                    .management-grid { grid-template-columns: 1fr; }
-                }
+                @media (max-width: 1024px) { .main-content { margin-left: 0; padding: 20px; width: 100%; } .brand-logo-mobile { display: flex; } .management-grid { grid-template-columns: 1fr; } }
             `}</style>
 
             <main className="main-content">
@@ -331,13 +241,11 @@ export default function ContentManagement() {
 
                 {manageLessonsCourse ? (
                     <div className="glass-card">
-                        <div className="ka-lessons-wrapper">
-                            <ManageLessons
-                                courseId={manageLessonsCourse.id}
-                                courseTitle={manageLessonsCourse.title}
-                                onBack={() => setManageLessonsCourse(null)}
-                            />
-                        </div>
+                        <ManageLessons
+                            courseId={manageLessonsCourse.id}
+                            courseTitle={manageLessonsCourse.title}
+                            onBack={() => setManageLessonsCourse(null)}
+                        />
                     </div>
                 ) : (
                     <>
@@ -362,7 +270,6 @@ export default function ContentManagement() {
                                         <input className="form-input" placeholder="Ex: Faturamento Softcomshop" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} required />
                                     </div>
 
-                                    {/* --- TRILHA --- */}
                                     <div style={{ marginBottom: '25px' }}>
                                         <label className="form-label">🎯 Trilha</label>
                                         <select className="form-input" value={selectedCategoryId} onChange={(e) => setSelectedCategoryId(Number(e.target.value))} required>
@@ -371,7 +278,21 @@ export default function ContentManagement() {
                                         </select>
                                     </div>
 
-                                    {/* --- TAGS (ABAIXO DA TRILHA) --- */}
+                                    {/* ADICIONADO: SELETOR DE PESO XP */}
+                                    <div style={{ marginBottom: '25px' }}>
+                                        <label className="form-label">⚡ Peso do XP (Dificuldade)</label>
+                                        <select 
+                                            className="form-input" 
+                                            value={xpWeight} 
+                                            onChange={(e) => setXpWeight(Number(e.target.value))}
+                                            style={{ borderLeft: `6px solid ${xpWeight === 3 ? '#ef4444' : xpWeight === 2 ? '#f59e0b' : '#10b981'}` }}
+                                        >
+                                            <option value={1}>Peso 1 (Iniciante - 500 XP)</option>
+                                            <option value={2}>Peso 2 (Intermediário - 1.200 XP)</option>
+                                            <option value={3}>Peso 3 (Avançado - 2.500 XP)</option>
+                                        </select>
+                                    </div>
+
                                     <div style={{ marginBottom: '25px' }}>
                                         <label className="form-label">🏷️ Tags</label>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -428,7 +349,12 @@ export default function ContentManagement() {
                                         <div key={c.id} className="course-item">
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
                                                 <div style={{ width: '5px', height: '30px', background: 'var(--primary)', borderRadius: '10px', boxShadow: '0 0 10px var(--primary)' }}></div>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#fff' }}>{c.title}</span>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#fff' }}>{c.title}</span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                        {c.xp_weight === 3 ? '🔴 Peso 3' : c.xp_weight === 2 ? '🟡 Peso 2' : '🟢 Peso 1'}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div style={{ display: 'flex', gap: '10px' }}>
                                                 <button onClick={() => setManageLessonsCourse(c)} className="action-btn aulas">📺 Aulas</button>
