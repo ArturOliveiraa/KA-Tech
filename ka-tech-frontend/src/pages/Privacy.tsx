@@ -26,7 +26,7 @@ function Privacy() {
       `}</style>
 
       <div className="privacy-container">
-        <div className="back-link" onClick={() => navigate("/")}>
+        <div className="back-link" onClick={() => navigate("/login")}>
            ← Voltar para o Login
         </div>
         
