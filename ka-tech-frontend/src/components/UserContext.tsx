@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import logoDefault from "../assets/ka-tech-logo.png";
 
@@ -24,7 +24,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading: true
   });
 
-  const loadBranding = async () => {
+  // 1. loadBranding envolvida em useCallback para ser estável
+  const loadBranding = useCallback(async () => {
     try {
       const { data } = await supabase
         .from("platform_settings")
@@ -39,9 +40,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error("Erro ao carregar branding:", err);
     }
-  };
+  }, []);
 
-  const loadProfile = async (userId: string) => {
+  // 2. loadProfile envolvida em useCallback
+  const loadProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
       .select("full_name, avatar_url, theme_color, role")
@@ -62,7 +64,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setProfile(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, [loadBranding]);
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -111,7 +113,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadBranding, loadProfile]); // 3. Agora as dependências estão corretas e estáveis
 
   return (
     <UserContext.Provider value={{ ...profile, refreshBranding: loadBranding }}>
