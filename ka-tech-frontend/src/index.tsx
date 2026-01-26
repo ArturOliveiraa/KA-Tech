@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { UserProvider } from './components/UserContext';
+import Planos from './pages/Plans';
 
 // Pages
 import Login from './pages/Login';
@@ -11,7 +12,7 @@ import ResetPassword from './pages/ResetPassword';
 import UpdatePassword from './pages/UpdatePassword';
 import Dashboard from './pages/dashboard'; 
 import Cursos from './pages/cursos';     
-import CategoryCourses from './pages/CategoryCourses'; // IMPORTAÇÃO DA NOVA TELA
+import CategoryCourses from './pages/CategoryCourses'; 
 import Admin from './pages/admin';         
 import ContentManagement from './pages/ContentManagement'; 
 import Player from './pages/Player';
@@ -26,42 +27,45 @@ const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 
 root.render(
   <React.StrictMode>
-    {/* ADICIONE O USERPROVIDER AQUI ENVOLVENDO TUDO */}
     <UserProvider> 
       <BrowserRouter>
         <Routes>
-          {/* Rotas Públicas */}
-          <Route path="/" element={<Login />} />
+          {/* --- ROTAS PÚBLICAS (LANDING PAGE E AUTH) --- */}
+          
+          {/* A raiz do site agora é a sua Landing Page de Planos */}
+          <Route path="/" element={<Planos />} />
+          
+          {/* A tela de login agora possui sua própria rota dedicada */}
+          <Route path="/login" element={<Login />} />
+          
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/update-password" element={<UpdatePassword />} />
           
-          {/* Rotas de Usuário (Logado) */}
+          {/* --- ROTAS DE USUÁRIO (ALUNO) --- */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/cursos" element={<Cursos />} />
-          
           <Route path="/categoria/:slug" element={<CategoryCourses />} />
-          
           <Route path="/conquistas" element={<Achievements />} />
-          <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          
           <Route path="/curso/:slug" element={<Player />} />
-
-          {/* Rotas de Admin */}
-          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/rankings" element={<Rankings />} />
           
+          {/* Rotas Protegidas (Exigem Login/Contexto) */}
+          <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+          {/* --- ROTAS ADMINISTRATIVAS --- */}
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route 
             path="/admin/gestao-conteudo" 
             element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} 
           />
-
-          {/* RELATORIOS */}
           <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
 
-          {/* Rota de Rankings */}
-          <Route path="/rankings" element={<Rankings />} />
-
+          {/* --- OUTROS --- */}
           <Route path="/privacidade" element={<Privacy />} />
+
+          {/* Alias opcional: Caso o usuário ainda digite /planos, ele verá a home */}
+          <Route path="/planos" element={<Planos />} />
         </Routes>
       </BrowserRouter>
     </UserProvider>

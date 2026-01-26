@@ -95,6 +95,35 @@ function Login() {
           box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
+        /* NOVO BOTÃO SUTIL */
+        .btn-floating-plans {
+          position: absolute;
+          top: 2rem;
+          right: 2rem;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          color: #94a3b8;
+          padding: 0.7rem 1.4rem;
+          border-radius: 12px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          z-index: 100;
+        }
+
+        .btn-floating-plans:hover {
+          color: #fff;
+          border-color: #8b5cf6;
+          background: rgba(139, 92, 246, 0.1);
+          box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+          transform: translateY(-2px);
+        }
+
         @media (max-width: 1024px) {
           .auth-page {
             flex-direction: column !important;
@@ -103,6 +132,12 @@ function Login() {
             padding: 40px 20px !important;
             overflow-y: auto;
             justify-content: flex-start !important;
+          }
+          .btn-floating-plans {
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
           }
           .auth-left {
             display: flex !important;
@@ -119,7 +154,7 @@ function Login() {
             margin-bottom: 25px !important;
           }
           .brand-logo {
-            height: 200px !important;
+            height: 140px !important; /* Ajustado para mobile */
             width: auto !important;
             object-fit: contain !important;
           }
@@ -154,6 +189,11 @@ function Login() {
         }
       `}</style>
 
+      {/* BOTÃO VER PLANOS */}
+      <button className="btn-floating-plans" onClick={() => navigate('/planos')}>
+        <span>💎</span> Ver Planos
+      </button>
+
       <div className="auth-left">
         <div className="brand">
           <img src={logoKaTech} alt="KA Tech" className="brand-logo" />
@@ -173,13 +213,12 @@ function Login() {
         <div className="login-card">
           <header className="login-header">
             <h1>Bem-vindo de volta!</h1>
-            <p>Acesse sua conta para gerenciar suas conexões.</p>
+            <p>Acesse sua conta para maximizar o seu aprendizado.</p>
           </header>
 
           <form className="login-form" onSubmit={handleSubmit}>
-            {/* ... Campos de e-mail e senha (sem alterações) ... */}
             <div className="field">
-              <label htmlFor="email">E-mail ou celular</label>
+              <label htmlFor="email">E-mail</label>
               <div className="input-wrapper">
                 <span className="input-icon">@</span>
                 <input
@@ -276,7 +315,6 @@ function Login() {
               </button>
             </p>
 
-            {/* AJUSTE PARA O GOOGLE: Link real com <a> em vez de <button> */}
             <p className="signup-hint" style={{ marginTop: '15px' }}>
               <a
                 href="/privacidade"
@@ -288,8 +326,8 @@ function Login() {
                   cursor: 'pointer' 
                 }}
                 onClick={(e) => {
-                  e.preventDefault(); // Evita o reload da página
-                  navigate("/privacidade"); // Mantém a navegação do SPA
+                  e.preventDefault();
+                  navigate("/privacidade");
                 }}
               >
                 Política de Privacidade
