@@ -33,3 +33,7 @@ Para rodar o projeto na sua máquina, siga estas etapas:
 ```bash
 git clone [https://github.com/seu-usuario/ka-academy.git](https://github.com/seu-usuario/KA-Tech.git)
 cd KA-Tech
+
+### 2. Abrir o Terminal na Pasta Front End
+```bash
+npm start
