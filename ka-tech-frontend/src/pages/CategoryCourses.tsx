@@ -11,6 +11,8 @@ interface Course {
   description: string;
   thumbnailUrl: string;
   slug: string;
+  // Adicionado para suportar os cálculos
+  lessons?: { duration: number }[]; 
 }
 
 interface Category {
@@ -54,8 +56,13 @@ export default function CategoryCourses() {
       if (catError || !catData) return navigate("/cursos");
       setCategory(catData);
 
+      // BUSCA OTIMIZADA: Agora trazemos também as durações das aulas de cada curso
       const [coursesRes, enrollmentsRes, progressRes] = await Promise.all([
-        supabase.from("courses").select("*").eq("category_id", catData.id).order("createdAt", { ascending: false }),
+        supabase
+          .from("courses")
+          .select("*, lessons(duration)") // Traz as durações das aulas relacionadas
+          .eq("category_id", catData.id)
+          .order("createdAt", { ascending: false }),
         supabase.from("course_enrollments").select("courseId").eq("userId", user.id),
         supabase.from("user_progress").select("course_id").eq("user_id", user.id).eq("is_completed", true)
       ]);
@@ -143,11 +150,14 @@ export default function CategoryCourses() {
                 const isEnrolled = enrolledCourseIds.includes(course.id);
                 const isCompleted = completedCourseIds.includes(course.id);
 
+                // Cálculos de aulas e duração
+                const totalLessons = course.lessons?.length || 0;
+                const totalMinutes = course.lessons?.reduce((acc, lesson) => acc + (lesson.duration || 0), 0) || 0;
+
                 return (
                   <div key={course.id} style={{ background: 'rgba(9, 9, 11, 0.6)', borderRadius: '24px', border: isCompleted ? '1px solid #22c55e' : isEnrolled ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)', overflow: 'hidden', transition: '0.3s', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ width: '100%', height: '180px', background: '#1e293b', position: 'relative' }}>
                       
-                      {/* --- INÍCIO DA CAIXINHA DE CONCLUÍDO --- */}
                       {isCompleted && (
                         <div style={{
                           position: 'absolute',
@@ -171,13 +181,24 @@ export default function CategoryCourses() {
                           CONCLUÍDO
                         </div>
                       )}
-                      {/* --- FIM DA CAIXINHA DE CONCLUÍDO --- */}
 
                       <img src={course.thumbnailUrl || "https://via.placeholder.com/400x225"} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ padding: '25px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800, marginBottom: '10px' }}>{course.title}</h3>
+                      <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800, marginBottom: '5px' }}>{course.title}</h3>
+                      
+                      {/* --- NOVO: INFORMAÇÕES DE DURAÇÃO E AULAS --- */}
+                      <div style={{ display: 'flex', gap: '12px', marginBottom: '15px' }}>
+                        <span style={{ color: '#8b5cf6', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          📚 {totalLessons} {totalLessons === 1 ? 'aula' : 'aulas'}
+                        </span>
+                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          ⏱️ {Math.round(totalMinutes)} min
+                        </span>
+                      </div>
+
                       <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '20px', flex: 1 }}>{course.description}</p>
+                      
                       <button 
                         onClick={() => handleCourseAction(course)}
                         style={{ width: '100%', padding: '14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 800, border: 'none', background: isCompleted ? 'rgba(34, 197, 94, 0.1)' : isEnrolled ? 'rgba(139, 92, 246, 0.1)' : 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', color: isCompleted ? '#22c55e' : (isEnrolled ? '#a78bfa' : '#fff') }}
