@@ -31,5 +31,5 @@ Para rodar o projeto na sua máquina, siga estas etapas:
 
 ### 1. Clonar o repositório
 ```bash
-git clone [https://github.com/seu-usuario/ka-academy.git](https://github.com/seu-usuario/ka-academy.git)
-cd ka-academy
+git clone [https://github.com/seu-usuario/ka-academy.git](https://github.com/seu-usuario/KA-Tech.git)
+cd KA-Tech
