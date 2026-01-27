@@ -127,22 +127,50 @@ export default function Player() {
         }
     }, [activeLessonId, realCourseId, calculateProgress]); // Linha 130 corrigida aqui, [activeLessonId, realCourseId, calculateProgress]);, [activeLessonId, realCourseId, calculateProgress]);
 
-    useEffect(() => {
-        async function loadPlayerData() {
-            setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return navigate("/");
+useEffect(() => {
+        async function loadPlayerData() {
+            try {
+                setLoading(true);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return navigate("/");
 
-            const { data: courseData } = await supabase.from("courses").select("id, title").eq("slug", slug).single();
-            if (!courseData) return navigate("/dashboard");
-            setCourse(courseData);
-            setRealCourseId(courseData.id);
-            const { data: firstLesson } = await supabase.from("lessons").select("id").eq("course_id", courseData.id).order("order", { ascending: true }).limit(1).maybeSingle();
-            if (firstLesson) setActiveLessonId(firstLesson.id);
-            setLoading(false);
-        }
-        loadPlayerData();
-    }, [slug, navigate]);
+                // 1. Busca os dados do curso
+                const { data: courseData } = await supabase.from("courses").select("id, title").eq("slug", slug).single();
+                if (!courseData) return navigate("/dashboard");
+                
+                setCourse(courseData);
+                setRealCourseId(courseData.id);
+
+                // 2. Busca todas as aulas do curso em ordem e o progresso do usuário em paralelo
+                const [lessonsRes, progressRes] = await Promise.all([
+                    supabase.from("lessons").select("id, order").eq("course_id", courseData.id).order("order", { ascending: true }),
+                    supabase.from("user_progress").select("lesson_id, is_completed").eq("user_id", user.id).eq("course_id", courseData.id)
+                ]);
+
+                const allLessons = lessonsRes.data || [];
+                const userProgress = progressRes.data || [];
+
+                if (allLessons.length > 0) {
+                    // 3. Lógica para encontrar a aula "Continuar de onde parou"
+                    // Encontra a primeira aula da lista ordenada que NÃO está completa no banco
+                    const nextLesson = allLessons.find(lesson => {
+                        const prog = userProgress.find(p => p.lesson_id === lesson.id);
+                        return !prog?.is_completed; // Retorna a primeira aula não concluída
+                    });
+
+                    // Se o usuário já completou TUDO (nextLesson será undefined), volta para a aula 1 ou mantém na última. 
+                    // Aqui definimos a aula encontrada ou a primeira como fallback.
+                    setActiveLessonId(nextLesson ? nextLesson.id : allLessons[0].id);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar dados do player:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadPlayerData();
+    }, [slug, navigate]);
 
     useEffect(() => {
         if (realCourseId) {
