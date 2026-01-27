@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import { useUser } from "../components/UserContext"; 
-import logo from "../assets/ka-tech-logo.png"; 
+import { useUser } from "../components/UserContext";
+import logo from "../assets/ka-tech-logo.png";
 
 interface Course {
   id: number;
@@ -11,14 +11,14 @@ interface Course {
   slug: string;
   thumbnailUrl: string | null;
   progress: number;
-  total_duration: number; 
+  total_duration: number;
   enrolledAt: string;
 }
 
 function Dashboard() {
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const { userName, loading: contextLoading } = useUser(); 
+  const { userName, loading: contextLoading } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,32 +40,48 @@ function Dashboard() {
             if (!course) return null;
 
             const currentCourseId = Number(course.id);
-            
-            // --- NOVA LÓGICA DE CÁLCULO POR QUANTIDADE DE AULAS ---
+
+            // 1. Filtrar as aulas deste curso e o progresso do usuário para este curso
             const courseLessons = (lessonsRes.data || []).filter(l => Number(l.course_id) === currentCourseId);
-            const totalLessonsCount = courseLessons.length;
+            const userProgress = (progressRes.data || []).filter(p => Number(p.course_id) === currentCourseId);
 
-            const completedLessonsCount = courseLessons.filter(lesson => {
-              const lessonProg = (progressRes.data || []).find(p => Number(p.lesson_id) === Number(lesson.id));
-              return lessonProg?.is_completed === true; // Só conta se estiver marcado como concluído
-            }).length;
+            // 2. Calcular o tempo total assistido (em segundos)
+            // Lógica: Se a aula está 'is_completed', usamos a duração total da aula. 
+            // Caso contrário, usamos o 'last_time' (segundos onde ele parou).
+            const totalSecondsWatched = courseLessons.reduce((acc, lesson) => {
+              const prog = userProgress.find(p => Number(p.lesson_id) === Number(lesson.id));
 
-            // Progresso exato: (Aulas Concluídas / Total de Aulas) * 100
-            const percent = totalLessonsCount > 0 
-              ? Math.round((completedLessonsCount / totalLessonsCount) * 100) 
-              : 0;
+              if (!prog) return acc;
 
-            return { 
-              ...course, 
+              if (prog.is_completed) {
+                // Se completou, somamos a duração total da aula (convertida para segundos)
+                return acc + (Number(lesson.duration || 0) * 60);
+              } else {
+                // Se não completou, somamos apenas os segundos assistidos
+                return acc + (Number(prog.last_time || 0));
+              }
+            }, 0);
+
+            // 3. Calcular a duração total do curso em segundos
+            const courseTotalSeconds = Number(course.total_duration || 0) * 60;
+
+            // 4. Cálculo da porcentagem de "Evolução Real"
+            let percent = 0;
+            if (courseTotalSeconds > 0) {
+              percent = Math.round((totalSecondsWatched / courseTotalSeconds) * 100);
+            }
+
+            return {
+              ...course,
               enrolledAt: en.createdAt,
-              progress: Math.min(percent, 100)
+              progress: Math.min(percent, 100) // Teto de 100%
             };
-          }).filter((c): c is Course => c !== null && c.progress < 100); // FILTRO: Remove se for 100%
+          }).filter((c): c is Course => c !== null && c.progress < 100);
 
           setEnrolledCourses(processed);
         }
       } catch (err) {
-        console.error("Erro no processamento:", err); 
+        console.error("Erro no processamento:", err);
       } finally {
         setLoading(false);
       }
@@ -73,6 +89,7 @@ function Dashboard() {
     loadDashboardData();
   }, [navigate]);
 
+  // Restante do seu código (renderização) permanece igual...
   const topThreeRecent = [...enrolledCourses]
     .sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime())
     .slice(0, 3);
@@ -82,60 +99,32 @@ function Dashboard() {
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
-
+      {/* ... Estilos e JSX continuam os mesmos que você enviou ... */}
       <style>{`
         :root { --primary: #8b5cf6; --bg-dark: #020617; --card-glass: rgba(15, 23, 42, 0.7); }
-        
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
         .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); }
-
-        .dashboard-content { 
-          flex: 1; margin-left: 260px; padding: 40px 60px; transition: 0.3s; 
-          animation: slideUp 0.6s ease-out;
-        }
-
-        .brand-logo-container {
-          display: none; 
-          width: 100%; 
-          justify-content: center;
-          margin-bottom: 40px;
-        }
-
+        .dashboard-content { flex: 1; margin-left: 260px; padding: 40px 60px; transition: 0.3s; animation: slideUp 0.6s ease-out; }
+        .brand-logo-container { display: none; width: 100%; justify-content: center; margin-bottom: 40px; }
         .header-container { margin-bottom: 40px; }
         .header-container h1 { font-size: 2.5rem; font-weight: 900; color: #fff; margin: 0; }
         .header-container p { color: #94a3b8; margin-top: 5px; font-size: 1.1rem; }
-
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
-        .premium-card {
-          background: var(--card-glass); backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 24px;
-          overflow: hidden; transition: 0.4s; cursor: pointer;
-        }
+        .premium-card { background: var(--card-glass); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 24px; overflow: hidden; transition: 0.4s; cursor: pointer; }
         .premium-card:hover { transform: translateY(-8px); border-color: var(--primary); }
-
         .thumb-box { height: 180px; background: #000; position: relative; }
         .thumb-box img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
-
         .card-body { padding: 24px; }
         .card-body h3 { font-size: 1.2rem; color: #fff; margin-bottom: 15px; font-weight: 800; }
-
         .progress-label { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 900; color: var(--primary); margin-bottom: 8px; }
         .progress-track { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
         .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #d946ef); transition: width 1s ease; }
-
-        .btn-main {
-          width: 100%; margin-top: 20px; padding: 14px; border-radius: 14px; border: none;
-          background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff;
-          font-weight: 800; cursor: pointer; transition: 0.3s;
-        }
-
+        .btn-main { width: 100%; margin-top: 20px; padding: 14px; border-radius: 14px; border: none; background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .table-section { margin-top: 60px; padding-bottom: 50px; }
         .list-container { background: rgba(15, 23, 42, 0.3); border-radius: 30px; border: 1px solid rgba(255,255,255,0.03); padding: 10px; }
         .custom-table { width: 100%; border-collapse: collapse; }
         .custom-table th { padding: 20px; text-align: left; color: var(--primary); font-size: 0.7rem; text-transform: uppercase; }
         .custom-table td { padding: 20px; color: #e5e7eb; border-top: 1px solid rgba(255,255,255,0.02); }
-
         @media (max-width: 1024px) {
           .dashboard-content { margin-left: 0; padding: 0 20px 100px 20px; }
           .brand-logo-container { display: flex; margin-top: 20px; }
@@ -151,10 +140,9 @@ function Dashboard() {
         <div className="brand-logo-container">
           <img src={logo} alt="KA Tech Logo" />
         </div>
-
         <header className="header-container">
-            <h1>Minha <span style={{ color: '#8b5cf6' }}>Jornada</span></h1>
-            <p>Olá, <strong style={{ color: '#fff' }}>{userName}</strong>. Continue de onde parou!</p>
+          <h1>Minha <span style={{ color: '#8b5cf6' }}>Jornada</span></h1>
+          <p>Olá, <strong style={{ color: '#fff' }}>{userName}</strong>. Continue de onde parou!</p>
         </header>
 
         {(loading || contextLoading) ? (
@@ -182,7 +170,7 @@ function Dashboard() {
                     </div>
                   ))}
                 </div>
-
+                {/* Tabela de cursos ativos abaixo ... */}
                 <section className="table-section">
                   <h2 style={{ color: '#fff', fontSize: '1.4rem', marginBottom: '20px', marginLeft: '10px' }}>Cursos Ativos</h2>
                   <div className="list-container">
