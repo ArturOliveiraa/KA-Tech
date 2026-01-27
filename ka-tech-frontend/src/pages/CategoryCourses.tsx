@@ -75,15 +75,12 @@ export default function CategoryCourses() {
     fetchData();
   }, [fetchData]);
 
-  // Ação de Inscrição (Ajustada para usar o DEFAULT do Banco)
   const handleCourseAction = async (course: Course) => {
     const isEnrolled = enrolledCourseIds.includes(course.id);
 
     if (!isEnrolled) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // OPERAÇÃO BLINDADA: Enviamos apenas o essencial.
-        // O Banco de Dados aplicará o DEFAULT 'STUDENT' automaticamente.
         const { error } = await supabase
           .from("course_enrollments")
           .insert([{ 
@@ -149,6 +146,33 @@ export default function CategoryCourses() {
                 return (
                   <div key={course.id} style={{ background: 'rgba(9, 9, 11, 0.6)', borderRadius: '24px', border: isCompleted ? '1px solid #22c55e' : isEnrolled ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)', overflow: 'hidden', transition: '0.3s', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ width: '100%', height: '180px', background: '#1e293b', position: 'relative' }}>
+                      
+                      {/* --- INÍCIO DA CAIXINHA DE CONCLUÍDO --- */}
+                      {isCompleted && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: '#22c55e',
+                          color: '#fff',
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          zIndex: 2,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                        }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                          CONCLUÍDO
+                        </div>
+                      )}
+                      {/* --- FIM DA CAIXINHA DE CONCLUÍDO --- */}
+
                       <img src={course.thumbnailUrl || "https://via.placeholder.com/400x225"} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ padding: '25px', flex: 1, display: 'flex', flexDirection: 'column' }}>
