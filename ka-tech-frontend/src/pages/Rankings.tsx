@@ -118,7 +118,6 @@ export default function Rankings() {
                     <div className="loading-state">Sincronizando pódio...</div>
                 ) : (
                     <>
-                        {/* ALTERAÇÃO AQUI: Ordem lógica no HTML (1, 2, 3) */}
                         <div className="podium-container">
                             {/* 1º LUGAR - GOLD */}
                             {podium[0] && (
@@ -212,13 +211,17 @@ export default function Rankings() {
                 .podium-container { display: flex; align-items: flex-end; justify-content: center; gap: 15px; margin-bottom: 40px; padding: 10px; width: 100%; }
                 .podium-item { display: flex; flex-direction: column; align-items: center; background: #09090b; padding: 20px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); flex: 1; position: relative; max-width: 180px; transition: 0.3s; }
                 
-                /* ORDEM VISUAL DESKTOP (2 - 1 - 3) */
                 .podium-item.gold { border-color: #ffd700; transform: scale(1.1); z-index: 2; padding-top: 30px; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.1); order: 2; }
                 .podium-item.silver { border-color: #c0c0c0; order: 1; }
                 .podium-item.bronze { border-color: #cd7f32; order: 3; }
 
                 .avatar-wrapper-podium { width: 60px; height: 60px; overflow: hidden; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #1e293b; border: 3px solid transparent; }
                 .first-place { width: 80px; height: 80px; }
+                
+                /* AJUSTE PARA PREENCHIMENTO TOTAL */
+                .avatar-wrapper-podium > *, .avatar-fixed > * { width: 100% !important; height: 100% !important; border-radius: 50%; }
+                .avatar-wrapper-podium img, .avatar-fixed img { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block; }
+
                 .silver-border { border-color: #c0c0c0; }
                 .gold-border { border-color: #ffd700; }
                 .bronze-border { border-color: #cd7f32; }
@@ -235,7 +238,7 @@ export default function Rankings() {
                 .ranking-table td { padding: 15px 10px; border-bottom: 1px solid #111827; }
 
                 .user-info-row { display: flex; align-items: center; gap: 15px; }
-                .avatar-fixed { width: 35px; height: 35px; flex-shrink: 0; }
+                .avatar-fixed { width: 35px; height: 35px; flex-shrink: 0; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; }
                 .user-name-list { color: #fff; font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
                 
                 .xp-podium-center, .score-podium-center { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; line-height: 1.2; }
@@ -257,12 +260,9 @@ export default function Rankings() {
                     .ranking-header h1 { font-size: 1.7rem; }
                     .podium-container { flex-direction: column; align-items: center; gap: 15px; }
                     .podium-item { width: 100%; max-width: none; flex-direction: row; gap: 15px; padding: 12px 15px; border-radius: 18px; }
-                    
-                    /* ORDEM NATURAL NO MOBILE (1 - 2 - 3) */
                     .podium-item.gold { transform: none; order: unset; padding-top: 12px; }
                     .podium-item.silver { order: unset; }
                     .podium-item.bronze { order: unset; }
-                    
                     .podium-rank { position: static; width: 25px; height: 25px; flex-shrink: 0; }
                     .podium-name { margin: 0; text-align: left; flex: 1; }
                     .podium-score { margin: 0; text-align: right; width: auto; }
