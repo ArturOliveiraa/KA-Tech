@@ -22,6 +22,7 @@ import Reports from "./pages/Reports";
 import Rankings from "./pages/Rankings";
 import ProtectedRoute from './components/ProtectedRoute';
 import Privacy from './pages/Privacy';
+import LivePage from './pages/LivePage';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -66,6 +67,8 @@ root.render(
 
           {/* Alias opcional: Caso o usuário ainda digite /planos, ele verá a home */}
           <Route path="/planos" element={<Planos />} />
+
+          <Route path="/live" element={<LivePage />} />
         </Routes>
       </BrowserRouter>
     </UserProvider>
