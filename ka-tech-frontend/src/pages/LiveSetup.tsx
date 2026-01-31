@@ -31,38 +31,27 @@ export default function LiveSetup() {
         const { data, error } = await supabase
             .from("lives")
             .select("*")
-            .gte("scheduled_at", now) 
+            .is("duration", null) // Mostra apenas as que ainda não finalizaram
             .order("scheduled_at", { ascending: true });
         
         if (error) console.error("Erro ao buscar:", error.message);
         if (data) setLives(data);
     }
 
-    // FUNÇÃO PARA ENCERRAR LIVE E CALCULAR DURAÇÃO AUTOMÁTICA
-    const handleFinishLive = async (live: Live) => {
-        if (!window.confirm("Deseja encerrar esta live agora?")) return;
-
-        const startTime = new Date(live.scheduled_at).getTime();
-        const endTime = new Date().getTime();
-        const diffInMs = endTime - startTime;
-
-        if (diffInMs <= 0) return alert("A live ainda não atingiu o horário de início agendado!");
-
-        // Cálculo da duração formatada
-        const hours = Math.floor(diffInMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
-        const finalDuration = `${hours > 0 ? hours + 'h ' : ''}${minutes}min`;
+    // NOVA FUNÇÃO PARA EXCLUIR AGENDAMENTO
+    const handleDeleteLive = async (id: string) => {
+        if (!window.confirm("Tem certeza que deseja EXCLUIR este agendamento? Esta ação não pode ser desfeita.")) return;
 
         const { error } = await supabase
             .from("lives")
-            .update({ duration: finalDuration })
-            .eq("id", live.id);
+            .delete()
+            .eq("id", id);
 
         if (error) {
-            alert("Erro ao finalizar: " + error.message);
+            alert("Erro ao excluir: " + error.message);
         } else {
-            alert(`Live finalizada com sucesso! Duração: ${finalDuration}`);
-            fetchUpcomingLives(); // Remove da lista de "Próximas"
+            alert("Agendamento excluído com sucesso!");
+            fetchUpcomingLives();
         }
     };
 
@@ -70,7 +59,6 @@ export default function LiveSetup() {
         e.preventDefault();
         setLoading(true);
 
-        // Garante que a data está em formato ISO para o Postgres
         const isoDate = new Date(liveDate).toISOString();
         const liveData = { title, video_id: videoId, scheduled_at: isoDate };
 
@@ -86,7 +74,7 @@ export default function LiveSetup() {
             fetchUpcomingLives();
         } catch (err: any) {
             console.error("Erro detalhado:", err);
-            alert(`Erro ${err.code || 'Postgrest'}: ${err.message}`);
+            alert(`Erro: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -109,7 +97,6 @@ export default function LiveSetup() {
                 }
                 .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: 'Sora', sans-serif; color: #fff; overflow-x: hidden; }
                 .main-content { flex: 1; margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
-                .brand-logo-mobile { display: none !important; } 
                 .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; }
                 .header-flex h1 { font-size: 2.2rem; font-weight: 900; margin: 0; }
                 .live-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: start; }
@@ -120,21 +107,16 @@ export default function LiveSetup() {
                 .course-item { padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
                 .action-btn { padding: 10px 15px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
                 .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; margin-right: 8px; }
-                .action-btn.finish { background: #ef4444; color: #fff; }
+                .action-btn.delete { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+                .action-btn.delete:hover { background: #ef4444; color: #fff; }
 
                 @media (max-width: 1024px) { 
                     .main-content { margin-left: 0; padding: 20px; width: 100%; } 
-                    .brand-logo-mobile { display: flex !important; width: 100%; justify-content: center; margin-bottom: 30px; }
-                    .brand-logo-mobile img { height: 60px; filter: drop-shadow(0 0 10px var(--primary)); }
                     .live-grid { grid-template-columns: 1fr; } 
                 }
             `}</style>
 
             <main className="main-content">
-                <div className="brand-logo-mobile">
-                    <img src={logo} alt="KA Tech Logo" />
-                </div>
-
                 <header className="header-flex">
                     <div>
                         <h1>Agendamento de Live</h1>
@@ -172,7 +154,7 @@ export default function LiveSetup() {
                         <h2 style={{ color: '#fff', marginBottom: '30px', fontWeight: 900 }}>🚀 Próximas Lives</h2>
                         <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                             {lives.length === 0 ? (
-                                <p style={{ color: '#64748b', textAlign: 'center' }}>Nenhuma live agendada para o futuro.</p>
+                                <p style={{ color: '#64748b', textAlign: 'center' }}>Nenhuma live agendada.</p>
                             ) : (
                                 lives.map(live => (
                                     <div key={live.id} className="course-item" style={{ borderLeft: '4px solid #8b5cf6' }}>
@@ -186,9 +168,9 @@ export default function LiveSetup() {
                                                 className="action-btn edit"
                                             >EDITAR</button>
                                             <button 
-                                                onClick={() => handleFinishLive(live)} 
-                                                className="action-btn finish"
-                                            >⏹️ ENCERRAR</button>
+                                                onClick={() => handleDeleteLive(live.id)} 
+                                                className="action-btn delete"
+                                            >🗑️ EXCLUIR</button>
                                         </div>
                                     </div>
                                 ))
