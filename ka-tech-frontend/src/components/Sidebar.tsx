@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
@@ -8,8 +8,30 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const { userRole, userName, avatarUrl, themeColor, sidebarLogo, loading } = useUser();
 
-  // Simulação de live ativa para o botão pulsante
-  const isLiveActive = true; 
+  // Estado dinâmico para controlar a visibilidade do botão LIVE!
+  const [isLiveActive, setIsLiveActive] = useState(false);
+
+  // Efeito para verificar o status da live no Supabase
+  useEffect(() => {
+    const checkLiveStatus = async () => {
+      const now = new Date().toISOString();
+      
+      // Busca uma live que já começou e não tem duração preenchida
+      const { data } = await supabase
+        .from("lives")
+        .select("id")
+        .is("duration", null) // Live ainda ativa
+        .lte("scheduled_at", now) // Horário já chegou ou passou
+        .limit(1);
+
+      setIsLiveActive(data && data.length > 0 ? true : false);
+    };
+
+    checkLiveStatus();
+    // Verifica a cada 30 segundos para atualizar o botão automaticamente
+    const interval = setInterval(checkLiveStatus, 30000); 
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -83,14 +105,13 @@ const Sidebar: React.FC = () => {
         </div>
 
         <nav className="sidebar-nav">
-          {/* BOTÃO LIVE DINÂMICO */}
+          {/* BOTÃO LIVE DINÂMICO: Aparece só quando há live on-air */}
           {isLiveActive && (
             <Link to="/live" className={`nav-link nav-live ${location.pathname === '/live' ? 'active' : ''}`}>
               <span className="nav-icon">((•))</span> <span>LIVE!</span>
             </Link>
           )}
 
-          {/* ITENS DE NAVEGAÇÃO PRINCIPAL */}
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
             <span className="nav-icon">📚</span> <span>Cursos</span>
           </Link>
@@ -99,7 +120,6 @@ const Sidebar: React.FC = () => {
             <span className="nav-icon">🔍</span> <span>Trilhas</span>
           </Link>
 
-          {/* BOTÃO LIVE CENTER (AGORA ABAIXO DE TRILHAS) */}
           <Link to="/lives-hub" className={`nav-link ${location.pathname === '/lives-hub' ? 'active' : ''}`}>
             <span className="nav-icon">🎥</span> <span>Live Center</span>
           </Link>
@@ -112,7 +132,6 @@ const Sidebar: React.FC = () => {
             <span className="nav-icon">🏆</span> <span>Conquistas</span>
           </Link>
           
-          {/* ÁREA ADMINISTRATIVA */}
           {(userRole === 'admin' || userRole === 'teacher') && (
             <>
               <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}><span className="nav-icon">🛠️</span> <span>Gestão</span></Link>

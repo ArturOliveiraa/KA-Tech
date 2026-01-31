@@ -1,9 +1,18 @@
 import React, { useEffect } from "react";
 
-export default function LiveView({ videoId }: { videoId: string }) {
+interface LiveViewProps {
+  videoId: string;
+  isReplay?: boolean;
+}
+
+export default function LiveView({ videoId, isReplay }: LiveViewProps) {
   useEffect(() => {
     const initPlayer = () => {
-      if (!(window as any).YT?.Player) return;
+      if (!(window as any).YT?.Player || !videoId) return;
+
+      const playerContainer = document.getElementById('live-player');
+      if (playerContainer) playerContainer.innerHTML = '';
+
       new (window as any).YT.Player('live-player', {
         videoId: videoId,
         playerVars: { 
@@ -26,7 +35,15 @@ export default function LiveView({ videoId }: { videoId: string }) {
   }, [videoId]);
 
   return (
-    <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}>
+    <div style={{ 
+      width: '100%', 
+      borderRadius: '24px', 
+      overflow: 'hidden', 
+      background: '#000', 
+      aspectRatio: '16/9',
+      boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+      border: isReplay ? '1px solid rgba(255, 255, 255, 0.05)' : 'none' 
+    }}>
       <div id="live-player" style={{ width: '100%', height: '100%' }}></div>
     </div>
   );
