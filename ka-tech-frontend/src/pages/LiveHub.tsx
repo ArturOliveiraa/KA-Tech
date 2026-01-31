@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient"; 
 import Sidebar from "../components/Sidebar";
-import logo from "./assets/ka-tech-logo.png";
 
 interface Live {
     id: string;
