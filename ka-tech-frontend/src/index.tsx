@@ -23,6 +23,8 @@ import Rankings from "./pages/Rankings";
 import ProtectedRoute from './components/ProtectedRoute';
 import Privacy from './pages/Privacy';
 import LivePage from './pages/LivePage';
+import LiveSetup from './pages/LiveSetup';
+import LiveHub from './pages/LiveHub';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -69,6 +71,10 @@ root.render(
           <Route path="/planos" element={<Planos />} />
 
           <Route path="/live" element={<LivePage />} />
+
+          <Route path="/live-setup" element={<LiveSetup />} />
+
+          <Route path="/lives-hub" element={<LiveHub />} />
         </Routes>
       </BrowserRouter>
     </UserProvider>
