@@ -96,7 +96,7 @@ export default function LiveHub() {
 
             <main className="main-content">
                 <header style={{ marginBottom: '40px' }}>
-                    <h1 className="header-title" style={{ fontSize: '2.2rem', fontWeight: 900 }}>KA Tech Live Center</h1>
+                    <h1 className="header-title" style={{ fontSize: '2.2rem', fontWeight: 900 }}>Live Center</h1>
                     <p style={{ color: '#64748b' }}>Aulas e mentorias exclusivas</p>
                 </header>
 
