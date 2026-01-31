@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import logo from "../assets/ka-tech-logo.png";
 
 interface Live {
     id: string;
@@ -27,18 +26,17 @@ export default function LiveSetup() {
     }, []);
 
     async function fetchUpcomingLives() {
-        const now = new Date().toISOString();
+        // Removida a variável 'now' não utilizada
         const { data, error } = await supabase
             .from("lives")
             .select("*")
-            .is("duration", null) // Mostra apenas as que ainda não finalizaram
+            .is("duration", null) 
             .order("scheduled_at", { ascending: true });
         
         if (error) console.error("Erro ao buscar:", error.message);
         if (data) setLives(data);
     }
 
-    // NOVA FUNÇÃO PARA EXCLUIR AGENDAMENTO
     const handleDeleteLive = async (id: string) => {
         if (!window.confirm("Tem certeza que deseja EXCLUIR este agendamento? Esta ação não pode ser desfeita.")) return;
 
