@@ -85,17 +85,18 @@ export default function LivePage() {
           alignItems: 'flex-start'
         }}>
           
-          {/* PLAYER CONTAINER: Alinhado à esquerda e com tamanho expandido */}
+          {/* PLAYER CONTAINER */}
           <div style={{ 
             flex: 1, 
             width: '100%',
-            maxWidth: isReplay ? '1200px' : '100%', // Aumentado para 1200px (HD feel)
-            margin: '0', // Removido 'auto' para alinhar à esquerda
+            maxWidth: isReplay ? '1200px' : '100%', 
+            margin: '0', 
             zIndex: 10 
           }}>
             <LiveView videoId={videoId} isReplay={isReplay} />
           </div>
 
+          {/* CHAT CONTAINER */}
           {!isReplay && user && (
             <div style={{ 
               width: isMobile ? '100%' : '380px', 
@@ -106,7 +107,8 @@ export default function LivePage() {
               borderRadius: '24px',
               overflow: 'hidden'
             }}>
-              <LiveChat user={user} />
+              {/* 👇 AQUI ESTÁ A MUDANÇA: Passamos o videoId para o chat 👇 */}
+              <LiveChat user={user} youtubeVideoId={videoId} />
             </div>
           )}
         </div>
