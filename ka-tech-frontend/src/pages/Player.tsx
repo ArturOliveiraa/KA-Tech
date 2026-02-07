@@ -5,11 +5,15 @@ import Sidebar from "../components/Sidebar";
 import LessonView from "../components/LessonView";
 import LessonSidebar from "../components/LessonSidebar";
 
+// 1. CORREÇÃO AQUI: Adicionado 'UserProgress' na lista de imports
+import { Course, Lesson, LessonNote, Badge, UserProgress } from "../types"; 
+
 export default function Player() {
     const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
 
-    const [course, setCourse] = useState<any>(null);
+    // 2. Tipagem forte nos estados
+    const [course, setCourse] = useState<Course | null>(null);
     const [realCourseId, setRealCourseId] = useState<number | null>(null);
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
@@ -18,15 +22,14 @@ export default function Player() {
 
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
     const [showBadgeModal, setShowBadgeModal] = useState(false);
-    const [unlockedBadge, setUnlockedBadge] = useState<any>(null);
+    const [unlockedBadge, setUnlockedBadge] = useState<Badge | null>(null);
 
     const [activeTab, setActiveTab] = useState<"content" | "notes">("content");
-    const [notes, setNotes] = useState<any[]>([]);
+    const [notes, setNotes] = useState<LessonNote[]>([]);
     const [newNote, setNewNote] = useState("");
     const [currentVideoTime, setCurrentVideoTime] = useState(0);
     const [seekTo, setSeekTo] = useState<number | null>(null);
 
-    // Estado para detectar mobile
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
 
     useEffect(() => {
@@ -45,8 +48,16 @@ export default function Player() {
         if (!activeLessonId) return;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const { data } = await supabase.from("lesson_notes").select("*").eq("user_id", user.id).eq("lesson_id", activeLessonId).order("video_timestamp", { ascending: true });
-        if (data) setNotes(data);
+        
+        // O TypeScript agora sabe que 'data' é um array de LessonNote
+        const { data } = await supabase
+            .from("lesson_notes")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("lesson_id", activeLessonId)
+            .order("video_timestamp", { ascending: true });
+            
+        if (data) setNotes(data as LessonNote[]); 
     }, [activeLessonId]);
 
     useEffect(() => { fetchNotes(); }, [fetchNotes]);
@@ -90,7 +101,11 @@ export default function Player() {
         const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         if (percent === 100 && stats.percent < 100) {
-            const { data: badge } = await supabase.from("badges").select("id, name, image_url").eq("course_id", realCourseId).maybeSingle();
+            const { data: badge } = await supabase
+                .from("badges")
+                .select("id, name, image_url, course_id") // Selecionando campos explicitos
+                .eq("course_id", realCourseId)
+                .maybeSingle();
 
             if (badge) {
                 const { error: badgeError } = await supabase.from("user_badges").upsert({
@@ -99,7 +114,7 @@ export default function Player() {
                 }, { onConflict: 'user_id,badge_id' });
 
                 if (!badgeError) {
-                    setUnlockedBadge(badge);
+                    setUnlockedBadge(badge as Badge); // Tipando o badge
                     setShowBadgeModal(true);
                 }
             }
@@ -125,53 +140,55 @@ export default function Player() {
             window.dispatchEvent(new Event("progressUpdated"));
             await calculateProgress();
         }
-    }, [activeLessonId, realCourseId, calculateProgress]); // Linha 130 corrigida aqui, [activeLessonId, realCourseId, calculateProgress]);, [activeLessonId, realCourseId, calculateProgress]);
+    }, [activeLessonId, realCourseId, calculateProgress]);
 
-useEffect(() => {
-        async function loadPlayerData() {
-            try {
-                setLoading(true);
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return navigate("/");
+    useEffect(() => {
+        async function loadPlayerData() {
+            try {
+                setLoading(true);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return navigate("/");
 
-                // 1. Busca os dados do curso
-                const { data: courseData } = await supabase.from("courses").select("id, title").eq("slug", slug).single();
-                if (!courseData) return navigate("/dashboard");
-                
-                setCourse(courseData);
-                setRealCourseId(courseData.id);
+                const { data: courseData } = await supabase
+                    .from("courses")
+                    .select("id, title, slug")
+                    .eq("slug", slug)
+                    .single();
+                
+                if (!courseData) return navigate("/dashboard");
+                
+                setCourse(courseData as Course);
+                setRealCourseId(courseData.id);
 
-                // 2. Busca todas as aulas do curso em ordem e o progresso do usuário em paralelo
-                const [lessonsRes, progressRes] = await Promise.all([
-                    supabase.from("lessons").select("id, order").eq("course_id", courseData.id).order("order", { ascending: true }),
-                    supabase.from("user_progress").select("lesson_id, is_completed").eq("user_id", user.id).eq("course_id", courseData.id)
-                ]);
+                const [lessonsRes, progressRes] = await Promise.all([
+                    supabase.from("lessons").select("id, order").eq("course_id", courseData.id).order("order", { ascending: true }),
+                    supabase.from("user_progress").select("lesson_id, is_completed").eq("user_id", user.id).eq("course_id", courseData.id)
+                ]);
 
-                const allLessons = lessonsRes.data || [];
-                const userProgress = progressRes.data || [];
+                // Aqui tipamos os retornos para garantir acesso seguro a .id e .order
+                const allLessons = (lessonsRes.data || []) as Lesson[];
+                
+                // CORREÇÃO: Agora o compilador sabe o que é UserProgress
+                const userProgress = (progressRes.data || []) as UserProgress[];
 
-                if (allLessons.length > 0) {
-                    // 3. Lógica para encontrar a aula "Continuar de onde parou"
-                    // Encontra a primeira aula da lista ordenada que NÃO está completa no banco
-                    const nextLesson = allLessons.find(lesson => {
-                        const prog = userProgress.find(p => p.lesson_id === lesson.id);
-                        return !prog?.is_completed; // Retorna a primeira aula não concluída
-                    });
+                if (allLessons.length > 0) {
+                    const nextLesson = allLessons.find(lesson => {
+                        const prog = userProgress.find(p => p.lesson_id === lesson.id);
+                        return !prog?.is_completed;
+                    });
+                    setActiveLessonId(nextLesson ? nextLesson.id : allLessons[0].id);
+                }
 
-                    // Se o usuário já completou TUDO (nextLesson será undefined), volta para a aula 1 ou mantém na última. 
-                    // Aqui definimos a aula encontrada ou a primeira como fallback.
-                    setActiveLessonId(nextLesson ? nextLesson.id : allLessons[0].id);
-                }
+            } catch (error) {
+                console.error("Erro ao carregar dados do player:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadPlayerData();
+    }, [slug, navigate]);
 
-            } catch (error) {
-                console.error("Erro ao carregar dados do player:", error);
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadPlayerData();
-    }, [slug, navigate]);
-
+    // ... Efeitos restantes (fetchSavedTime e event listener) mantidos iguais
     useEffect(() => {
         if (realCourseId) {
             calculateProgress();
@@ -192,6 +209,7 @@ useEffect(() => {
         }
         fetchSavedTime();
     }, [activeLessonId]);
+
 
     if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', fontFamily: 'Sora', fontWeight: 800 }}>Iniciando...</div>;
 
@@ -265,8 +283,7 @@ useEffect(() => {
                     </div>
                 </div>
             </main>
-
-            {/* Modal de Insígnia Adaptado */}
+            {/* O Modal de Badge continua igual... */}
             {showBadgeModal && unlockedBadge && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(8px)', padding: '20px' }}>
                     <div style={{ background: '#09090b', padding: isMobile ? '25px' : '40px', borderRadius: '24px', border: '1px solid #8b5cf6', textAlign: 'center', maxWidth: '400px', width: '100%', boxShadow: '0 0 50px rgba(139, 92, 246, 0.3)' }}>
