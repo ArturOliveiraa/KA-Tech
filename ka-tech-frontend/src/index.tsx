@@ -36,7 +36,7 @@ root.render(
           {/* --- ROTAS PÚBLICAS (LANDING PAGE E AUTH) --- */}
           
           {/* A raiz do site agora é a sua Landing Page de Planos */}
-          <Route path="/" element={<Planos />} />
+          <Route path="/" element={<Login />} />
           
           {/* A tela de login agora possui sua própria rota dedicada */}
           <Route path="/login" element={<Login />} />
