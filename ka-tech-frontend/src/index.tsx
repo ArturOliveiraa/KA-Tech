@@ -2,6 +2,7 @@ import './index.css';
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async'; // <--- Importação do Helmet
 import { UserProvider } from './components/UserContext';
 
 // --- COMPONENTES ESPECIAIS (Não Lazy) ---
@@ -68,47 +69,50 @@ const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 
 root.render(
   <React.StrictMode>
-    <UserProvider> 
-      <BrowserRouter>
-        {/* O Suspense segura a tela enquanto o pedaço do site (chunk) é baixado */}
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            {/* --- ROTAS PÚBLICAS --- */}
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
-            <Route path="/planos" element={<Planos />} />
-            <Route path="/privacidade" element={<Privacy />} />
+    {/* O HelmetProvider envolve a aplicação para gerenciar os títulos e meta tags */}
+    <HelmetProvider>
+      <UserProvider> 
+        <BrowserRouter>
+          {/* O Suspense segura a tela enquanto o pedaço do site (chunk) é baixado */}
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              {/* --- ROTAS PÚBLICAS --- */}
+              <Route path="/" element={<Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/update-password" element={<UpdatePassword />} />
+              <Route path="/planos" element={<Planos />} />
+              <Route path="/privacidade" element={<Privacy />} />
 
-            {/* --- ROTAS DE USUÁRIO (ALUNO) --- */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/cursos" element={<Cursos />} />
-            <Route path="/categoria/:slug" element={<CategoryCourses />} />
-            <Route path="/conquistas" element={<Achievements />} />
-            <Route path="/curso/:slug" element={<Player />} />
-            <Route path="/rankings" element={<Rankings />} />
-            
-            <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              {/* --- ROTAS DE USUÁRIO (ALUNO) --- */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/cursos" element={<Cursos />} />
+              <Route path="/categoria/:slug" element={<CategoryCourses />} />
+              <Route path="/conquistas" element={<Achievements />} />
+              <Route path="/curso/:slug" element={<Player />} />
+              <Route path="/rankings" element={<Rankings />} />
+              
+              <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
-            {/* --- ROTAS DE LIVES --- */}
-            <Route path="/live" element={<LivePage />} />
-            <Route path="/lives-hub" element={<LiveHub />} />
+              {/* --- ROTAS DE LIVES --- */}
+              <Route path="/live" element={<LivePage />} />
+              <Route path="/lives-hub" element={<LiveHub />} />
 
-            {/* --- ROTAS ADMINISTRATIVAS --- */}
-            {/* Agora sim! Só quem entrar aqui vai baixar o peso do painel admin */}
-            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-            <Route 
-              path="/admin/gestao-conteudo" 
-              element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} 
-            />
-            <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/live-setup" element={<LiveSetup />} />
+              {/* --- ROTAS ADMINISTRATIVAS --- */}
+              {/* Agora sim! Só quem entrar aqui vai baixar o peso do painel admin */}
+              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route 
+                path="/admin/gestao-conteudo" 
+                element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} 
+              />
+              <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+              <Route path="/live-setup" element={<LiveSetup />} />
 
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </UserProvider>
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </UserProvider>
+    </HelmetProvider>
   </React.StrictMode>
 );
