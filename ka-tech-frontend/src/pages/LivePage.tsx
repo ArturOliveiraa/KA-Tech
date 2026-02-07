@@ -4,7 +4,6 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import LiveView from "../components/LiveView";
 import LiveChat from "../components/LiveChat";
-import { useUser } from "../components/UserContext"; 
 import SEO from "../components/SEO";
 import styles from "./LivePage.module.css"; 
 
@@ -13,10 +12,8 @@ export default function LivePage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   
-  // Tenta pegar do contexto, mas vamos garantir com estado local
-  const { user: contextUser } = useUser(); 
-  const [currentUser, setCurrentUser] = useState<any>(contextUser);
-  
+  // CORREÇÃO: Estado local em vez de Contexto para evitar erro de Tipagem
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [viewerCount, setViewerCount] = useState(0);
 
   // Recupera ID e Status
@@ -29,21 +26,16 @@ export default function LivePage() {
     }
   }, [videoId, navigate]);
 
-  // --- CORREÇÃO DO CHAT INFINITO ---
-  // Garante que temos o usuário, mesmo se o Contexto demorar
+  // --- CARREGAR USUÁRIO ---
   useEffect(() => {
-    if (contextUser) {
-      setCurrentUser(contextUser);
-    } else {
-      const getUser = async () => {
-        const { data } = await supabase.auth.getUser();
-        if (data.user) {
-          setCurrentUser(data.user);
-        }
-      };
-      getUser();
-    }
-  }, [contextUser]);
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        setCurrentUser(data.user);
+      }
+    };
+    getUser();
+  }, []);
 
   // Presence
   useEffect(() => {
@@ -70,11 +62,14 @@ export default function LivePage() {
   // Watchtime
   useEffect(() => {
     if (!currentUser || !videoId || isReplay) return;
+    
     const incrementWatchTime = async () => {
+      // Verifica se a página está visível para não contar tempo à toa
       if (document.visibilityState === 'visible') {
          await supabase.rpc('increment_live_watchtime', { video_id_input: videoId });
       }
     };
+
     incrementWatchTime(); 
     const intervalId = setInterval(incrementWatchTime, 60000);
     return () => clearInterval(intervalId);
