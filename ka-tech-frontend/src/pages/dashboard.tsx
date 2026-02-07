@@ -5,13 +5,14 @@ import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext";
 import logo from "../assets/ka-tech-logo.png";
 
+// Interface atualizada para bater com o retorno da função SQL (get_user_dashboard)
 interface Course {
   id: number;
   title: string;
   slug: string;
   thumbnailUrl: string | null;
   progress: number;
-  total_duration: number;
+  totalDuration: number; // Nome ajustado para camelCase (vem do SQL)
   enrolledAt: string;
 }
 
@@ -25,61 +26,28 @@ function Dashboard() {
     async function loadDashboardData() {
       try {
         setLoading(true);
+        // Verifica se o usuário está logado
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return navigate("/");
 
-        const [enrollmentsRes, lessonsRes, progressRes] = await Promise.all([
-          supabase.from("course_enrollments").select(`createdAt, courses (*)`).eq("userId", user.id),
-          supabase.from("lessons").select("id, course_id, duration"),
-          supabase.from("user_progress").select("course_id, lesson_id, is_completed, last_time").eq("user_id", user.id)
-        ]);
+        // --- CORREÇÃO DE PERFORMANCE ---
+        // Em vez de baixar todas as aulas e calcular no front-end,
+        // chamamos a RPC function que já entrega tudo pronto e calculado.
+        const { data, error } = await supabase.rpc('get_user_dashboard');
 
-        if (enrollmentsRes.data) {
-          const processed = enrollmentsRes.data.map((en: any) => {
-            const course = en.courses;
-            if (!course) return null;
-
-            const currentCourseId = Number(course.id);
-
-            // 1. Filtrar as aulas deste curso e o progresso do usuário para este curso
-            const courseLessons = (lessonsRes.data || []).filter(l => Number(l.course_id) === currentCourseId);
-            const userProgress = (progressRes.data || []).filter(p => Number(p.course_id) === currentCourseId);
-
-            // 2. Calcular o tempo total assistido (em segundos)
-            // Lógica: Se a aula está 'is_completed', usamos a duração total da aula. 
-            // Caso contrário, usamos o 'last_time' (segundos onde ele parou).
-            const totalSecondsWatched = courseLessons.reduce((acc, lesson) => {
-              const prog = userProgress.find(p => Number(p.lesson_id) === Number(lesson.id));
-
-              if (!prog) return acc;
-
-              if (prog.is_completed) {
-                // Se completou, somamos a duração total da aula (convertida para segundos)
-                return acc + (Number(lesson.duration || 0) * 60);
-              } else {
-                // Se não completou, somamos apenas os segundos assistidos
-                return acc + (Number(prog.last_time || 0));
-              }
-            }, 0);
-
-            // 3. Calcular a duração total do curso em segundos
-            const courseTotalSeconds = Number(course.total_duration || 0) * 60;
-
-            // 4. Cálculo da porcentagem de "Evolução Real"
-            let percent = 0;
-            if (courseTotalSeconds > 0) {
-              percent = Math.round((totalSecondsWatched / courseTotalSeconds) * 100);
-            }
-
-            return {
-              ...course,
-              enrolledAt: en.createdAt,
-              progress: Math.min(percent, 100) // Teto de 100%
-            };
-          }).filter((c): c is Course => c !== null && c.progress < 100);
-
-          setEnrolledCourses(processed);
+        if (error) {
+          console.error("Erro ao carregar dashboard:", error);
+          return;
         }
+
+        if (data) {
+          // O banco já calculou o progresso. 
+          // Apenas filtramos para garantir que o TypeScript entenda o formato e pegamos os não concluídos (< 100%).
+          const activeCourses = (data as Course[]).filter(c => c.progress < 100);
+          setEnrolledCourses(activeCourses);
+        }
+        // -------------------------------
+
       } catch (err) {
         console.error("Erro no processamento:", err);
       } finally {
@@ -89,17 +57,17 @@ function Dashboard() {
     loadDashboardData();
   }, [navigate]);
 
-  // Restante do seu código (renderização) permanece igual...
+  // Ordena pelos mais recentes para os cards do topo
   const topThreeRecent = [...enrolledCourses]
     .sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime())
     .slice(0, 3);
 
+  // Ordena pelo maior progresso para a tabela
   const tableCourses = [...enrolledCourses].sort((a, b) => b.progress - a.progress);
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
-      {/* ... Estilos e JSX continuam os mesmos que você enviou ... */}
       <style>{`
         :root { --primary: #8b5cf6; --bg-dark: #020617; --card-glass: rgba(15, 23, 42, 0.7); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
