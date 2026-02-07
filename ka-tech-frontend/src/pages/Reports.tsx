@@ -1,470 +1,882 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; 
-import * as XLSX from "xlsx";
+import autoTable from "jspdf-autotable";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell
+} from 'recharts';
 
-// Import da logo para o cabeçalho mobile
-import logo from "../assets/ka-tech-logo.png";
+// --- INTERFACES TYPESCRIPT ---
+interface PlatformStats {
+  totalStudents: number;
+  totalCourses: number;
+  totalLessonsFinished: number;
+}
+
+interface TagData {
+  name: string;
+  alunos: number;
+}
+
+interface Course {
+  id: number;
+  title: string;
+}
+
+interface Student {
+  full_name: string;
+  role: string;
+  is_completed: boolean;
+  userId?: string; 
+}
+
+// --- ICONS ---
+const Icons = {
+  TrendUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
+  Users: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
+  Layers: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>,
+  Download: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+};
 
 export default function Reports() {
-    const [loading, setLoading] = useState(true);
-    
-    // Estados de Dados Gerais
-    const [platformStats, setPlatformStats] = useState({ totalStudents: 0, totalCourses: 0, totalLessonsFinished: 0 });
-    const [allProfiles, setAllProfiles] = useState<any[]>([]);
-    const [orphanTags, setOrphanTags] = useState<any[]>([]);
-    const [tagPopularity, setTagPopularity] = useState<any[]>([]); 
+  // --- ESTADOS TIPADOS ---
+  const [loading, setLoading] = useState<boolean>(true);
+  const [platformStats, setPlatformStats] = useState<PlatformStats>({ totalStudents: 0, totalCourses: 0, totalLessonsFinished: 0 });
+  
+  const [tagPopularity, setTagPopularity] = useState<TagData[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  
+  const [selectedCourseId, setSelectedCourseId] = useState<string>("");
+  
+  const [studentsByCourse, setStudentsByCourse] = useState<Student[]>([]);
+  const [loadingFilter, setLoadingFilter] = useState<boolean>(false);
 
-    // ESTADOS PARA FILTRO
-    const [courses, setCourses] = useState<any[]>([]);
-    const [tempCourseId, setTempCourseId] = useState(""); 
-    const [tempStatusFilter, setTempStatusFilter] = useState("all");
-    const [selectedCourseId, setSelectedCourseId] = useState(""); 
-    const [studentsByCourse, setStudentsByCourse] = useState<any[]>([]);
-    const [loadingFilter, setLoadingFilter] = useState(false);
-    const [hasSearched, setHasSearched] = useState(false);
-
-    // Estados de UI e Salvamento
-    const [showToast, setShowToast] = useState(false);
-    const [toastMsg, setToastMsg] = useState(""); 
-    const [pendingChanges, setPendingChanges] = useState<{ [key: string]: string }>({});
-    const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        async function loadData() {
-            setLoading(true);
-            
-            const [profilesRes, coursesRes, progressRes, listCoursesRes, tagPopRes] = await Promise.all([
-                supabase.from("profiles").select("id", { count: 'exact', head: true }),
-                supabase.from("courses").select("id", { count: 'exact', head: true }),
-                supabase.from("user_progress").select("id", { count: 'exact', head: true }).eq("is_completed", true),
-                supabase.from("courses").select("id, title").order("title"),
-                supabase.from("tag_popularity_report").select("*") 
-            ]);
-
-            setPlatformStats({
-                totalStudents: profilesRes.count || 0,
-                totalCourses: coursesRes.count || 0,
-                totalLessonsFinished: progressRes.count || 0
-            });
-
-            if (listCoursesRes.data) setCourses(listCoursesRes.data);
-            if (tagPopRes.data) setTagPopularity(tagPopRes.data);
-
-            const { data: profData } = await supabase.from("profiles").select("id, full_name, role").order('full_name');
-            if (profData) setAllProfiles(profData);
-
-            const { data: tagsData } = await supabase.from("tags").select(`id, name, course_tags (course_id)`);
-            if (tagsData) {
-                const orphans = tagsData.filter((t: any) => t.course_tags.length === 0);
-                setOrphanTags(orphans);
-            }
-            setLoading(false);
-        }
-        loadData();
-    }, []);
-
-    const handleApplyFilter = async () => {
-        if (!tempCourseId) return;
-        setLoadingFilter(true);
-        setHasSearched(true);
-        setSelectedCourseId(tempCourseId);
-        
-        const [enrollmentsRes, progressRes] = await Promise.all([
-            supabase.from("course_enrollments").select(`userId, profiles:userId (full_name, role)`).eq("courseId", Number(tempCourseId)),
-            supabase.from("user_progress").select("user_id, is_completed").eq("course_id", Number(tempCourseId))
+  // --- CARGA DE DADOS ---
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const [profilesRes, coursesRes, progressRes, listCoursesRes, tagPopRes] = await Promise.all([
+          supabase.from("profiles").select("id", { count: 'exact', head: true }),
+          supabase.from("courses").select("id", { count: 'exact', head: true }),
+          supabase.from("user_progress").select("id", { count: 'exact', head: true }).eq("is_completed", true),
+          supabase.from("courses").select("id, title").order("title"),
+          supabase.from("tag_popularity_report").select("*").limit(5)
         ]);
 
-        if (enrollmentsRes.error) {
-            setStudentsByCourse([]);
-        } else if (enrollmentsRes.data) {
-            const progressMap = new Map(progressRes.data?.map(p => [p.user_id, p.is_completed]) || []);
-            let students = enrollmentsRes.data.filter((item: any) => item.profiles).map((item: any) => ({
-                ...item.profiles,
-                is_completed: progressMap.get(item.userId) || false
-            }));
+        setPlatformStats({
+          totalStudents: profilesRes.count || 0,
+          totalCourses: coursesRes.count || 0,
+          totalLessonsFinished: progressRes.count || 0
+        });
 
-            if (tempStatusFilter === "completed") students = students.filter(s => s.is_completed === true);
-            else if (tempStatusFilter === "pending") students = students.filter(s => s.is_completed === false);
-                
-            setStudentsByCourse(students);
+        if (listCoursesRes.data) setCourses(listCoursesRes.data);
+        
+        // Transformar dados para o gráfico
+        if (tagPopRes.data) {
+          const formattedTags: TagData[] = tagPopRes.data.map((t: any) => ({
+            name: t.tag_name,
+            alunos: t.total_enrollments
+          }));
+          setTagPopularity(formattedTags);
         }
-        setLoadingFilter(false);
-    };
 
-    const CoursePieChart = () => {
-        const total = studentsByCourse.length;
-        const concluidos = studentsByCourse.filter(s => s.is_completed).length;
-        if (total === 0) return null;
-        const percentage = Math.round((concluidos / total) * 100);
-        const strokeDasharray = `${percentage} ${100 - percentage}`;
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
-        return (
-            <div className="chart-container-inner">
-                <div className="pie-wrapper">
-                    <svg viewBox="0 0 36 36" className="circular-chart purple">
-                        <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path className="circle" strokeDasharray={strokeDasharray} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <text x="18" y="20.35" className="percentage">{percentage}%</text>
-                    </svg>
-                </div>
-            </div>
-        );
-    };
+  // Tipagem explícita do parâmetro courseId
+  const handleApplyFilter = async (courseId: string) => {
+    if (!courseId) return;
+    setLoadingFilter(true);
+    setSelectedCourseId(courseId);
 
-    const showSuccessToast = (msg: string) => { setToastMsg(msg); setShowToast(true); setTimeout(() => setShowToast(false), 3000); };
-    const trackChange = (userId: string, newRole: string) => setPendingChanges(prev => ({ ...prev, [userId]: newRole }));
+    const [enrollRes, progressRes] = await Promise.all([
+      supabase.from("course_enrollments").select(`userId, profiles:userId (full_name, role)`).eq("courseId", Number(courseId)),
+      supabase.from("user_progress").select("user_id, is_completed").eq("course_id", Number(courseId))
+    ]);
 
-    const handleSaveBatch = async () => {
-        setIsSaving(true);
-        const updates = Object.entries(pendingChanges).map(([id, role]) => supabase.from("profiles").update({ role }).eq("id", id));
-        const results = await Promise.all(updates);
-        if (!results.some(r => r.error)) {
-            setAllProfiles(prev => prev.map(p => pendingChanges[p.id] ? { ...p, role: pendingChanges[p.id] } : p));
-            setPendingChanges({});
-            showSuccessToast("✅ Funções salvas com sucesso!");
+    if (enrollRes.data) {
+      const progressMap = new Map(progressRes.data?.map(p => [p.user_id, p.is_completed]) || []);
+      
+      const formattedStudents: Student[] = enrollRes.data
+        .filter((item: any) => item.profiles) // Garante que tem perfil
+        .map((item: any) => ({
+          full_name: item.profiles.full_name,
+          role: item.profiles.role,
+          is_completed: progressMap.get(item.userId) || false,
+          userId: item.userId
+        }));
+
+      setStudentsByCourse(formattedStudents);
+    }
+    setLoadingFilter(false);
+  };
+
+  // --- CÁLCULOS PARA GRÁFICOS ---
+  const completionData = useMemo(() => {
+    if (studentsByCourse.length === 0) return [{ name: 'Aguardando', value: 1 }];
+    const completed = studentsByCourse.filter(s => s.is_completed).length;
+    const inProgress = studentsByCourse.length - completed;
+    return [
+      { name: 'Concluído', value: completed },
+      { name: 'Em Andamento', value: inProgress }
+    ];
+  }, [studentsByCourse]);
+
+  const completionRate = studentsByCourse.length > 0
+    ? Math.round((studentsByCourse.filter(s => s.is_completed).length / studentsByCourse.length) * 100)
+    : 0;
+
+  // --- PDF GENERATOR ---
+  const generatePremiumPDF = () => {
+    const doc = new jsPDF();
+    const courseName = courses.find(c => c.id === Number(selectedCourseId))?.title || "Relatório Geral";
+    
+    // --- 1. HEADER & BACKGROUND ---
+    doc.setFillColor(15, 23, 42); // Cor Dark Blue (Brand)
+    doc.rect(0, 0, 210, 50, 'F'); // Cabeçalho maior
+    
+    // Título Principal
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("KA ACADEMY", 14, 20);
+    
+    // Subtítulo
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Intelligence & Analytics Report", 14, 27);
+
+    // Data (Alinhada à direita)
+    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, 195, 20, { align: 'right' });
+
+    // --- 2. NOME DO CURSO (DESTAQUE) ---
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(139, 92, 246); // Primary Purple
+    doc.text(`CURSO: ${courseName.toUpperCase()}`, 14, 40);
+
+    // --- 3. GRÁFICO DE PROGRESSO NO PDF ---
+    // Cálculos
+    const total = studentsByCourse.length;
+    const completed = studentsByCourse.filter(s => s.is_completed).length;
+    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    
+    // Área do Painel de Resumo
+    doc.setFillColor(248, 250, 252); // Fundo Cinza Claro
+    doc.setDrawColor(226, 232, 240); // Borda suave
+    doc.roundedRect(14, 60, 182, 30, 3, 3, 'FD');
+
+    // Texto: Taxa de Conclusão
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Taxa de Conclusão da Turma", 20, 72);
+
+    // Texto: Porcentagem Grande
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${rate}%`, 185, 74, { align: 'right' });
+
+    // Barra de Fundo (Cinza)
+    doc.setFillColor(226, 232, 240);
+    doc.roundedRect(20, 80, 170, 6, 2, 2, 'F');
+
+    // Barra de Progresso (Verde ou Roxo dependendo do status)
+    if (rate > 0) {
+      doc.setFillColor(16, 185, 129); // Success Green
+      // Calcula largura proporcional (max 170)
+      const fillWidth = (170 * rate) / 100;
+      doc.roundedRect(20, 80, fillWidth, 6, 2, 2, 'F');
+    }
+
+    // Legenda Pequena abaixo da barra
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${completed} alunos concluíram de ${total} matriculados.`, 20, 93);
+
+    // --- 4. TABELA DE DADOS ---
+    autoTable(doc, {
+      startY: 105, // Empurrada para baixo para caber o gráfico
+      head: [['Aluno', 'Cargo', 'Status']],
+      body: studentsByCourse.map(s => [
+        s.full_name,
+        s.role?.toUpperCase() || 'ALUNO',
+        s.is_completed ? 'CONCLUÍDO' : 'PENDENTE'
+      ]),
+      headStyles: { 
+        fillColor: [15, 23, 42], // Header Escuro
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      bodyStyles: { 
+        textColor: [51, 65, 85],
+        fontSize: 10
+      },
+      alternateRowStyles: { 
+        fillColor: [248, 250, 252] // Zebra Striping sutil
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' }, // Nome
+        1: { cellWidth: 40 },     // Cargo
+        2: { fontStyle: 'bold' }  // Status em negrito
+      },
+      didParseCell: function(data) {
+        // Customização de cor para Status
+        if (data.section === 'body' && data.column.index === 2) {
+          if (data.cell.raw === 'CONCLUÍDO') {
+            data.cell.styles.textColor = [16, 185, 129]; // Verde
+          } else {
+            data.cell.styles.textColor = [245, 158, 11]; // Laranja
+          }
         }
-        setIsSaving(false);
-    };
+      }
+    });
 
-    const deleteOrphanTag = async (tagId: string) => {
-        const { error } = await supabase.from("tags").delete().eq("id", tagId);
-        if (!error) { setOrphanTags(prev => prev.filter(t => t.id !== tagId)); showSuccessToast("🗑️ Tag removida!"); }
-    };
+    doc.save(`KA_Report_${courseName.replace(/\s+/g, '_')}.pdf`);
+  };
 
-    // --- FUNÇÕES DE EXPORTAÇÃO (RESTAURADAS E COMPLETAS) ---
-    const exportTagRankingExcel = () => {
-        const data = tagPopularity.slice(0, 5).map((tag, index) => ({ "Ranking": `#${index + 1}`, "Categoria": tag.tag_name, "Alunos": tag.total_enrollments }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Ranking_Tags");
-        XLSX.writeFile(wb, "KAtech_Top5_Tags.xlsx");
-        showSuccessToast("✅ Excel do ranking gerado!");
-    };
+  return (
+    <div className="pro-viewport">
+      <Sidebar />
 
-    const exportTagRankingPDF = () => {
-        const doc = new jsPDF();
-        doc.text("Top 5 Categorias mais Populares - KA Academy", 14, 15);
-        autoTable(doc, {
-            head: [["Rank", "Categoria", "Alunos"]],
-            body: tagPopularity.slice(0, 5).map((tag, index) => [`#${index + 1}`, tag.tag_name, tag.total_enrollments]),
-            startY: 25,
-            theme: 'grid',
-            headStyles: { fillColor: [139, 92, 246] }
-        });
-        doc.save("KAtech_Top5_Tags.pdf");
-        showSuccessToast("✅ PDF do ranking gerado!");
-    };
+      {/* CONDICIONAL: TELA DE CARREGAMENTO OU DASHBOARD */}
+      {loading ? (
+        <main className="pro-main-canvas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', minWidth: '300px' }}>
+             <span className="system-status" style={{ justifyContent: 'center', marginBottom: '1.5rem', fontSize: '0.8rem' }}>
+                <span className="pulse-dot"></span> SYSTEM INITIALIZING
+             </span>
+             <p style={{ color: 'var(--text-secondary)', margin: 0, fontWeight: 500 }}>Carregando módulos de análise...</p>
+          </div>
+        </main>
+      ) : (
+        <main className="pro-main-canvas">
+          <div className="dashboard-container">
+            
+            {/* HEADER */}
+            <header className="pro-header">
+              <div className="header-content">
+                <span className="system-status">
+                  <span className="pulse-dot"></span> SYSTEM ONLINE
+                </span>
+                <h1>Analytics Center</h1>
+                <p>Visão estratégica de engajamento e performance da <strong>KA Academy</strong></p>
+              </div>
+              <button className="btn-export" onClick={generatePremiumPDF}>
+                <Icons.Download />
+                <span className="btn-text">Exportar Dados</span>
+              </button>
+            </header>
 
-    const exportFilteredExcel = () => {
-        const courseName = courses.find(c => c.id === Number(selectedCourseId))?.title || "Curso";
-        const ws = XLSX.utils.json_to_sheet(studentsByCourse.map(s => ({ "Aluno": s.full_name, "Cargo": s.role?.toUpperCase(), "Status": s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO" })));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Lista");
-        XLSX.writeFile(wb, `Alunos_${courseName.replace(/\s/g, "_")}.xlsx`);
-        showSuccessToast("✅ Excel do curso gerado!");
-    };
+            {/* KPI GRID */}
+            <section className="kpi-grid">
+              <div className="kpi-card glass-panel blue-hover" style={{animationDelay: '0.1s'}}>
+                <div className="kpi-header">
+                  <div className="kpi-icon-box blue"><Icons.Users /></div>
+                  <span className="trend positive"><Icons.TrendUp /> +12%</span>
+                </div>
+                <div className="kpi-value">
+                  <h3>{platformStats.totalStudents}</h3>
+                  <p>Alunos Ativos</p>
+                </div>
+              </div>
 
-    const exportFilteredPDF = () => {
-        const courseName = courses.find(c => c.id === Number(selectedCourseId))?.title || "Curso";
-        const doc = new jsPDF();
-        doc.text(`Alunos do Curso: ${courseName}`, 14, 15);
-        autoTable(doc, {
-            head: [["Nome do Aluno", "Cargo", "Status"]],
-            body: studentsByCourse.map(s => [s.full_name, s.role?.toUpperCase(), s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"]),
-            startY: 25,
-            theme: 'grid',
-            headStyles: { fillColor: [139, 92, 246] }
-        });
-        doc.save(`Alunos_${courseName.replace(/\s/g, "_")}.pdf`);
-        showSuccessToast("✅ PDF do curso gerado!");
-    };
+              <div className="kpi-card glass-panel purple-hover" style={{animationDelay: '0.2s'}}>
+                <div className="kpi-header">
+                  <div className="kpi-icon-box purple"><Icons.Layers /></div>
+                  <span className="trend neutral">Estável</span>
+                </div>
+                <div className="kpi-value">
+                  <h3>{platformStats.totalCourses}</h3>
+                  <p>Cursos Disponíveis</p>
+                </div>
+              </div>
 
-    const exportMembersExcel = () => {
-        const data = allProfiles.map(p => ({ "Nome": p.full_name, "Cargo": p.role?.toUpperCase() }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Membros");
-        XLSX.writeFile(wb, "KAtech_Membros.xlsx");
-        showSuccessToast("✅ Excel de membros gerado!");
-    };
+              <div className="kpi-card glass-panel featured gold-hover" style={{animationDelay: '0.3s'}}>
+                <div className="kpi-header">
+                  <div className="kpi-icon-box gold">⚡</div>
+                </div>
+                <div className="kpi-value">
+                  <h3>{platformStats.totalLessonsFinished}</h3>
+                  <p>Aulas Finalizadas</p>
+                </div>
+                <div className="mini-chart">
+                  <div className="bar" style={{width: '70%'}}></div>
+                </div>
+              </div>
+            </section>
 
-    const exportMembersPDF = () => {
-        const doc = new jsPDF();
-        doc.text("Relatório de Membros - KA Academy", 14, 15);
-        autoTable(doc, {
-            head: [["Nome", "Cargo"]],
-            body: allProfiles.map(p => [p.full_name, p.role?.toUpperCase()]),
-            startY: 25,
-            theme: 'grid',
-            headStyles: { fillColor: [139, 92, 246] }
-        });
-        doc.save("KAtech_Membros.pdf");
-        showSuccessToast("✅ PDF de membros gerado!");
-    };
-
-    const exportTagsExcel = () => {
-        const data = orphanTags.map(t => ({ "Tag Sem Uso": t.name }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Tags");
-        XLSX.writeFile(wb, "KAtech_Tags_Orfas.xlsx");
-        showSuccessToast("✅ Excel de tags gerado!");
-    };
-
-    const exportTagsPDF = () => {
-        const doc = new jsPDF();
-        doc.text("Tags Sem Uso - KA Academy", 14, 15);
-        autoTable(doc, {
-            head: [["Nome da Tag"]],
-            body: orphanTags.map(t => [t.name]),
-            startY: 25,
-            theme: 'grid',
-            headStyles: { fillColor: [239, 68, 68] }
-        });
-        doc.save("KAtech_Tags_Orfas.pdf");
-        showSuccessToast("✅ PDF de tags gerado!");
-    };
-
-    return (
-        <div className="dashboard-wrapper">
-            <Sidebar/>
-
-            {showToast && <div className="toast-success"><span>{toastMsg}</span></div>}
-
-            <main className="report-main-content">
-                <div className="brand-logo-mobile">
-                    <img src={logo} alt="KA Tech Logo" />
+            {/* MAIN CONTENT GRID */}
+            <div className="content-grid">
+              
+              {/* LEFT COLUMN: DATA TABLE & FILTER */}
+              <div className="main-panel glass-panel" style={{animationDelay: '0.4s'}}>
+                <div className="panel-header">
+                  <div>
+                    <h3>Matriz de Desempenho</h3>
+                    <p>Acompanhamento granular por trilha</p>
+                  </div>
+                  <div className="filter-control">
+                    {/* USO DA VARIÁVEL loadingFilter PARA FEEDBACK VISUAL */}
+                    <select 
+                      className="modern-select" 
+                      onChange={(e) => handleApplyFilter(e.target.value)} 
+                      value={selectedCourseId}
+                      disabled={loadingFilter}
+                      style={{ opacity: loadingFilter ? 0.7 : 1, cursor: loadingFilter ? 'wait' : 'pointer' }}
+                    >
+                      <option value="">Selecione uma Trilha...</option>
+                      {courses.map(c => <option key={c.id} value={c.id.toString()}>{c.title}</option>)}
+                    </select>
+                  </div>
                 </div>
 
-                <h1 className="report-title">Painel de Controle</h1>
-
-                <div className="stats-grid">
-                    <div className="stat-card"><span className="stat-label">TOTAL USUÁRIOS</span><h2 className="stat-value">{platformStats.totalStudents}</h2></div>
-                    <div className="stat-card"><span className="stat-label">CURSOS ATIVOS</span><h2 className="stat-value">{platformStats.totalCourses}</h2></div>
-                    <div className="stat-card"><span className="stat-label">MISSÕES CONCLUÍDAS</span><h2 className="stat-value">{platformStats.totalLessonsFinished}</h2></div>
-                </div>
-
-                {loading ? <p className="loading-msg">Carregando dados da plataforma...</p> : (
-                    <div className="admin-sections">
-                        
-                        <section className="report-section full-width">
-                            <div className="card-header-flex">
-                                <h3 className="section-header">🔍 Relatório por Curso</h3>
-                                <div className="card-export-group">
-                                    <button className="mini-export pdf" onClick={exportFilteredPDF} disabled={studentsByCourse.length === 0}>PDF</button>
-                                    <button className="mini-export excel" onClick={exportFilteredExcel} disabled={studentsByCourse.length === 0}>XLS</button>
-                                </div>
-                            </div>
-
-                            <div className="filter-controls">
-                                <div className="select-group">
-                                    <select className="gamer-select" value={tempCourseId} onChange={(e) => setTempCourseId(e.target.value)}>
-                                        <option value="">Selecionar curso...</option>
-                                        {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                                    </select>
-                                    <select className="gamer-select" value={tempStatusFilter} onChange={(e) => setTempStatusFilter(e.target.value)}>
-                                        <option value="all">Todos os Status</option>
-                                        <option value="completed">Concluídos</option>
-                                        <option value="pending">Em Andamento</option>
-                                    </select>
-                                    <button className="btn-apply-filter" onClick={handleApplyFilter} disabled={loadingFilter}>
-                                        {loadingFilter ? "..." : "APLICAR"}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="report-content-layout">
-                                <div className="table-container">
-                                    {hasSearched && studentsByCourse.length > 0 ? (
-                                        <table className="admin-table">
-                                            <thead><tr><th>ALUNO</th><th>CARGO</th><th>STATUS</th></tr></thead>
-                                            <tbody>{studentsByCourse.map((s: any, i: number) => (
-                                                <tr key={i}>
-                                                    <td>{s.full_name}</td>
-                                                    <td><span className={`role-badge ${s.role}`}>{s.role?.toUpperCase()}</span></td>
-                                                    <td><span className={`status-pill ${s.is_completed ? 'completed' : 'pending'}`}>{s.is_completed ? "CONCLUÍDO" : "EM ANDAMENTO"}</span></td>
-                                                </tr>
-                                            ))}</tbody>
-                                        </table>
-                                    ) : <p className="empty-state-text">Selecione um curso acima para filtrar.</p>}
-                                </div>
-                                {hasSearched && studentsByCourse.length > 0 && (
-                                    <div className="visual-summary-aside">
-                                        <h4>CONCLUÍDOS</h4>
-                                        <CoursePieChart />
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-
-                        <section className="report-section">
-                            <div className="card-header-flex">
-                                <h3 className="section-header">🏆 Top 5 Categorias</h3>
-                                <div className="card-export-group">
-                                    <button className="mini-export pdf" onClick={exportTagRankingPDF}>PDF</button>
-                                    <button className="mini-export excel" onClick={exportTagRankingExcel}>XLS</button>
-                                </div>
-                            </div>
-                            <div className="table-container">
-                                <table className="admin-table">
-                                    <thead><tr><th>RANK</th><th>CATEGORIA</th><th style={{ textAlign: 'right' }}>ALUNOS</th></tr></thead>
-                                    <tbody>
-                                        {tagPopularity.slice(0, 5).map((tag, index) => (
-                                            <tr key={index}>
-                                                <td style={{ color: '#8b5cf6', fontWeight: 800 }}>#{index + 1}</td>
-                                                <td style={{ color: '#fff', fontWeight: 600 }}>{tag.tag_name.toUpperCase()}</td>
-                                                <td style={{ textAlign: 'right', fontWeight: 800 }}>{tag.total_enrollments}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
-
-                        <section className="report-section">
-                            <div className="card-header-flex">
-                                <h3 className="section-header">🛡️ Gestão</h3>
-                                <div className="card-export-group">
-                                    <button className="mini-export pdf" onClick={exportMembersPDF}>PDF</button>
-                                    <button className="mini-export excel" onClick={exportMembersExcel}>XLS</button>
-                                </div>
-                                <button className="btn-save-batch-top" onClick={handleSaveBatch} disabled={isSaving || Object.keys(pendingChanges).length === 0}>
-                                    {isSaving ? "..." : "SALVAR"}
-                                </button>
-                            </div>
-                            <div className="table-container">
-                                <table className="admin-table">
-                                    <thead><tr><th>NOME</th><th>AJUSTAR</th></tr></thead>
-                                    <tbody>{allProfiles.map(p => (
-                                        <tr key={p.id}>
-                                            <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name}</td>
-                                            <td>
-                                                <select className="gamer-select small" value={pendingChanges[p.id] || p.role} onChange={(e) => trackChange(p.id, e.target.value)}>
-                                                    <option value="user">USER</option>
-                                                    <option value="teacher">TEACHER</option>
-                                                    <option value="admin">ADMIN</option>
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    ))}</tbody>
-                                </table>
-                            </div>
-                        </section>
-
-                        <section className="report-section full-width">
-                            <div className="card-header-flex">
-                                <h3 className="section-header">🧹 Tags Sem Uso</h3>
-                                <div className="card-export-group">
-                                    <button className="mini-export pdf" onClick={exportTagsPDF}>PDF</button>
-                                    <button className="mini-export excel" onClick={exportTagsExcel}>XLS</button>
-                                </div>
-                            </div>
-                            <div className="orphan-tag-grid">
-                                {orphanTags.length > 0 ? orphanTags.map(t => (
-                                    <div key={t.id} className="tag-card">
-                                        <span>{t.name}</span>
-                                        <button className="btn-delete-action" onClick={() => deleteOrphanTag(t.id)}>🗑️</button>
-                                    </div>
-                                )) : <p className="success-msg">Base limpa!</p>}
-                            </div>
-                        </section>
+                {/* OPACIDADE DURANTE FILTRAGEM */}
+                <div 
+                  className="table-responsive custom-scrollbar"
+                  style={{ transition: 'opacity 0.3s', opacity: loadingFilter ? 0.5 : 1, pointerEvents: loadingFilter ? 'none' : 'auto' }}
+                >
+                  {studentsByCourse.length > 0 ? (
+                    <table className="modern-table">
+                      <thead>
+                        <tr>
+                          <th>Aluno</th>
+                          <th>Perfil</th>
+                          <th>Progresso</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {studentsByCourse.map((s, i) => (
+                          <tr key={i} style={{animationDelay: `${i * 0.05}s`}} className="fade-in-item">
+                            <td>
+                              <div className="user-info">
+                                <div className="avatar">{s.full_name[0]}</div>
+                                <span>{s.full_name}</span>
+                              </div>
+                            </td>
+                            <td><span className={`badge ${s.role}`}>{s.role}</span></td>
+                            <td>
+                              <div className={`status-pill ${s.is_completed ? 'done' : 'wip'}`}>
+                                {s.is_completed ? 'Concluído' : 'Cursando'}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-icon">📂</div>
+                      <p>Selecione um curso acima para carregar os dados.</p>
                     </div>
-                )}
-            </main>
+                  )}
+                </div>
+              </div>
 
-            <style>{`
-                .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: #020617; }
+              {/* RIGHT COLUMN: CHARTS & INSIGHTS */}
+              <div className="side-panel">
                 
-                .report-main-content { 
-                    flex: 1; 
-                    padding: 40px; 
-                    margin-left: 260px; 
-                    transition: 0.3s;
-                    box-sizing: border-box;
-                    width: calc(100% - 260px);
-                }
+                {/* CHART: TOP TAGS */}
+                <div className="chart-card glass-panel" style={{animationDelay: '0.5s'}}>
+                  <h3>Interesse por Tecnologia</h3>
+                  <div style={{ width: '100%', height: 200 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={tagPopularity} layout="vertical" margin={{top: 5, right: 30, left: 40, bottom: 5}}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="name" type="category" width={80} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 500}} />
+                        <RechartsTooltip 
+                          contentStyle={{backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'}}
+                          cursor={{fill: 'rgba(255,255,255,0.05)', radius: 4}}
+                        />
+                        <Bar dataKey="alunos" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} animationDuration={1500} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
 
-                .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 20px; }
-                .brand-logo-mobile img { height: 120px; filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.4)); }
+                {/* CHART: RETENTION */}
+                <div className="chart-card glass-panel" style={{animationDelay: '0.6s'}}>
+                  <h3>Taxa de Conclusão (Filtro)</h3>
+                  <div className="donut-chart-wrapper">
+                    <div style={{ width: '100%', height: 180 }}>
+                      <ResponsiveContainer>
+                        <PieChart>
+                          <Pie
+                            data={completionData}
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                            animationDuration={1500}
+                          >
+                            {completionData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : 'rgba(51, 65, 85, 0.5)'} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip 
+                            contentStyle={{backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px'}} 
+                            itemStyle={{color: '#f1f5f9'}} 
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="chart-overlay">
+                      <span className="big-number">{completionRate}%</span>
+                      <span className="label">Retenção</span>
+                    </div>
+                  </div>
+                </div>
 
-                .report-title { color: #fff; font-size: 2rem; fontWeight: 800; margin-bottom: 30px; }
+              </div>
+            </div>
+          </div>
+        </main>
+      )}
 
-                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; } 
-                .stat-card { background: #09090b; padding: 20px; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.1); }
-                .stat-value { color: #fff; font-size: 1.5rem; font-weight: 900; margin: 0; }
-                .stat-label { color: #94a3b8; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+      {/* --- ESTILOS CSS SUPER OTIMIZADOS --- */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-                .admin-sections { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 100%; }
-                .report-section { background: #09090b; padding: 20px; border-radius: 18px; border: 1px solid rgba(139, 92, 246, 0.08); }
-                .report-section.full-width { grid-column: 1 / -1; }
-                
-                .section-header { color: #ffffff !important; font-weight: 900; font-size: 1rem; margin: 0; }
-                .card-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        :root {
+          /* --- Color Palette --- */
+          --bg-dark: #020617; /* Slate 950+ */
+          --bg-gradient: radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 40%), 
+                         radial-gradient(circle at 90% 60%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+          
+          /* --- Glass Surfaces --- */
+          --surface-1: rgba(30, 41, 59, 0.3);
+          --surface-2: rgba(30, 41, 59, 0.5);
+          --surface-hover: rgba(51, 65, 85, 0.5);
+          
+          /* --- Borders & Glows --- */
+          --glass-border: rgba(255, 255, 255, 0.06);
+          --glass-highlight: rgba(255, 255, 255, 0.08);
+          --blur-strong: 20px;
 
-                .filter-controls { width: 100%; margin-bottom: 20px; }
-                .select-group { display: flex; gap: 10px; flex-wrap: wrap; }
-                .gamer-select { flex: 1; min-width: 140px; background: #0f172a; color: #fff; border: 1px solid rgba(139, 92, 246, 0.25); padding: 10px; border-radius: 8px; font-size: 0.75rem; }
-                .gamer-select.small { padding: 5px; min-width: 80px; }
-                .btn-apply-filter, .btn-save-batch-top { background: #8b5cf6; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800; font-size: 0.7rem; cursor: pointer; }
+          /* --- Brand Colors --- */
+          --primary: #8b5cf6;
+          --primary-hover: #7c3aed;
+          --primary-glow: rgba(139, 92, 246, 0.5);
+          --success: #10b981;
+          --success-glow: rgba(16, 185, 129, 0.4);
+          --warning: #f59e0b;
+          --warning-glow: rgba(245, 158, 11, 0.4);
+          --info-glow: rgba(96, 165, 250, 0.4);
+          
+          /* --- Text --- */
+          --text-main: #f8fafc;
+          --text-secondary: #94a3b8;
+          --text-tertiary: #64748b;
 
-                /* TEXTO DE ESTADO VAZIO (CLAREADO) */
-                .empty-state-text { color: #cbd5e1; font-size: 0.9rem; padding: 20px; text-align: center; font-weight: 500; }
+          /* --- Transitions --- */
+          --ease-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
 
-                .report-content-layout { display: flex; gap: 20px; align-items: flex-start; }
-                .table-container { flex: 1; overflow-x: auto; background: rgba(255,255,255,0.02); border-radius: 12px; }
-                .admin-table { width: 100%; border-collapse: collapse; }
-                .admin-table th { color: #cbd5e1; font-size: 0.65rem; text-align: left; padding: 12px; border-bottom: 1px solid #1e293b; text-transform: uppercase; }
-                .admin-table td { padding: 12px; border-bottom: 1px solid #111827; color: #fff; font-size: 0.8rem; }
+        /* --- GLOBAL RESET & SCROLL --- */
+        * { box-sizing: border-box; outline-color: var(--primary); }
+        
+        ::selection {
+          background: rgba(139, 92, 246, 0.3);
+          color: white;
+        }
 
-                .visual-summary-aside { min-width: 180px; background: rgba(139, 92, 246, 0.03); padding: 15px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.1); text-align: center; }
-                .visual-summary-aside h4 { color: #8b5cf6; font-size: 0.6rem; font-weight: 900; margin-bottom: 10px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-                .circular-chart { max-width: 100px; margin: 0 auto; }
-                .circle-bg { fill: none; stroke: rgba(139, 92, 246, 0.1); stroke-width: 3.8; }
-                .circle { fill: none; stroke-width: 3.8; stroke-linecap: round; stroke: #8b5cf6; }
-                .percentage { fill: #fff; font-size: 0.5rem; text-anchor: middle; font-weight: 800; }
+        body { overflow-x: hidden; }
 
-                .role-badge { padding: 3px 6px; border-radius: 4px; font-size: 0.55rem; font-weight: 900; }
-                .role-badge.admin { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-                .role-badge.teacher { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-                
-                .status-pill { padding: 4px 8px; border-radius: 4px; font-size: 0.6rem; font-weight: 800; }
-                .status-pill.completed { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-                .status-pill.pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .pro-viewport {
+          display: flex;
+          background-color: var(--bg-dark);
+          background-image: var(--bg-gradient);
+          min-height: 100vh;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: var(--text-main);
+          -webkit-font-smoothing: antialiased;
+        }
 
-                .orphan-tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-                .tag-card { display: flex; justify-content: space-between; background: #0f172a; padding: 10px; border-radius: 8px; font-size: 0.8rem; }
+        .pro-main-canvas {
+          flex: 1;
+          margin-left: 260px;
+          padding: 2.5rem;
+          width: calc(100% - 260px);
+          max-width: 100%;
+          transition: all 0.3s var(--ease-smooth);
+        }
 
-                .card-export-group { display: flex; gap: 5px; }
-                .mini-export { padding: 6px; border-radius: 6px; border: none; font-size: 0.55rem; font-weight: 900; cursor: pointer; }
-                .mini-export.pdf { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-                .mini-export.excel { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .dashboard-container {
+          max-width: 1600px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          /* Entry Animation */
+          animation: fadeInUp 0.8s var(--ease-smooth);
+        }
 
-                .toast-success { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 12px 30px; border-radius: 50px; font-weight: 800; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        /* --- HEADER & STATUS --- */
+        .pro-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          flex-wrap: wrap;
+          gap: 1.5rem;
+          padding-bottom: 1.5rem;
+          border-bottom: 1px solid rgba(255,255,255,0.03);
+          position: relative;
+        }
 
-                @media (max-width: 1024px) {
-                    .report-main-content { 
-                        margin-left: 0; 
-                        width: 100%; 
-                        padding: 20px 15px 100px 15px; 
-                    }
-                    .brand-logo-mobile { display: flex; }
-                    .admin-sections { grid-template-columns: 1fr; }
-                    .report-title { text-align: center; }
-                    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-                }
+        .system-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.7rem;
+          color: var(--success);
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          margin-bottom: 0.5rem;
+          background: rgba(16, 185, 129, 0.08);
+          padding: 6px 12px;
+          border-radius: 30px;
+          border: 1px solid rgba(16, 185, 129, 0.15);
+        }
 
-                @media (max-width: 768px) {
-                    .report-content-layout { flex-direction: column; align-items: stretch; }
-                    .visual-summary-aside { width: 100%; margin-top: 20px; }
-                    .select-group { flex-direction: column; }
-                    .gamer-select, .btn-apply-filter { width: 100%; }
-                    .stats-grid { grid-template-columns: 1fr; }
-                }
-            `}</style>
-        </div>
-    );
+        .pulse-dot {
+          width: 6px; height: 6px;
+          background-color: var(--success);
+          border-radius: 50%;
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          animation: pulse-green 2s infinite;
+        }
+
+        .pro-header h1 {
+          font-size: clamp(2rem, 5vw, 2.75rem);
+          font-weight: 800;
+          margin: 0;
+          letter-spacing: -0.03em;
+          background: linear-gradient(135deg, #fff 30%, #94a3b8 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          line-height: 1.1;
+        }
+
+        .pro-header p {
+          color: var(--text-secondary);
+          margin-top: 0.5rem;
+          font-size: 1.05rem;
+          max-width: 650px;
+          line-height: 1.6;
+        }
+
+        /* --- BUTTONS --- */
+        .btn-export {
+          background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.15);
+          padding: 0.85rem 1.75rem;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s var(--ease-elastic);
+          box-shadow: 0 4px 15px -3px var(--primary-glow);
+        }
+
+        .btn-export:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px -5px var(--primary-glow);
+          filter: brightness(1.1);
+        }
+        
+        .btn-export:active { transform: scale(0.96); }
+        .btn-export:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+        /* --- GLASS PANEL SYSTEM --- */
+        .glass-panel {
+          background: var(--surface-1);
+          backdrop-filter: blur(var(--blur-strong));
+          -webkit-backdrop-filter: blur(var(--blur-strong));
+          border: 1px solid var(--glass-border);
+          border-top: 1px solid var(--glass-highlight);
+          border-radius: 24px;
+          padding: 2rem; /* Aumentado padding */
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+          transition: transform 0.3s var(--ease-smooth), border-color 0.3s, box-shadow 0.3s, background 0.3s;
+          /* Animation setup */
+          opacity: 0;
+          animation: fadeInUp 0.6s var(--ease-smooth) forwards;
+        }
+
+        .glass-panel:hover {
+          border-color: rgba(255,255,255,0.2);
+          background: var(--surface-2);
+          transform: translateY(-5px);
+          box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+        }
+        
+        /* Colored Hovers for KPI Cards */
+        .glass-panel.blue-hover:hover { box-shadow: 0 15px 35px rgba(96, 165, 250, 0.2); border-color: rgba(96, 165, 250, 0.3); }
+        .glass-panel.purple-hover:hover { box-shadow: 0 15px 35px rgba(139, 92, 246, 0.2); border-color: rgba(139, 92, 246, 0.3); }
+        .glass-panel.gold-hover:hover { box-shadow: 0 15px 35px rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.3); }
+
+        /* --- KPI GRID --- */
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .kpi-card {
+          height: 220px; /* Aumentada a altura */
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .kpi-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+
+        .kpi-icon-box {
+          width: 64px; height: 64px; /* Aumentado tamanho */
+          border-radius: 18px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 1.5rem; /* Aumentado ícone */
+          transition: transform 0.4s var(--ease-elastic);
+          /* Glass inside glass */
+          background: rgba(255,255,255,0.03);
+          box-shadow: inset 0 0 15px rgba(255,255,255,0.05);
+        }
+
+        .kpi-card:hover .kpi-icon-box { transform: scale(1.1) rotate(5deg); }
+
+        .blue { color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%); }
+        .purple { color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); background: radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 70%); }
+        .gold { color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); background: radial-gradient(circle, rgba(245,158,11,0.2) 0%, transparent 70%); }
+
+        .trend { font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 10px; }
+        .trend.positive { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+        .trend.neutral { background: rgba(148, 163, 184, 0.15); color: var(--text-main); border: 1px solid rgba(148, 163, 184, 0.2); }
+
+        .kpi-value h3 { font-size: 3.5rem; font-weight: 800; margin: 0; color: #fff; letter-spacing: -2px; margin-top: auto; line-height: 1; }
+        .kpi-value p { margin: 8px 0 0; color: var(--text-tertiary); font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; }
+
+        .mini-chart { margin-top: 1.5rem; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; width: 100%; }
+        .mini-chart .bar { height: 100%; background: linear-gradient(90deg, #f59e0b, #fcd34d); border-radius: 4px; animation: slideIn 1.5s var(--ease-elastic); box-shadow: 0 0 10px var(--warning-glow); }
+
+        /* --- CONTENT GRID --- */
+        .content-grid {
+          display: grid;
+          grid-template-columns: 2.2fr 1fr;
+          gap: 1.5rem;
+          align-items: start;
+        }
+
+        /* --- TABLE SECTION --- */
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .panel-header h3 { font-size: 1.25rem; margin: 0 0 0.25rem 0; font-weight: 700; letter-spacing: -0.01em; }
+
+        .modern-select {
+          appearance: none;
+          background: rgba(15, 23, 42, 0.6);
+          border: 1px solid var(--glass-border);
+          color: var(--text-main);
+          padding: 0.75rem 2.5rem 0.75rem 1.25rem;
+          border-radius: 12px;
+          font-family: inherit;
+          font-size: 0.9rem;
+          font-weight: 500;
+          cursor: pointer;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          background-size: 16px;
+          transition: all 0.2s;
+          min-width: 260px;
+        }
+        .modern-select:hover { border-color: rgba(255,255,255,0.2); background-color: rgba(15, 23, 42, 0.8); }
+        .modern-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
+
+        .table-responsive {
+          overflow-x: auto;
+          margin: 0 -2rem -2rem -2rem;
+          padding: 0 2rem 2rem 2rem;
+          max-height: 500px;
+        }
+
+        .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+        .modern-table th {
+          text-align: left;
+          padding: 1rem;
+          color: var(--text-tertiary);
+          font-size: 0.7rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          border-bottom: 1px solid var(--glass-border);
+          white-space: nowrap;
+          /* Sticky Header Magic */
+          position: sticky;
+          top: 0;
+          background: rgba(30, 41, 59, 0.95);
+          backdrop-filter: blur(10px);
+          z-index: 10;
+        }
+
+        .modern-table td {
+          padding: 1.15rem 1rem;
+          border-bottom: 1px solid rgba(255,255,255,0.02);
+          vertical-align: middle;
+          transition: background 0.2s;
+          font-size: 0.95rem;
+        }
+
+        .modern-table tr { transition: transform 0.2s; }
+        .modern-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .modern-table tr:last-child td { border-bottom: none; }
+
+        /* Animation for table rows */
+        .fade-in-item {
+          opacity: 0;
+          animation: fadeIn 0.5s ease forwards;
+        }
+
+        .user-info { display: flex; align-items: center; gap: 1rem; font-weight: 500; }
+        .avatar {
+          width: 38px; height: 38px;
+          background: linear-gradient(135deg, var(--primary), #6366f1);
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: white;
+          border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .badge {
+          padding: 5px 10px;
+          border-radius: 6px;
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          background: rgba(255,255,255,0.05);
+          color: var(--text-secondary);
+          border: 1px solid rgba(255,255,255,0.05);
+          letter-spacing: 0.05em;
+        }
+        .badge.admin { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.2); }
+
+        .status-pill {
+          display: inline-flex; align-items: center; padding: 6px 14px;
+          border-radius: 30px; font-size: 0.8rem; font-weight: 700; gap: 8px;
+        }
+        .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+        .status-pill.done { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.15); }
+        .status-pill.wip { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.15); }
+
+        /* --- SIDE PANEL & CHARTS --- */
+        .side-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+        .chart-card h3 { margin: 0 0 1.5rem 0; font-size: 1rem; color: var(--text-secondary); font-weight: 600; }
+
+        .donut-chart-wrapper {
+          position: relative;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 1rem 0;
+        }
+        .chart-overlay {
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          text-align: center;
+          pointer-events: none;
+        }
+        .big-number { font-size: 2.2rem; font-weight: 800; color: white; line-height: 1; display: block; letter-spacing: -1px; }
+        .label { font-size: 0.8rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* --- EMPTY STATE --- */
+        .empty-state {
+          padding: 5rem 2rem;
+          text-align: center;
+          border: 2px dashed rgba(255,255,255,0.05);
+          border-radius: 20px;
+          margin: 1rem;
+          background: rgba(0,0,0,0.1);
+        }
+        .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; display: block; opacity: 0.3; filter: grayscale(1); animation: float 6s ease-in-out infinite; }
+        .empty-state p { color: var(--text-tertiary); }
+
+        /* --- KEYFRAMES --- */
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideIn { from { width: 0; } }
+        @keyframes pulse-green {
+          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+          70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+          100% { transform: translateY(0px); }
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 1200px) {
+          .content-grid { grid-template-columns: 1fr; }
+          .side-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        }
+
+        @media (max-width: 900px) {
+          .pro-main-canvas { margin-left: 0; width: 100%; padding: 1.5rem; }
+          .side-panel { grid-template-columns: 1fr; }
+          .pro-header h1 { font-size: 2rem; }
+          .kpi-value h3 { font-size: 2.75rem; } /* Ajuste para mobile */
+        }
+
+        @media (max-width: 600px) {
+          .pro-main-canvas { padding: 1rem; }
+          .pro-header { flex-direction: column; gap: 1.5rem; align-items: flex-start; }
+          .btn-export { width: 100%; justify-content: center; }
+          .kpi-grid { grid-template-columns: 1fr; }
+          .panel-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+          .modern-select { width: 100%; }
+          .kpi-card { height: auto; min-height: 200px; } /* Altura flexível no mobile */
+        }
+      `}</style>
+    </div>
+  );
 }
