@@ -28,7 +28,7 @@ export default function LivePage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [videoId, navigate]);
 
-  // Presence (Contador) - Inativo em Replays
+  // Presence (Contador de usuários online) - Inativo em Replays
   useEffect(() => {
     if (!user || !videoId || isReplay) return;
 
@@ -48,6 +48,36 @@ export default function LivePage() {
       });
 
     return () => { channel.unsubscribe(); };
+  }, [user, videoId, isReplay]);
+
+  // --------------------------------------------------------------------------
+  // NOVO: Heartbeat de Watchtime (Conta minutos assistidos)
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    // Só contabiliza se tiver usuário logado, tiver videoId e NÃO for replay
+    if (!user || !videoId || isReplay) return;
+
+    const WATCH_INTERVAL = 60000; // 60 segundos
+
+    const trackWatchTime = async () => {
+      // Chama a função RPC segura no banco de dados
+      const { error } = await supabase.rpc('increment_live_watchtime', { 
+        video_id_input: videoId 
+      });
+
+      if (error) {
+        console.error("Erro ao computar watchtime:", error.message);
+      }
+    };
+
+    // Executa imediatamente ao entrar para contar o primeiro minuto
+    trackWatchTime();
+
+    // Configura o intervalo para repetir a cada minuto
+    const intervalId = setInterval(trackWatchTime, WATCH_INTERVAL);
+
+    // Limpa o intervalo se o usuário sair da página
+    return () => clearInterval(intervalId);
   }, [user, videoId, isReplay]);
 
   return (
@@ -107,7 +137,6 @@ export default function LivePage() {
               borderRadius: '24px',
               overflow: 'hidden'
             }}>
-              {/* 👇 AQUI ESTÁ A MUDANÇA: Passamos o videoId para o chat 👇 */}
               <LiveChat user={user} youtubeVideoId={videoId} />
             </div>
           )}
