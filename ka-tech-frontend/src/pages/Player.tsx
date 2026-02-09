@@ -6,6 +6,9 @@ import LessonView from "../components/LessonView";
 import LessonSidebar from "../components/LessonSidebar";
 import SEO from "../components/SEO"; 
 
+// --- IMPORTAÇÃO DO NOVO COMPONENTE ---
+import { QuizPlayer } from "../components/QuizPlayer";
+
 import { Course, Lesson, LessonNote, Badge, UserProgress } from "../types";
 
 // Ícones
@@ -13,6 +16,8 @@ const IconExpand = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="n
 const IconCompress = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>;
 const IconPrev = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>;
 const IconNext = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>;
+// Novo Ícone para o Quiz
+const IconBrain = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-4A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-4A2.5 2.5 0 0 0 14.5 2Z"/></svg>;
 
 export default function Player() {
     const { slug } = useParams<{ slug: string }>();
@@ -29,6 +34,9 @@ export default function Player() {
     const [lessonStartTime, setLessonStartTime] = useState(0);
     const [isTimeLoaded, setIsTimeLoaded] = useState(false);
     const [theaterMode, setTheaterMode] = useState(false); 
+    
+    // --- NOVO ESTADO PARA O QUIZ ---
+    const [showQuiz, setShowQuiz] = useState(false);
 
     // Gamificação/Notas
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
@@ -244,38 +252,32 @@ export default function Player() {
     if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', fontFamily: 'Sora', fontWeight: 800 }}>Carregando Player...</div>;
 
     const currentLessonTitle = lessons.find(l => l.id === activeLessonId)?.title || "Aula";
-
-    // Tamanho do Container do Teatro (70% da tela)
     const theaterMaxWidth = '70vw'; 
 
     return (
         <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
             <SEO title={currentLessonTitle} description={`Assistindo ${course?.title}`} />
             
-            {/* Esconde Sidebar no Teatro, mas mantém no Mobile */}
             {!theaterMode && <Sidebar />}
 
             <main className="dashboard-content" style={{
                 display: 'flex',
                 flexDirection: 'column',
                 flex: 1,
-                // AQUI ESTÁ A CORREÇÃO DO MOBILE: 140px de padding embaixo
                 padding: isMobile ? '15px 15px 140px 15px' : (theaterMode ? '20px' : '20px 40px'),
                 marginLeft: (isMobile || theaterMode) ? '0' : '260px',
                 width: '100%',
                 overflowX: 'hidden',
                 transition: 'all 0.3s ease',
-                // Centraliza o conteúdo se estiver em modo teatro
                 alignItems: theaterMode ? 'center' : 'stretch'
             }}>
-                {/* Header (com largura controlada no modo teatro) */}
                 <header style={{ 
                     marginBottom: '20px', 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center',
                     width: '100%',
-                    maxWidth: theaterMode ? theaterMaxWidth : '100%' // Limita largura
+                    maxWidth: theaterMode ? theaterMaxWidth : '100%' 
                 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ color: '#94a3b8', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>
@@ -287,28 +289,53 @@ export default function Player() {
                     </div>
 
                     {!isMobile && (
-                        <button 
-                            onClick={() => setTheaterMode(!theaterMode)}
-                            style={{ 
-                                background: theaterMode ? '#8b5cf6' : 'rgba(255,255,255,0.05)', 
-                                color: '#fff', 
-                                border: 'none', 
-                                padding: '10px 16px', 
-                                borderRadius: '8px', 
-                                cursor: 'pointer', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px', 
-                                fontWeight: 600, 
-                                fontSize: '0.9rem', 
-                                transition: 'all 0.2s', 
-                                marginLeft: '15px', 
-                                whiteSpace: 'nowrap' 
-                            }}
-                        >
-                            {theaterMode ? <IconCompress /> : <IconExpand />}
-                            {theaterMode ? "Modo Normal" : "Modo Teatro"}
-                        </button>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                             {/* BOTÃO DO QUIZ */}
+                            <button 
+                                onClick={() => setShowQuiz(true)}
+                                style={{ 
+                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Verde para destaque
+                                    color: '#fff', 
+                                    border: 'none', 
+                                    padding: '10px 16px', 
+                                    borderRadius: '8px', 
+                                    cursor: 'pointer', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px', 
+                                    fontWeight: 800, 
+                                    fontSize: '0.9rem', 
+                                    transition: 'all 0.2s', 
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                                }}
+                            >
+                                <IconBrain /> Quiz do Módulo
+                            </button>
+
+                            {/* BOTÃO DO MODO TEATRO */}
+                            <button 
+                                onClick={() => setTheaterMode(!theaterMode)}
+                                style={{ 
+                                    background: theaterMode ? '#8b5cf6' : 'rgba(255,255,255,0.05)', 
+                                    color: '#fff', 
+                                    border: 'none', 
+                                    padding: '10px 16px', 
+                                    borderRadius: '8px', 
+                                    cursor: 'pointer', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px', 
+                                    fontWeight: 600, 
+                                    fontSize: '0.9rem', 
+                                    transition: 'all 0.2s', 
+                                    whiteSpace: 'nowrap' 
+                                }}
+                            >
+                                {theaterMode ? <IconCompress /> : <IconExpand />}
+                                {theaterMode ? "Modo Normal" : "Modo Teatro"}
+                            </button>
+                        </div>
                     )}
                 </header>
 
@@ -322,7 +349,7 @@ export default function Player() {
                 }}>
                     {/* ÁREA DO VÍDEO (Esquerda) */}
                     <div className="video-section" style={{ 
-                        flex: theaterMode ? `0 1 ${theaterMaxWidth}` : '1', // Usa 70vw no teatro
+                        flex: theaterMode ? `0 1 ${theaterMaxWidth}` : '1', 
                         minWidth: 0, 
                         width: '100%' 
                     }}>
@@ -348,10 +375,12 @@ export default function Player() {
                             )}
                         </div>
 
-                        {/* CONTROLES DE NAVEGAÇÃO */}
+                        {/* CONTROLES DE NAVEGAÇÃO E QUIZ MOBILE */}
                         <div style={{ 
                             display: 'flex', 
                             justifyContent: 'space-between', 
+                            flexWrap: 'wrap',
+                            gap: '10px',
                             marginTop: '20px', 
                             background: '#09090b', 
                             padding: '15px', 
@@ -361,40 +390,24 @@ export default function Player() {
                             <button 
                                 onClick={handlePrevLesson}
                                 disabled={lessons.findIndex(l => l.id === activeLessonId) <= 0}
-                                style={{ 
-                                    background: 'transparent', 
-                                    color: '#fff', 
-                                    border: '1px solid rgba(255,255,255,0.1)', 
-                                    padding: '10px 20px', 
-                                    borderRadius: '8px', 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '8px',
-                                    opacity: lessons.findIndex(l => l.id === activeLessonId) <= 0 ? 0.5 : 1
-                                }}
+                                style={{ background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: lessons.findIndex(l => l.id === activeLessonId) <= 0 ? 0.5 : 1 }}
                             >
                                 <IconPrev /> Anterior
                             </button>
 
+                             {/* Botão Quiz para Mobile */}
+                             {isMobile && (
+                                <button onClick={() => setShowQuiz(true)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                                    <IconBrain /> Quiz
+                                </button>
+                            )}
+
                             <button 
                                 onClick={handleNextLesson}
                                 disabled={lessons.findIndex(l => l.id === activeLessonId) >= lessons.length - 1}
-                                style={{ 
-                                    background: '#8b5cf6', 
-                                    color: '#fff', 
-                                    border: 'none', 
-                                    padding: '10px 20px', 
-                                    borderRadius: '8px', 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '8px',
-                                    fontWeight: 700,
-                                    opacity: lessons.findIndex(l => l.id === activeLessonId) >= lessons.length - 1 ? 0.5 : 1
-                                }}
+                                style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, opacity: lessons.findIndex(l => l.id === activeLessonId) >= lessons.length - 1 ? 0.5 : 1 }}
                             >
-                                Próxima Aula <IconNext />
+                                Próxima <IconNext />
                             </button>
                         </div>
                     </div>
@@ -446,6 +459,29 @@ export default function Player() {
                     )}
                 </div>
             </main>
+
+            {/* MODAL DO QUIZ - Sobrepõe tudo quando ativado */}
+            {showQuiz && realCourseId && (
+                <div style={{ 
+                    position: 'fixed', 
+                    inset: 0, 
+                    zIndex: 3000, 
+                    background: 'rgba(0, 0, 0, 0.95)', 
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px',
+                    overflowY: 'auto'
+                }}>
+                    <div style={{ width: '100%', maxWidth: '900px' }}>
+                        <QuizPlayer 
+                            courseId={realCourseId} 
+                            onExit={() => setShowQuiz(false)} 
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Modal de Conquista */}
             {showBadgeModal && unlockedBadge && (

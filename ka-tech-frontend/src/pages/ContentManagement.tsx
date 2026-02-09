@@ -5,6 +5,9 @@ import Sidebar from "../components/Sidebar";
 import ManageLessons from "../components/ManageLessons";
 import { useUser } from "../components/UserContext";
 
+// --- NOVO IMPORT: O Botão Mágico da IA ---
+import { GenerateQuizButton } from "../components/GenerateQuizButton"; 
+
 // Import da logo para o cabeçalho mobile
 import logo from "../assets/ka-tech-logo.png";
 
@@ -208,7 +211,6 @@ export default function ContentManagement() {
                 .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.2); }
                 .action-btn.delete { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
                 
-                /* Estilo do novo botão de Live */
                 .btn-live { 
                     background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%); 
                     color: white; 
@@ -250,7 +252,6 @@ export default function ContentManagement() {
                                 <p style={{ color: '#64748b', marginTop: '5px' }}>Administre treinamentos e gamificação da KA Tech</p>
                             </div>
                             
-                            {/* GRUPO DE BOTÕES DE AÇÃO */}
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <button 
                                     onClick={() => navigate("/live-setup")} 
@@ -365,10 +366,23 @@ export default function ContentManagement() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button onClick={() => setManageLessonsCourse(c)} className="action-btn aulas">📺 Aulas</button>
-                                                <button onClick={() => handleEditInit(c)} className="action-btn edit">✏️ Editar</button>
-                                                <button onClick={() => handleDeleteCourse(c.id)} className="action-btn delete">🗑️ Excluir</button>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                {/* LINHA DE BOTÕES EXISTENTES */}
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button onClick={() => setManageLessonsCourse(c)} className="action-btn aulas">📺 Aulas</button>
+                                                    <button onClick={() => handleEditInit(c)} className="action-btn edit">✏️ Editar</button>
+                                                    <button onClick={() => handleDeleteCourse(c.id)} className="action-btn delete">🗑️ Excluir</button>
+                                                </div>
+                                                
+                                                {/* NOVO BOTÃO DE QUIZ - OCUPA A LARGURA TODA EMBAIXO */}
+                                                <div style={{ width: '100%' }}>
+                                                    <GenerateQuizButton 
+                                                        courseId={c.id} 
+                                                        title={c.title} 
+                                                        description={c.description}
+                                                        onQuizGenerated={() => alert("Quiz gerado! Confira o JSON no banco.")}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
