@@ -32,13 +32,21 @@ function Cursos() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAiResults, setShowAiResults] = useState(false);
 
+  // --- ESTADO DE MATRÍCULAS (NOVO) ---
+  const [enrolledSlugs, setEnrolledSlugs] = useState<string[]>([]);
+
   const navigate = useNavigate();
 
-  // --- CARREGAMENTO INICIAL (Mantido) ---
+  // --- CARREGAMENTO INICIAL ---
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
+        
+        // 1. Pega usuário atual para verificar matrículas
+        const { data: { user } } = await supabase.auth.getUser();
+
+        // 2. Busca Categorias
         const { data: categoriesRes, error } = await supabase
           .from("categories")
           .select("*")
@@ -46,8 +54,27 @@ function Cursos() {
 
         if (error) throw error;
         setCategories(categoriesRes || []);
+
+        // 3. Busca Cursos Matriculados (Se usuário estiver logado)
+        if (user) {
+          const { data: enrollments } = await supabase
+            .from("course_enrollments")
+            .select(`
+              courses (
+                slug
+              )
+            `)
+            .eq("userId", user.id);
+
+          if (enrollments) {
+            // Cria lista de slugs permitidos: ['pdv', 'gestao', etc]
+            const slugs = enrollments.map((e: any) => e.courses?.slug).filter(Boolean);
+            setEnrolledSlugs(slugs);
+          }
+        }
+
       } catch (err) {
-        console.error("Erro ao carregar categorias:", err);
+        console.error("Erro ao carregar dados:", err);
       } finally {
         setLoading(false);
       }
@@ -70,8 +97,9 @@ function Cursos() {
     setShowAiResults(true);
 
     try {
+      // --- AJUSTE: URL DO DISCLOUD ---
       const response = await fetch('https://pandai.discloud.app/search-lessons', {
-        method: 'POST', // O React vai enviar o POST correto que o navegador não envia
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -90,6 +118,17 @@ function Cursos() {
       alert("Não foi possível conectar ao cérebro da IA. Tente novamente.");
     } finally {
       setIsAiLoading(false);
+    }
+  };
+
+  // --- FUNÇÃO DE VALIDAÇÃO DE ACESSO (NOVA) ---
+  const handleAccessLesson = (courseSlug: string) => {
+    // Verifica se o slug do curso está na lista de matriculados
+    if (enrolledSlugs.includes(courseSlug)) {
+      navigate(`/curso/${courseSlug}`);
+    } else {
+      // Bloqueia e avisa
+      alert("🔒 Acesso Bloqueado: Você precisa estar matriculado neste curso para assistir a esta aula.");
     }
   };
 
@@ -155,22 +194,32 @@ function Cursos() {
               <div className="ai-loading">Consultando o cérebro digital... 🧠</div>
             ) : aiResults.length > 0 ? (
               <div className="lessons-grid">
-                {aiResults.map((item, index) => (
-                  <div
-                    key={index}
-                    className="lesson-card-ai"
-                    onClick={() => navigate(`/curso/${item.course_slug}`)} // Agora vai para o CURSO
-                  >
-                    <div className="match-badge">Match: {(item.similarity * 100).toFixed(0)}%</div>
+                {aiResults.map((item, index) => {
+                  const isEnrolled = enrolledSlugs.includes(item.course_slug);
+                  return (
+                    <div
+                      key={index}
+                      // Adiciona classe 'locked' se não matriculado
+                      className={`lesson-card-ai ${!isEnrolled ? 'locked' : ''}`}
+                      // Usa a nova função de validação ao clicar
+                      onClick={() => handleAccessLesson(item.course_slug)}
+                    >
+                      <div className="match-badge">Match: {(item.similarity * 100).toFixed(0)}%</div>
 
-                    {/* Mostra o nome real da aula que a IA buscou */}
-                    <h4>Aula: {item.lesson_title}</h4>
+                      {/* Ícone de cadeado visual */}
+                      <h4>
+                        {!isEnrolled && "🔒 "} 
+                        Aula: {item.lesson_title}
+                      </h4>
 
-                    <p className="lesson-snippet">"{item.content.substring(0, 160)}..."</p>
+                      <p className="lesson-snippet">"{item.content.substring(0, 160)}..."</p>
 
-                    <span className="link-text">Ver na Trilha →</span>
-                  </div>
-                ))}
+                      <span className="link-text">
+                        {isEnrolled ? "Ver na Trilha →" : "Matricule-se para acessar"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="ai-no-results">
@@ -227,6 +276,9 @@ function Cursos() {
       </main>
 
       <style>{`
+        /* Importando fonte INTER para ficar mais robusta */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
         :root {
             --primary: #8b5cf6;
             --ai-accent: #0ea5e9; /* Azul Ciano para IA */
@@ -243,7 +295,8 @@ function Cursos() {
             width: 100%;
             min-height: 100vh;
             background-color: var(--bg-dark);
-            font-family: 'Sora', sans-serif;
+            /* Mudança de fonte aqui */
+            font-family: 'Inter', sans-serif;
         }
 
         .main-content {
@@ -271,15 +324,15 @@ function Cursos() {
             gap: 20px;
         }
 
-        .ai-header-content h2 { color: white; margin: 10px 0 5px 0; font-size: 1.5rem; }
-        .ai-header-content p { color: var(--text-dim); margin: 0; font-size: 0.9rem; }
+        .ai-header-content h2 { color: white; margin: 10px 0 5px 0; font-size: 1.5rem; font-weight: 700; }
+        .ai-header-content p { color: var(--text-dim); margin: 0; font-size: 0.9rem; font-weight: 500; }
         
         .ai-badge {
             background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
             padding: 4px 10px;
             border-radius: 12px;
             font-size: 0.75rem;
-            font-weight: bold;
+            font-weight: 800;
             color: white;
             text-transform: uppercase;
         }
@@ -298,6 +351,7 @@ function Cursos() {
             color: white;
             outline: none;
             transition: 0.3s;
+            font-family: 'Inter', sans-serif; /* Forçar fonte */
         }
         .ai-input:focus { border-color: var(--ai-accent); box-shadow: 0 0 10px rgba(14,165,233,0.3); }
 
@@ -307,17 +361,18 @@ function Cursos() {
             padding: 0 30px;
             border-radius: 12px;
             color: white;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
             transition: 0.3s;
+            font-family: 'Inter', sans-serif;
         }
         .ai-btn:hover { filter: brightness(1.2); }
 
         /* RESULTADOS IA */
         .ai-results-area { margin-bottom: 50px; animation: fadeIn 0.5s ease; }
         .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .results-header h3 { color: var(--ai-accent); margin: 0; }
-        .close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
+        .results-header h3 { color: var(--ai-accent); margin: 0; font-weight: 700; }
+        .close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; text-decoration: underline; font-weight: 600; }
 
         .ai-loading, .ai-no-results { text-align: center; color: var(--text-dim); padding: 30px; font-style: italic; }
 
@@ -338,6 +393,17 @@ function Cursos() {
         }
         .lesson-card-ai:hover { transform: translateY(-5px); background: rgba(14, 165, 233, 0.1); }
         
+        /* ESTILO PARA CARD BLOQUEADO */
+        .lesson-card-ai.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(0.6);
+        }
+        .lesson-card-ai.locked:hover {
+            transform: none;
+            background: rgba(14, 165, 233, 0.05);
+        }
+
         .match-badge {
             position: absolute;
             top: 15px; right: 15px;
@@ -346,16 +412,14 @@ function Cursos() {
             font-size: 0.7rem;
             padding: 3px 8px;
             border-radius: 6px;
-            font-weight: bold;
+            font-weight: 800;
         }
 
-        .lesson-card-ai h4 { color: white; margin: 0 0 10px 0; font-size: 1.1rem; padding-right: 50px; }
-        .lesson-card-ai p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px; }
-        .link-text { color: var(--ai-accent); font-weight: bold; font-size: 0.9rem; }
+        .lesson-card-ai h4 { color: white; margin: 0 0 10px 0; font-size: 1.1rem; padding-right: 50px; font-weight: 700; }
+        .lesson-card-ai p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px; font-weight: 400; }
+        .link-text { color: var(--ai-accent); font-weight: 800; font-size: 0.9rem; }
         
         .divider { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 40px; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 
         /* --- ESTILOS ORIGINAIS (MANTIDOS) --- */
@@ -371,7 +435,7 @@ function Cursos() {
         .header-titles h1 {
             color: var(--text-light);
             font-size: 2.5rem;
-            font-weight: 900;
+            font-weight: 800;
             letter-spacing: -1px;
             margin: 0 0 10px 0;
         }
@@ -380,6 +444,7 @@ function Cursos() {
             color: var(--text-dim);
             font-size: 1.1rem;
             margin: 0;
+            font-weight: 500;
         }
 
         .search-box {
@@ -406,10 +471,11 @@ function Cursos() {
             border: 1px solid rgba(139, 92, 246, 0.2);
             color: var(--text-light);
             outline: none;
-            font-family: 'Sora', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: 0.95rem;
             transition: 0.3s;
             backdrop-filter: blur(10px);
+            font-weight: 500;
         }
 
         .search-input:focus {
@@ -493,6 +559,7 @@ function Cursos() {
             line-height: 1.6;
             margin: 0 0 30px 0;
             flex: 1;
+            font-weight: 400;
         }
 
         .btn-access {
@@ -509,6 +576,7 @@ function Cursos() {
             align-items: center;
             justify-content: center;
             gap: 10px;
+            font-family: 'Inter', sans-serif;
         }
 
         .category-card:hover .btn-access {

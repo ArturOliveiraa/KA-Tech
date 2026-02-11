@@ -5,7 +5,7 @@ import { QuizEditor } from "./QuizEditor";
 interface GenerateQuizButtonProps {
   courseId: number;
   title: string;
-  description?: string; // Opcional agora
+  description?: string;
   onQuizGenerated?: () => void;
 }
 
@@ -18,12 +18,13 @@ export function GenerateQuizButton({ courseId, title, onQuizGenerated }: Generat
 
     setLoading(true);
     try {
-      // 1. Chama a API Python local (Certifique-se que python api.py está rodando)
-      // Se mudou a porta para 8001, ajuste aqui. Padrão é 8000.
-      const response = await fetch('http://127.0.0.1:8000/generate-quiz-preview', { 
+      // Ajustado para a URL do Discloud
+      const response = await fetch('https://pandai.discloud.app/generate-quiz-preview', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId, title }),
+        // --- CORREÇÃO PRINCIPAL AQUI ---
+        // O Python espera 'query', então enviamos o 'title' dentro do campo 'query'
+        body: JSON.stringify({ query: title }), 
       });
 
       if (!response.ok) {
@@ -32,16 +33,20 @@ export function GenerateQuizButton({ courseId, title, onQuizGenerated }: Generat
 
       const json = await response.json();
       
-      if (json.success && json.data) {
-        // 2. Recebe os dados e abre o Modal
-        setEditorData(json.data);
+      // --- AJUSTE DE RESPOSTA ---
+      // O Python retorna { success: true, quiz_content: "..." }
+      // Adaptamos para aceitar quiz_content ou data
+      const content = json.quiz_content || json.data;
+
+      if (json.success && content) {
+        setEditorData(content);
       } else {
-        alert("A IA não retornou dados válidos. Tente novamente.");
+        alert("A IA não retornou dados válidos. Tente novamente.\n" + (json.message || ""));
       }
 
     } catch (error: any) {
       console.error(error);
-      alert("Erro ao conectar com a IA:\n" + error.message + "\n\nVerifique se o terminal do Python está aberto!");
+      alert("Erro ao conectar com a IA:\n" + error.message);
     } finally {
       setLoading(false);
     }
@@ -83,7 +88,7 @@ export function GenerateQuizButton({ courseId, title, onQuizGenerated }: Generat
         <span>{loading ? "IA Criando Rascunho..." : "Gerar Quiz com IA"}</span>
       </button>
 
-      {/* 3. Renderiza o Modal de Edição se houver dados */}
+      {/* Renderiza o Modal de Edição se houver dados */}
       {editorData && (
         <QuizEditor 
           courseId={courseId}
