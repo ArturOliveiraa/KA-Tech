@@ -5,6 +5,9 @@ import Sidebar from "../components/Sidebar";
 import ManageLessons from "../components/ManageLessons";
 import { useUser } from "../components/UserContext";
 
+// --- NOVO IMPORT: O Botão Mágico da IA ---
+import { GenerateQuizButton } from "../components/GenerateQuizButton"; 
+
 // Import da logo para o cabeçalho mobile
 import logo from "../assets/ka-tech-logo.png";
 
@@ -17,7 +20,7 @@ interface Course {
     description: string;
     thumbnailUrl: string;
     category_id: number | null;
-    xp_weight: number; // Adicionado para gamificação
+    xp_weight: number; 
     createdAt: string;
 }
 
@@ -37,7 +40,6 @@ export default function ContentManagement() {
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     
-    // NOVO ESTADO: Peso do XP
     const [xpWeight, setXpWeight] = useState<number>(1);
 
     const [badgeName, setBadgeName] = useState("");
@@ -101,21 +103,11 @@ export default function ContentManagement() {
 
     const handleSaveCourse = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (uploadingThumb || uploadingBadge) {
-            return alert("Aguarde o upload das imagens terminar antes de salvar!");
-        }
-
+        if (uploadingThumb || uploadingBadge) return alert("Aguarde o upload das imagens terminar!");
         if (!selectedCategoryId) return alert("Selecione uma Trilha!");
         if (!courseThumb) return alert("Por favor, carregue uma capa para o curso!");
 
-        if (badgeName && !badgeThumb) {
-            return alert("⚠️ Erro ao lançar: Você definiu um nome para a insígnia, mas não carregou a imagem dela.");
-        }
-
         const slug = generateSlug(courseTitle);
-        
-        // ADICIONADO: xp_weight no objeto de salvamento
         const courseData = {
             title: courseTitle,
             slug,
@@ -127,10 +119,8 @@ export default function ContentManagement() {
 
         try {
             let currentCourseId = editingCourseId;
-
             if (editingCourseId) {
-                const { error: upError } = await supabase.from("courses").update(courseData).eq("id", editingCourseId);
-                if (upError) throw upError;
+                await supabase.from("courses").update(courseData).eq("id", editingCourseId);
                 await supabase.from("course_tags").delete().eq("course_id", editingCourseId);
             } else {
                 const { data, error: insError } = await supabase.from("courses").insert([courseData]).select().single();
@@ -143,42 +133,31 @@ export default function ContentManagement() {
             }
 
             if (currentCourseId && badgeName && badgeThumb) {
-                const { error: bError } = await supabase
-                    .from("badges")
-                    .upsert([{ name: badgeName, image_url: badgeThumb, course_id: currentCourseId }], { onConflict: 'course_id' });
-
-                if (bError) throw new Error("Erro ao salvar dados da Insígnia: " + bError.message);
+                await supabase.from("badges").upsert([{ name: badgeName, image_url: badgeThumb, course_id: currentCourseId }], { onConflict: 'course_id' });
             }
 
-            alert("Curso e Configurações de XP salvos!");
+            alert("Conteúdo salvo com sucesso!");
             resetForm();
-
             const { data: refreshData } = await supabase.from("courses").select("*").order("createdAt", { ascending: false });
             setCourses(refreshData || []);
-
-        } catch (err: any) {
-            console.error(err);
-            alert(err.message || "Erro desconhecido ao salvar.");
-        }
+        } catch (err: any) { alert(err.message); }
     };
 
     const handleDeleteCourse = async (id: number) => {
-        if (!window.confirm("Tem certeza que deseja excluir este curso?")) return;
+        if (!window.confirm("Tem certeza que deseja excluir?")) return;
         try {
             await supabase.from("course_tags").delete().eq("course_id", id);
             await supabase.from("badges").delete().eq("course_id", id);
             await supabase.from("lessons").delete().eq("course_id", id);
-            const { error } = await supabase.from("courses").delete().eq("id", id);
-            if (error) throw error;
-            alert("Curso excluído!");
+            await supabase.from("courses").delete().eq("id", id);
             setCourses(courses.filter(c => c.id !== id));
-        } catch (err: any) { alert("Erro ao excluir: " + err.message); }
+        } catch (err: any) { alert(err.message); }
     };
 
     const resetForm = () => {
         setCourseTitle(""); setCourseDesc(""); setCourseThumb(""); setEditingCourseId(null);
         setSelectedTags([]); setSelectedCategoryId(""); setBadgeName(""); setBadgeThumb("");
-        setXpWeight(1); // Resetar peso para o padrão
+        setXpWeight(1);
     };
 
     const handleEditInit = async (course: Course) => {
@@ -187,14 +166,13 @@ export default function ContentManagement() {
         setCourseDesc(course.description);
         setCourseThumb(course.thumbnailUrl); 
         setSelectedCategoryId(course.category_id || "");
-        setXpWeight(course.xp_weight || 1); // Carregar peso existente
+        setXpWeight(course.xp_weight || 1);
 
         const { data: linkedTags } = await supabase.from("course_tags").select("tag_id").eq("course_id", course.id);
         if (linkedTags) setSelectedTags(linkedTags.map(t => t.tag_id));
         
         const { data: badge } = await supabase.from("badges").select("*").eq("course_id", course.id).maybeSingle();
         if (badge) { setBadgeName(badge.name); setBadgeThumb(badge.image_url); }
-        
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -211,6 +189,7 @@ export default function ContentManagement() {
                     --bg-dark: #020617; 
                     --card-glass: rgba(15, 23, 42, 0.75); 
                     --border: rgba(255, 255, 255, 0.08);
+                    --danger: #ef4444;
                 }
                 * { box-sizing: border-box; }
                 .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: 'Sora', sans-serif; overflow-x: hidden; color: #fff; }
@@ -231,6 +210,24 @@ export default function ContentManagement() {
                 .action-btn.aulas { background: #1e293b; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
                 .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.2); }
                 .action-btn.delete { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+                
+                .btn-live { 
+                    background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%); 
+                    color: white; 
+                    padding: 15px 25px; 
+                    border-radius: 18px; 
+                    border: none; 
+                    font-weight: 900; 
+                    cursor: pointer; 
+                    transition: 0.3s; 
+                    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
+                    display: flex;
+                    alignItems: center;
+                    gap: 10px;
+                    font-size: 0.85rem;
+                }
+                .btn-live:hover { transform: scale(1.05); filter: brightness(1.2); box-shadow: 0 15px 30px rgba(239, 68, 68, 0.4); }
+
                 @media (max-width: 1024px) { .main-content { margin-left: 0; padding: 20px; width: 100%; } .brand-logo-mobile { display: flex; } .management-grid { grid-template-columns: 1fr; } }
             `}</style>
 
@@ -254,9 +251,23 @@ export default function ContentManagement() {
                                 <h1>Gestão de Conteúdo</h1>
                                 <p style={{ color: '#64748b', marginTop: '5px' }}>Administre treinamentos e gamificação da KA Tech</p>
                             </div>
-                            <button onClick={() => navigate("/dashboard")} className="action-btn edit" style={{ padding: '15px 30px', flex: 'none', borderRadius: '18px', fontWeight: 900 }}>
-                                🏠 VOLTAR AO PAINEL
-                            </button>
+                            
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button 
+                                    onClick={() => navigate("/live-setup")} 
+                                    className="btn-live"
+                                >
+                                    🔴 CONFIGURAR LIVE
+                                </button>
+                                
+                                <button 
+                                    onClick={() => navigate("/dashboard")} 
+                                    className="action-btn edit" 
+                                    style={{ padding: '15px 30px', flex: 'none', borderRadius: '18px', fontWeight: 900 }}
+                                >
+                                    🏠 VOLTAR AO PAINEL
+                                </button>
+                            </div>
                         </header>
 
                         <div className="management-grid">
@@ -278,7 +289,6 @@ export default function ContentManagement() {
                                         </select>
                                     </div>
 
-                                    {/* ADICIONADO: SELETOR DE PESO XP */}
                                     <div style={{ marginBottom: '25px' }}>
                                         <label className="form-label">⚡ Peso do XP (Dificuldade)</label>
                                         <select 
@@ -356,10 +366,23 @@ export default function ContentManagement() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button onClick={() => setManageLessonsCourse(c)} className="action-btn aulas">📺 Aulas</button>
-                                                <button onClick={() => handleEditInit(c)} className="action-btn edit">✏️ Editar</button>
-                                                <button onClick={() => handleDeleteCourse(c.id)} className="action-btn delete">🗑️ Excluir</button>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                {/* LINHA DE BOTÕES EXISTENTES */}
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button onClick={() => setManageLessonsCourse(c)} className="action-btn aulas">📺 Aulas</button>
+                                                    <button onClick={() => handleEditInit(c)} className="action-btn edit">✏️ Editar</button>
+                                                    <button onClick={() => handleDeleteCourse(c.id)} className="action-btn delete">🗑️ Excluir</button>
+                                                </div>
+                                                
+                                                {/* NOVO BOTÃO DE QUIZ - OCUPA A LARGURA TODA EMBAIXO */}
+                                                <div style={{ width: '100%' }}>
+                                                    <GenerateQuizButton 
+                                                        courseId={c.id} 
+                                                        title={c.title} 
+                                                        description={c.description}
+                                                        onQuizGenerated={() => alert("Quiz gerado! Confira o JSON no banco.")}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ))}

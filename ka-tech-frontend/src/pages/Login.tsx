@@ -86,7 +86,7 @@ function Login() {
           100% { background-position: 0% 50%; }
         }
 
-        /* 3. BOTÃO FLUTUANTE PLANOS */
+        /* 3. BOTÃO FLUTUANTE PLANOS (OCULTADO)
         .btn-floating-plans {
           position: absolute; top: 2rem; right: 2rem;
           background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(139, 92, 246, 0.2);
@@ -103,6 +103,7 @@ function Login() {
           box-shadow: 0 10px 25px rgba(139, 92, 246, 0.25);
         }
         .btn-floating-plans span { font-size: 1.1rem; }
+        */
 
         /* 4. LADO VISUAL (DESKTOP) */
         .auth-visual-side {
@@ -241,15 +242,16 @@ function Login() {
             max-width: 100%; animation: fadeUp 0.8s ease-out;
           }
           .premium-login-card:hover { transform: none; box-shadow: none; }
-          .btn-floating-plans { top: 1.5rem; right: 1.5rem; padding: 0.6rem 1.2rem; font-size: 0.8rem; }
+          /* .btn-floating-plans { top: 1.5rem; right: 1.5rem; padding: 0.6rem 1.2rem; font-size: 0.8rem; } */
           .login-header h1 { font-size: 1.8rem; }
         }
       `}</style>
 
-      {/* BOTÃO VER PLANOS */}
-      <button className="btn-floating-plans" onClick={() => navigate('/planos')}>
+      {/* BOTÃO VER PLANOS - Comentado para ocultar */}
+      {/* <button className="btn-floating-plans" onClick={() => navigate('/planos')}>
         <span>💎</span> Ver Planos
-      </button>
+      </button> 
+      */}
 
       <div className="auth-page-v2">
         <div className="auth-visual-side">

@@ -1,77 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import { useUser } from "../components/UserContext"; 
-import logo from "../assets/ka-tech-logo.png"; 
-
-interface Course {
-  id: number;
-  title: string;
-  slug: string;
-  thumbnailUrl: string | null;
-  progress: number;
-  total_duration: number; 
-  enrolledAt: string;
-}
+import { useUser } from "../components/UserContext";
+import logo from "../assets/ka-tech-logo.png";
+import styles from "./Dashboard.module.css";
+import SEO from "../components/SEO";
+import { useDashboardData } from "../hooks/useDashboardData";
 
 function Dashboard() {
-  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { userName, loading: contextLoading } = useUser(); 
+  const { userName } = useUser();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return navigate("/");
-
-        const [enrollmentsRes, lessonsRes, progressRes] = await Promise.all([
-          supabase.from("course_enrollments").select(`createdAt, courses (*)`).eq("userId", user.id),
-          supabase.from("lessons").select("id, course_id, duration"),
-          supabase.from("user_progress").select("course_id, lesson_id, is_completed, last_time").eq("user_id", user.id)
-        ]);
-
-        if (enrollmentsRes.data) {
-          const processed = enrollmentsRes.data.map((en: any) => {
-            const course = en.courses;
-            if (!course) return null;
-
-            const currentCourseId = Number(course.id);
-            
-            // --- NOVA LÓGICA DE CÁLCULO POR QUANTIDADE DE AULAS ---
-            const courseLessons = (lessonsRes.data || []).filter(l => Number(l.course_id) === currentCourseId);
-            const totalLessonsCount = courseLessons.length;
-
-            const completedLessonsCount = courseLessons.filter(lesson => {
-              const lessonProg = (progressRes.data || []).find(p => Number(p.lesson_id) === Number(lesson.id));
-              return lessonProg?.is_completed === true; // Só conta se estiver marcado como concluído
-            }).length;
-
-            // Progresso exato: (Aulas Concluídas / Total de Aulas) * 100
-            const percent = totalLessonsCount > 0 
-              ? Math.round((completedLessonsCount / totalLessonsCount) * 100) 
-              : 0;
-
-            return { 
-              ...course, 
-              enrolledAt: en.createdAt,
-              progress: Math.min(percent, 100)
-            };
-          }).filter((c): c is Course => c !== null && c.progress < 100); // FILTRO: Remove se for 100%
-
-          setEnrolledCourses(processed);
-        }
-      } catch (err) {
-        console.error("Erro no processamento:", err); 
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadDashboardData();
-  }, [navigate]);
+  const { data: enrolledCourses = [], isLoading, isError } = useDashboardData();
 
   const topThreeRecent = [...enrolledCourses]
     .sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime())
@@ -79,131 +18,105 @@ function Dashboard() {
 
   const tableCourses = [...enrolledCourses].sort((a, b) => b.progress - a.progress);
 
+  // Helper simples para garantir que a imagem não quebre
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = logo;
+  };
+
+  if (isError) {
+     return <div style={{color: 'red', padding: 40}}>Erro ao carregar dados.</div>;
+  }
+
   return (
-    <div className="dashboard-wrapper">
+    <div className={styles.dashboardWrapper}>
+      <SEO title="Minha Jornada" description="Acompanhe seu progresso na KA Tech." />
       <Sidebar />
 
-      <style>{`
-        :root { --primary: #8b5cf6; --bg-dark: #020617; --card-glass: rgba(15, 23, 42, 0.7); }
-        
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); }
-
-        .dashboard-content { 
-          flex: 1; margin-left: 260px; padding: 40px 60px; transition: 0.3s; 
-          animation: slideUp 0.6s ease-out;
-        }
-
-        .brand-logo-container {
-          display: none; 
-          width: 100%; 
-          justify-content: center;
-          margin-bottom: 40px;
-        }
-
-        .header-container { margin-bottom: 40px; }
-        .header-container h1 { font-size: 2.5rem; font-weight: 900; color: #fff; margin: 0; }
-        .header-container p { color: #94a3b8; margin-top: 5px; font-size: 1.1rem; }
-
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
-        .premium-card {
-          background: var(--card-glass); backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 24px;
-          overflow: hidden; transition: 0.4s; cursor: pointer;
-        }
-        .premium-card:hover { transform: translateY(-8px); border-color: var(--primary); }
-
-        .thumb-box { height: 180px; background: #000; position: relative; }
-        .thumb-box img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
-
-        .card-body { padding: 24px; }
-        .card-body h3 { font-size: 1.2rem; color: #fff; margin-bottom: 15px; font-weight: 800; }
-
-        .progress-label { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 900; color: var(--primary); margin-bottom: 8px; }
-        .progress-track { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #d946ef); transition: width 1s ease; }
-
-        .btn-main {
-          width: 100%; margin-top: 20px; padding: 14px; border-radius: 14px; border: none;
-          background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff;
-          font-weight: 800; cursor: pointer; transition: 0.3s;
-        }
-
-        .table-section { margin-top: 60px; padding-bottom: 50px; }
-        .list-container { background: rgba(15, 23, 42, 0.3); border-radius: 30px; border: 1px solid rgba(255,255,255,0.03); padding: 10px; }
-        .custom-table { width: 100%; border-collapse: collapse; }
-        .custom-table th { padding: 20px; text-align: left; color: var(--primary); font-size: 0.7rem; text-transform: uppercase; }
-        .custom-table td { padding: 20px; color: #e5e7eb; border-top: 1px solid rgba(255,255,255,0.02); }
-
-        @media (max-width: 1024px) {
-          .dashboard-content { margin-left: 0; padding: 0 20px 100px 20px; }
-          .brand-logo-container { display: flex; margin-top: 20px; }
-          .brand-logo-container img { height: 200px; filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.5)); }
-          .header-container { text-align: center; }
-          .custom-table thead { display: none; }
-          .custom-table tr { display: flex; flex-direction: column; background: rgba(255,255,255,0.02); margin-bottom: 15px; border-radius: 20px; padding: 15px; }
-          .custom-table td { border: none; padding: 8px; width: 100% !important; text-align: center !important; }
-        }
-      `}</style>
-
-      <main className="dashboard-content">
-        <div className="brand-logo-container">
+      <main className={styles.dashboardContent}>
+        <div className={styles.brandLogoContainer}>
           <img src={logo} alt="KA Tech Logo" />
         </div>
-
-        <header className="header-container">
-            <h1>Minha <span style={{ color: '#8b5cf6' }}>Jornada</span></h1>
-            <p>Olá, <strong style={{ color: '#fff' }}>{userName}</strong>. Continue de onde parou!</p>
+        
+        <header className={styles.headerContainer}>
+          <h1>Minha <span style={{ color: '#8b5cf6' }}>Jornada</span></h1>
+          <p>Olá, <strong style={{ color: '#fff' }}>{userName}</strong>. Vamos continuar?</p>
         </header>
 
-        {(loading || contextLoading) ? (
-          <div style={{ padding: '100px', textAlign: 'center', color: '#8b5cf6', fontWeight: 800 }}>Sincronizando...</div>
+        {isLoading ? (
+          <div style={{ padding: '80px', textAlign: 'center', color: '#8b5cf6' }}>Carregando...</div>
         ) : (
           <>
             {enrolledCourses.length > 0 ? (
               <>
-                <div className="dashboard-grid">
+                <div className={styles.dashboardGrid}>
                   {topThreeRecent.map((course) => (
-                    <div key={course.id} className="premium-card" onClick={() => navigate(`/curso/${course.slug}`)}>
-                      <div className="thumb-box">
+                    <div key={course.id} className={styles.premiumCard} onClick={() => navigate(`/curso/${course.slug}`)}>
+                      <div className={styles.thumbBox}>
                         <img src={course.thumbnailUrl || ""} alt={course.title} />
                       </div>
-                      <div className="card-body">
+                      <div className={styles.cardBody}>
                         <h3>{course.title}</h3>
-                        <div className="progress-label">
-                          <span>EVOLUÇÃO REAL</span><span>{course.progress}%</span>
+                        <div className={styles.progressBlock}>
+                            <div className={styles.progressLabel}>
+                                <span>Progresso</span><span>{course.progress}%</span>
+                            </div>
+                            <div className={styles.progressTrack}>
+                                <div className={styles.progressFill} style={{ width: `${course.progress}%` }}></div>
+                            </div>
                         </div>
-                        <div className="progress-track">
-                          <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
-                        </div>
-                        <button className="btn-main">CONTINUAR</button>
+                        <button className={styles.btnMain}>CONTINUAR</button>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                <section className="table-section">
-                  <h2 style={{ color: '#fff', fontSize: '1.4rem', marginBottom: '20px', marginLeft: '10px' }}>Cursos Ativos</h2>
-                  <div className="list-container">
-                    <table className="custom-table">
+                
+                <section className={styles.tableSection}>
+                  <h2>Cursos Ativos</h2>
+                  <div className={styles.listContainer}>
+                    <table className={styles.customTable}>
                       <thead>
-                        <tr><th>Treinamento</th><th>Progresso</th><th style={{ textAlign: 'right' }}>Ação</th></tr>
+                        <tr><th></th><th>Treinamento</th><th style={{ textAlign: 'right' }}>Ação</th></tr>
                       </thead>
                       <tbody>
                         {tableCourses.map((course) => (
-                          <tr key={course.id}>
-                            <td style={{ fontWeight: 700 }}>{course.title}</td>
-                            <td style={{ width: '40%' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div className="progress-track" style={{ height: '4px' }}>
-                                  <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
-                                </div>
-                                <span style={{ color: '#8b5cf6', fontSize: '0.8rem', fontWeight: 800 }}>{course.progress}%</span>
+                          <tr key={course.id} onClick={() => window.innerWidth <= 1024 && navigate(`/curso/${course.slug}`)}>
+                            
+                            {/* COLUNA 1: Apenas Imagem (Tamanho controlado pelo CSS) */}
+                            <td style={{ width: '80px' }}> {/* Largura fixa para coluna da imagem */}
+                                <img 
+                                    src={course.thumbnailUrl || logo} 
+                                    alt={course.title} 
+                                    className={styles.courseThumb}
+                                    onError={handleImageError}
+                                />
+                            </td>
+
+                            {/* COLUNA 2: Título + Barra de Progresso */}
+                            <td>
+                              <div className={styles.desktopInfo}>
+                                  {/* Título aparece aqui tanto no Desktop quanto Mobile agora */}
+                                  <div className={styles.mobileTitleText}>{course.title}</div>
+                                  
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div className={`${styles.progressTrack} ${styles.compact}`}>
+                                      <div className={styles.progressFill} style={{ width: `${course.progress}%` }}></div>
+                                    </div>
+                                    <span className={styles.percentageCompact}>{course.progress}%</span>
+                                  </div>
                               </div>
                             </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <button onClick={() => navigate(`/curso/${course.slug}`)} className="btn-main" style={{ marginTop: 0, padding: '10px 20px', width: 'auto' }}>ABRIR</button>
+
+                            {/* COLUNA 3: Botão Play */}
+                            <td style={{ textAlign: 'right', width: '60px' }}>
+                                <button 
+                                    className={styles.btnPlayDesktop}
+                                    onClick={(e) => { e.stopPropagation(); navigate(`/curso/${course.slug}`); }}
+                                    title="Assistir aula"
+                                >
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M8 5V19L19 12L8 5Z" />
+                                    </svg>
+                                </button>
                             </td>
                           </tr>
                         ))}
@@ -213,10 +126,9 @@ function Dashboard() {
                 </section>
               </>
             ) : (
-              <div style={{ textAlign: 'center', padding: '100px 20px' }}>
-                <h2 style={{ color: '#fff' }}>Tudo pronto por aqui! 🚀</h2>
-                <p style={{ color: '#94a3b8', marginBottom: '30px' }}>Você concluiu todos os seus treinamentos pendentes.</p>
-                <button onClick={() => navigate('/cursos')} className="btn-main" style={{ width: '250px' }}>Explorar Trilhas</button>
+              <div style={{ textAlign: 'center', padding: '50px' }}>
+                <h3 style={{color: 'white'}}>Sem cursos ativos no momento.</h3>
+                <button onClick={() => navigate('/cursos')} className={styles.btnMain} style={{ maxWidth: '200px', marginTop: '20px' }}>Explorar</button>
               </div>
             )}
           </>

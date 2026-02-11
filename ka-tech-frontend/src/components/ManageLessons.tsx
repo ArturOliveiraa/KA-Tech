@@ -24,11 +24,8 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [content, setContent] = useState("");
   const [order, setOrder] = useState(1);
   const [loading, setLoading] = useState(false);
-
-  // --- ESTADO PARA EDIÇÃO ---
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
 
-  // Busca as aulas no banco
   const fetchLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
@@ -49,22 +46,23 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     fetchLessons();
   }, [fetchLessons]);
 
-  // --- FUNÇÃO AUXILIAR PARA DURAÇÃO ---
-  // A API do YouTube retorna o tempo no formato ISO 8601 (Ex: PT10M30S)
+  // --- FUNÇÃO AUXILIAR PARA DURAÇÃO ATUALIZADA ---
   const getVideoDuration = async (url: string): Promise<number> => {
     try {
-      const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?/\s]{11})/);
+      // Regex atualizado para suportar /shorts/ e /live/
+      const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([^&?/\s]{11})/);
+      
       if (!videoIdMatch) {
-        console.warn("URL inválida:", url);
+        alert("⚠️ Link do YouTube inválido ou formato não suportado.");
         return 0;
       }
 
       const videoId = videoIdMatch[1];
-      // Tenta pegar a chave de ambiente do Vite ou CRA
       const apiKey = (import.meta as any).env?.VITE_YOUTUBE_API_KEY || (process.env as any).REACT_APP_YOUTUBE_API_KEY;
 
       if (!apiKey) {
-        console.error("ERRO: Chave da API do YouTube não configurada no .env");
+        console.error("ERRO: Chave da API do YouTube não configurada.");
+        alert("❌ Erro Técnico: API Key do YouTube não encontrada no arquivo .env");
         return 0;
       }
 
@@ -72,28 +70,32 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
         `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${apiKey}`
       );
 
-      const durationISO = data.items?.[0]?.contentDetails?.duration;
-      if (!durationISO) {
-        console.warn("Duração não encontrada na API. Verifique se o vídeo é público.");
+      if (!data.items || data.items.length === 0) {
+        alert("⚠️ Vídeo não encontrado. Verifique se o vídeo é PÚBLICO ou se o link está correto.");
         return 0;
       }
 
-      // Extração robusta de cada componente do tempo
+      const durationISO = data.items[0].contentDetails.duration;
+      
+      // Conversão robusta de ISO 8601 (PT10M30S) para minutos decimais
       const hours = durationISO.match(/(\d+)H/)?.[1] || "0";
       const minutes = durationISO.match(/(\d+)M/)?.[1] || "0";
       const seconds = durationISO.match(/(\d+)S/)?.[1] || "0";
 
       const totalMinutes = (parseInt(hours) * 60) + parseInt(minutes) + (parseInt(seconds) / 60);
       return parseFloat(totalMinutes.toFixed(2));
-    } catch (err) {
+
+    } catch (err: any) {
       console.error("Erro na requisição YouTube API:", err);
+      if (err.response?.status === 403) {
+        alert("❌ Erro 403: Limite de uso da API do YouTube atingido ou chave inválida.");
+      } else {
+        alert("❌ Erro ao buscar duração: " + (err.message || "Erro desconhecido"));
+      }
       return 0;
     }
   };
 
-  
-
-  // --- HANDLERS ---
   const handleCreateLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -107,7 +109,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
         content,
         order,
         course_id: courseId,
-        duration: duration // Aqui salvamos o tempo calculado
+        duration: duration 
       }
     ]);
 
@@ -303,7 +305,9 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ color: '#8b5cf6', fontWeight: 900 }}>#{l.order}</span>
                 <span style={{ color: '#fff' }}>{l.title}</span>
-                {l.duration && <span style={{ color: '#64748b', fontSize: '0.8rem' }}>({l.duration} min)</span>}
+                {l.duration !== undefined && l.duration > 0 && (
+                  <span style={{ color: '#64748b', fontSize: '0.8rem' }}>({l.duration} min)</span>
+                )}
               </div>
               <div className="lesson-actions-group" style={{ display: 'flex', gap: '15px' }}>
                 <button onClick={() => moveLesson(index, 'up')} disabled={index === 0} style={{ padding: '5px 10px' }}>↑</button>
