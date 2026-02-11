@@ -62,18 +62,16 @@ function Cursos() {
     );
   }, [categories, searchTerm]);
 
-  // --- NOVA FUNÇÃO: BUSCA INTELIGENTE (Chama o Python) ---
   const handleAiSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiSearchTerm.trim()) return;
 
     setIsAiLoading(true);
-    setShowAiResults(true); // Abre a área de resultados
+    setShowAiResults(true);
 
     try {
-      // Chama o seu servidor FastAPI local (o arquivo api.py)
-      const response = await fetch('http://127.0.0.1:8000/search-lessons', {
-        method: 'POST',
+      const response = await fetch('https://pandai.discloud.app/search-lessons', {
+        method: 'POST', // O React vai enviar o POST correto que o navegador não envia
         headers: {
           'Content-Type': 'application/json',
         },
@@ -85,13 +83,11 @@ function Cursos() {
       }
 
       const data = await response.json();
-
-      // Atualiza os cards com a resposta da IA
       setAiResults(data.results || []);
 
     } catch (error) {
       console.error("Erro na busca IA:", error);
-      alert("Erro: Verifique se o arquivo 'api.py' está rodando no terminal com 'uvicorn api:app --reload'");
+      alert("Não foi possível conectar ao cérebro da IA. Tente novamente.");
     } finally {
       setIsAiLoading(false);
     }
