@@ -63,7 +63,8 @@ export default function MeetPage() {
           border-bottom: 1px solid rgba(139, 92, 246, 0.1); 
           background-color: #020617; 
         }
-        /* Este contêiner agora controla o tamanho do vídeo para evitar erros de tipos */
+
+        /* 1. O contêiner pai ocupa o espaço flexível */
         .video-wrapper-fixed { 
           flex: 1; 
           display: flex; 
@@ -72,8 +73,20 @@ export default function MeetPage() {
           background-color: #000; 
           margin: 15px; 
           border-radius: 12px; 
-          overflow: hidden; 
+          overflow: hidden;
+          position: relative;
         }
+
+        /* 2. FORÇA O PLAYER A FICAR TELA CHEIA (Independente de Props) */
+        /* Alvo: a div que o SDK cria e o iframe dentro dela */
+        .video-wrapper-fixed > div, 
+        .video-wrapper-fixed iframe { 
+          height: 100% !important; 
+          width: 100% !important; 
+          min-height: 100% !important;
+          border: none !important;
+        }
+
         @media (max-width: 1024px) {
           .meet-main-content { margin-left: 0; height: calc(100vh - 75px); }
           .video-wrapper-fixed { margin: 0; border-radius: 0; }
@@ -115,7 +128,6 @@ export default function MeetPage() {
                 });
             }}
             onReadyToClose={() => navigate('/reunioes')}
-            /* Removido containerStyles e getIFrameRef para evitar erros de Build TS */
           />
         </div>
       </main>
