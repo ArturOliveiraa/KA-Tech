@@ -3,9 +3,9 @@ import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // <--- 1. Importar
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from './components/UserContext';
-
+import MeetPage from './pages/MeetPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // --- LAZY LOADING ---
@@ -29,12 +29,14 @@ const Admin = lazy(() => import('./pages/admin'));
 const ContentManagement = lazy(() => import('./pages/ContentManagement'));
 const Reports = lazy(() => import('./pages/Reports'));
 
-// 2. Configuração do Cliente de Cache
+// NOVA PÁGINA ADICIONADA:
+const MeetingHub = lazy(() => import('./pages/MeetingHub'));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Não recarrega só de trocar de aba
-      staleTime: 1000 * 60 * 5,    // Dados ficam "frescos" por 5 minutos (cache)
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
@@ -57,7 +59,6 @@ const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 root.render(
   <React.StrictMode>
     <HelmetProvider>
-      {/* 3. Envolvemos a aplicação com o QueryClientProvider */}
       <QueryClientProvider client={queryClient}>
         <UserProvider> 
           <BrowserRouter>
@@ -81,9 +82,15 @@ root.render(
                 <Route path="/rankings" element={<Rankings />} />
                 <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
-                {/* --- ROTAS DE LIVES --- */}
+                {/* --- ROTAS DE LIVES E REUNIÕES --- */}
                 <Route path="/live" element={<LivePage />} />
                 <Route path="/lives-hub" element={<LiveHub />} />
+                
+                {/* NOVA ROTA DO HUB DE REUNIÕES */}
+                <Route path="/reunioes" element={<MeetingHub />} />
+                
+                {/* PLAYER DA REUNIÃO (ID Opcional para não quebrar) */}
+                <Route path="/meet/:roomId?" element={<MeetPage />} />
 
                 {/* --- ROTAS ADMINISTRATIVAS --- */}
                 <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />

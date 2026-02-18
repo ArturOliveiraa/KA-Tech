@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
-import { useUser } from "./UserContext"; 
+import { useUser } from "./UserContext";
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -15,23 +15,27 @@ const Sidebar: React.FC = () => {
   useEffect(() => {
     const checkLiveStatus = async () => {
       const now = new Date().toISOString();
-      
-      // Busca uma live que já começou e não tem duração preenchida
+
       const { data } = await supabase
         .from("lives")
         .select("id")
-        .is("duration", null) // Live ainda ativa
-        .lte("scheduled_at", now) // Horário já chegou ou passou
+        .is("duration", null)
+        .lte("scheduled_at", now)
         .limit(1);
 
       setIsLiveActive(data && data.length > 0 ? true : false);
     };
 
     checkLiveStatus();
-    // Verifica a cada 30 segundos para atualizar o botão automaticamente
-    const interval = setInterval(checkLiveStatus, 30000); 
+    const interval = setInterval(checkLiveStatus, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Função para gerar um link de sala amigável baseado no nome do usuário
+  const getMeetingLink = () => {
+    const slug = userName ? userName.toLowerCase().replace(/\s+/g, '-') : 'sala-geral';
+    return `/meet/${slug}`;
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -105,7 +109,7 @@ const Sidebar: React.FC = () => {
         </div>
 
         <nav className="sidebar-nav">
-          {/* BOTÃO LIVE DINÂMICO: Aparece só quando há live on-air */}
+          {/* BOTÃO LIVE DINÂMICO */}
           {isLiveActive && (
             <Link to="/live" className={`nav-link nav-live ${location.pathname === '/live' ? 'active' : ''}`}>
               <span className="nav-icon">((•))</span> <span>LIVE!</span>
@@ -115,7 +119,7 @@ const Sidebar: React.FC = () => {
           <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
             <span className="nav-icon">📚</span> <span>Cursos</span>
           </Link>
-          
+
           <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
             <span className="nav-icon">🔍</span> <span>Trilhas</span>
           </Link>
@@ -124,21 +128,25 @@ const Sidebar: React.FC = () => {
             <span className="nav-icon">🎥</span> <span>Live Center</span>
           </Link>
 
+          <Link to="/reunioes" className={`nav-link ${location.pathname === '/reunioes' ? 'active' : ''}`}>
+            <span className="nav-icon">🤝</span> <span>Reuniões</span>
+          </Link>
+
           <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
             <span className="nav-icon">🏅</span> <span>Ranking</span>
           </Link>
-          
+
           <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>
             <span className="nav-icon">🏆</span> <span>Conquistas</span>
           </Link>
-          
+
           {(userRole === 'admin' || userRole === 'teacher') && (
             <>
               <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}><span className="nav-icon">🛠️</span> <span>Gestão</span></Link>
               <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}><span className="nav-icon">📊</span> <span>Relatórios</span></Link>
             </>
           )}
-          
+
           <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
             <span className="nav-icon">⚙️</span> <span>Ajustes</span>
           </Link>
@@ -153,7 +161,7 @@ const Sidebar: React.FC = () => {
             </div>
           </div>
         </div>
-      </aside> 
+      </aside>
     </>
   );
 };
