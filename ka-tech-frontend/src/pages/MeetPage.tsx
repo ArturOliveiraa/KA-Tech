@@ -63,10 +63,20 @@ export default function MeetPage() {
           border-bottom: 1px solid rgba(139, 92, 246, 0.1); 
           background-color: #020617; 
         }
-        .video-container-full { flex-grow: 1; min-height: 0; margin: 15px; display: flex; flex-direction: column; background-color: #000; border-radius: 12px; overflow: hidden; }
+        /* Este contêiner agora controla o tamanho do vídeo para evitar erros de tipos */
+        .video-wrapper-fixed { 
+          flex: 1; 
+          display: flex; 
+          height: 100%; 
+          width: 100%; 
+          background-color: #000; 
+          margin: 15px; 
+          border-radius: 12px; 
+          overflow: hidden; 
+        }
         @media (max-width: 1024px) {
           .meet-main-content { margin-left: 0; height: calc(100vh - 75px); }
-          .video-container-full { margin: 0; border-radius: 0; }
+          .video-wrapper-fixed { margin: 0; border-radius: 0; }
         }
       `}</style>
 
@@ -80,7 +90,7 @@ export default function MeetPage() {
           <span style={{color: '#444', fontSize: '0.7rem', marginLeft: '10px'}}>Role: {userRole}</span>
         </header>
 
-        <div className="video-container-full">
+        <div className="video-wrapper-fixed">
           <JitsiMeeting
             domain="meet.element.io"
             roomName={formattedRoomName}
@@ -95,11 +105,8 @@ export default function MeetPage() {
               displayName: user?.user_metadata?.full_name || user?.email,
               email: user?.email
             }}
-            
-            /* USAMOS O onApiReady PARA ADICIONAR O LISTENER SEM ERRO DE TYPESCRIPT */
             onApiReady={(externalApi) => {
                 externalApi.on('videoConferenceTerminated', async () => {
-                    console.log("🛑 Evento nativo detectado via API");
                     if (userRole === 'admin' || userRole === 'teacher') {
                         await archiveMeetingRecord();
                     } else {
@@ -107,9 +114,8 @@ export default function MeetPage() {
                     }
                 });
             }}
-
             onReadyToClose={() => navigate('/reunioes')}
-            containerStyles={{ flex: 1, display: 'flex', height: '100%', width: '100%' }}
+            /* Removido containerStyles e getIFrameRef para evitar erros de Build TS */
           />
         </div>
       </main>
