@@ -15,9 +15,8 @@ interface LessonSidebarProps {
 
 export default function LessonSidebar({ course_id, currentLessonId, onSelectLesson }: LessonSidebarProps) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [completedLessonIds, setCompletedLessonIds] = useState<number[]>([]); // Novo estado
+  const [completedLessonIds, setCompletedLessonIds] = useState<number[]>([]);
 
-  // 1. Busca as aulas do curso (mantém igual)
   const fetchCourseLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
@@ -28,7 +27,6 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
     if (data) setLessons(data);
   }, [course_id]);
 
-  // 2. BUSCA O PROGRESSO DO USUÁRIO
   const fetchUserProgress = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -49,13 +47,12 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
     fetchCourseLessons();
     fetchUserProgress();
 
-    // 3. OUVE O EVENTO DE PROGRESSO PARA ATUALIZAR EM TEMPO REAL
     window.addEventListener("progressUpdated", fetchUserProgress);
     return () => window.removeEventListener("progressUpdated", fetchUserProgress);
   }, [fetchCourseLessons, fetchUserProgress]);
 
   return (
-    <div className="lesson-sidebar-inner">
+    <div className="lesson-sidebar-inner" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <style>{`
         .sidebar-title-lessons {
           padding: 20px;
@@ -64,7 +61,30 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
           font-weight: 600;
           border-bottom: 1px solid #2d323e;
           background: #1a1d23;
+          flex-shrink: 0; /* Impede que o título suma se houver muitas aulas */
         }
+        
+        .lessons-list-container {
+          flex: 1;
+          overflow-y: auto;
+          background: #09090b;
+        }
+
+        /* Personalização da Scrollbar */
+        .lessons-list-container::-webkit-scrollbar {
+          width: 6px;
+        }
+        .lessons-list-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .lessons-list-container::-webkit-scrollbar-thumb {
+          background: #2d323e;
+          border-radius: 10px;
+        }
+        .lessons-list-container::-webkit-scrollbar-thumb:hover {
+          background: #8b5cf6;
+        }
+
         .lesson-item {
           padding: 15px 20px;
           cursor: pointer;
@@ -88,19 +108,19 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
         }
         .lesson-txt { color: #fff; font-size: 0.85rem; flex: 1; }
         
-        /* Estilo para o Check de Conclusão */
         .lesson-check {
           color: #10b981;
           font-size: 0.9rem;
           font-weight: bold;
         }
         .lesson-item.completed .lesson-num {
-          color: #10b981; /* Muda a cor do número se concluída */
+          color: #10b981;
         }
       `}</style>
 
       <h3 className="sidebar-title-lessons">Grade do Curso</h3>
-      <nav>
+      
+      <nav className="lessons-list-container">
         {lessons.map((lesson) => {
           const isCompleted = completedLessonIds.includes(lesson.id);
           const isActive = currentLessonId === lesson.id;
