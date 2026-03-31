@@ -12,7 +12,7 @@ export interface Lesson {
     id: number;
     course_id: number;
     title: string;
-    videoUrl?: string; // ou video_id, dependendo de como você salva
+    videoUrl?: string;
     content?: string;
     duration?: number;
     order: number;
@@ -41,4 +41,46 @@ export interface UserProgress {
     lesson_id: number;
     is_completed: boolean;
     last_time: number;
+}
+
+// ==========================================
+// NOVAS INTERFACES PARA O SISTEMA DE QUIZZES
+// ==========================================
+
+export interface Quiz {
+    id: string; // UUID
+    title: string;
+    description?: string;
+    min_score: number;
+    
+    // Tornamos ambos opcionais (com o '?') para permitir Quizzes Avulsos
+    course_id?: number | null; 
+    lesson_id?: number | null; 
+    
+    created_at?: string;
+    questions?: Question[]; // Relacionamento (útil no front-end ao carregar o quiz completo)
+}
+
+export interface Question {
+    id: string; // UUID
+    quiz_id: string;
+    content: string;
+    created_at?: string;
+    options?: Option[]; // Relacionamento com as alternativas
+}
+
+export interface Option {
+    id: string; // UUID
+    question_id: string;
+    content: string;
+    is_correct: boolean;
+}
+
+export interface QuizAttempt {
+    id: number;
+    user_id: string; // UUID
+    quiz_id: string; // UUID
+    score: number;
+    passed: boolean;
+    created_at?: string;
 }

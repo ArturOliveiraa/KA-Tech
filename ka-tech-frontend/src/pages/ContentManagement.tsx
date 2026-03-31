@@ -4,9 +4,11 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import ManageLessons from "../components/ManageLessons";
 import { useUser } from "../components/UserContext";
+import { X } from "lucide-react"; 
 
-// --- NOVO IMPORT: O Botão Mágico da IA ---
+// Imports da IA e do Editor de Quiz
 import { GenerateQuizButton } from "../components/GenerateQuizButton"; 
+import { QuizEditor } from "../components/QuizEditor"; 
 
 // Import da logo para o cabeçalho mobile
 import logo from "../assets/ka-tech-logo.png";
@@ -53,6 +55,12 @@ export default function ContentManagement() {
 
     const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
     const [manageLessonsCourse, setManageLessonsCourse] = useState<Course | null>(null);
+
+    // --- ESTADOS DE QUIZ ---
+    const [showStandaloneSetup, setShowStandaloneSetup] = useState(false);
+    const [standaloneTitle, setStandaloneTitle] = useState("");
+    const [standaloneDesc, setStandaloneDesc] = useState("");
+    const [activeQuiz, setActiveQuiz] = useState<any>(null); // Ativa o Editor
 
     useEffect(() => {
         async function loadData() {
@@ -205,29 +213,13 @@ export default function ContentManagement() {
                 .form-input:focus { border-color: var(--primary); background: #000; box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
                 .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; font-weight: 900; cursor: pointer; transition: 0.4s; box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4); font-size: 1rem; text-transform: uppercase; letter-spacing: 1.5px; }
                 .btn-submit:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 15px 35px rgba(124, 58, 237, 0.6); }
+                .btn-quiz-avulso { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 15px 25px; border-radius: 18px; border: none; font-weight: 900; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
                 .course-item { padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
                 .action-btn { flex: 1; padding: 12px; border-radius: 14px; border: none; cursor: pointer; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; transition: 0.2s; }
                 .action-btn.aulas { background: #1e293b; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
                 .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.2); }
                 .action-btn.delete { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
-                
-                .btn-live { 
-                    background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%); 
-                    color: white; 
-                    padding: 15px 25px; 
-                    border-radius: 18px; 
-                    border: none; 
-                    font-weight: 900; 
-                    cursor: pointer; 
-                    transition: 0.3s; 
-                    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2);
-                    display: flex;
-                    alignItems: center;
-                    gap: 10px;
-                    font-size: 0.85rem;
-                }
-                .btn-live:hover { transform: scale(1.05); filter: brightness(1.2); box-shadow: 0 15px 30px rgba(239, 68, 68, 0.4); }
-
+                .btn-live { background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%); color: white; padding: 15px 25px; border-radius: 18px; border: none; font-weight: 900; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.2); display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
                 @media (max-width: 1024px) { .main-content { margin-left: 0; padding: 20px; width: 100%; } .brand-logo-mobile { display: flex; } .management-grid { grid-template-columns: 1fr; } }
             `}</style>
 
@@ -251,22 +243,10 @@ export default function ContentManagement() {
                                 <h1>Gestão de Conteúdo</h1>
                                 <p style={{ color: '#64748b', marginTop: '5px' }}>Administre treinamentos e gamificação da KA Tech</p>
                             </div>
-                            
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <button 
-                                    onClick={() => navigate("/live-setup")} 
-                                    className="btn-live"
-                                >
-                                    🔴 CONFIGURAR LIVE
-                                </button>
-                                
-                                <button 
-                                    onClick={() => navigate("/dashboard")} 
-                                    className="action-btn edit" 
-                                    style={{ padding: '15px 30px', flex: 'none', borderRadius: '18px', fontWeight: 900 }}
-                                >
-                                    🏠 VOLTAR AO PAINEL
-                                </button>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                <button onClick={() => setShowStandaloneSetup(true)} className="btn-quiz-avulso">🧠 NOVO QUIZ AVULSO</button>
+                                <button onClick={() => navigate("/live-setup")} className="btn-live">🔴 CONFIGURAR LIVE</button>
+                                <button onClick={() => navigate("/dashboard")} className="action-btn edit" style={{ padding: '15px 30px', flex: 'none', borderRadius: '18px', fontWeight: 900 }}>🏠 VOLTAR AO PAINEL</button>
                             </div>
                         </header>
 
@@ -291,12 +271,7 @@ export default function ContentManagement() {
 
                                     <div style={{ marginBottom: '25px' }}>
                                         <label className="form-label">⚡ Peso do XP (Dificuldade)</label>
-                                        <select 
-                                            className="form-input" 
-                                            value={xpWeight} 
-                                            onChange={(e) => setXpWeight(Number(e.target.value))}
-                                            style={{ borderLeft: `6px solid ${xpWeight === 3 ? '#ef4444' : xpWeight === 2 ? '#f59e0b' : '#10b981'}` }}
-                                        >
+                                        <select className="form-input" value={xpWeight} onChange={(e) => setXpWeight(Number(e.target.value))} style={{ borderLeft: `6px solid ${xpWeight === 3 ? '#ef4444' : xpWeight === 2 ? '#f59e0b' : '#10b981'}` }}>
                                             <option value={1}>Peso 1 (Iniciante - 500 XP)</option>
                                             <option value={2}>Peso 2 (Intermediário - 1.200 XP)</option>
                                             <option value={3}>Peso 3 (Avançado - 2.500 XP)</option>
@@ -308,11 +283,7 @@ export default function ContentManagement() {
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                             {tags.map(tag => (
                                                 <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)}
-                                                    style={{
-                                                        padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--border)',
-                                                        background: selectedTags.includes(tag.id) ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                                        color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800
-                                                    }}>{tag.name}</button>
+                                                    style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--border)', background: selectedTags.includes(tag.id) ? 'var(--primary)' : 'rgba(255,255,255,0.05)', color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}>{tag.name}</button>
                                             ))}
                                         </div>
                                     </div>
@@ -344,9 +315,7 @@ export default function ContentManagement() {
                                         {badgeThumb && <div style={{ marginTop: '20px', textAlign: 'center' }}><img src={badgeThumb} alt="Badge" style={{ width: '70px', height: '70px', objectFit: 'contain', filter: 'drop-shadow(0 0 10px gold)' }} /></div>}
                                     </div>
 
-                                    <button type="submit" className="btn-submit" style={{ marginTop: '40px' }}>
-                                        {editingCourseId ? "💾 Salvar Atualizações" : "🚀 Publicar na Plataforma"}
-                                    </button>
+                                    <button type="submit" className="btn-submit" style={{ marginTop: '40px' }}>{editingCourseId ? "💾 Salvar Atualizações" : "🚀 Publicar na Plataforma"}</button>
                                     {editingCourseId && <button type="button" onClick={resetForm} style={{ width: '100%', marginTop: '20px', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 900, textDecoration: 'underline', fontSize: '0.8rem' }}>CANCELAR EDIÇÃO</button>}
                                 </form>
                             </div>
@@ -361,26 +330,21 @@ export default function ContentManagement() {
                                                 <div style={{ width: '5px', height: '30px', background: 'var(--primary)', borderRadius: '10px', boxShadow: '0 0 10px var(--primary)' }}></div>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                     <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#fff' }}>{c.title}</span>
-                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                                                        {c.xp_weight === 3 ? '🔴 Peso 3' : c.xp_weight === 2 ? '🟡 Peso 2' : '🟢 Peso 1'}
-                                                    </span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{c.xp_weight === 3 ? '🔴 Peso 3' : c.xp_weight === 2 ? '🟡 Peso 2' : '🟢 Peso 1'}</span>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {/* LINHA DE BOTÕES EXISTENTES */}
                                                 <div style={{ display: 'flex', gap: '10px' }}>
                                                     <button onClick={() => setManageLessonsCourse(c)} className="action-btn aulas">📺 Aulas</button>
                                                     <button onClick={() => handleEditInit(c)} className="action-btn edit">✏️ Editar</button>
                                                     <button onClick={() => handleDeleteCourse(c.id)} className="action-btn delete">🗑️ Excluir</button>
                                                 </div>
-                                                
-                                                {/* NOVO BOTÃO DE QUIZ - OCUPA A LARGURA TODA EMBAIXO */}
                                                 <div style={{ width: '100%' }}>
                                                     <GenerateQuizButton 
                                                         courseId={c.id} 
                                                         title={c.title} 
                                                         description={c.description}
-                                                        onQuizGenerated={() => alert("Quiz gerado! Confira o JSON no banco.")}
+                                                        onQuizGenerated={(data) => setActiveQuiz(data)} 
                                                     />
                                                 </div>
                                             </div>
@@ -390,6 +354,54 @@ export default function ContentManagement() {
                             </div>
                         </div>
                     </>
+                )}
+
+                {/* MODAL DE SETUP DE QUIZ AVULSO */}
+                {showStandaloneSetup && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px' }}>
+                        <div className="glass-card" style={{ width: '100%', maxWidth: '500px', background: '#0f172a', position: 'relative' }}>
+                            <button onClick={() => setShowStandaloneSetup(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer' }}><X size={24} /></button>
+                            <h2 style={{ color: '#fff', marginBottom: '20px', fontSize: '1.5rem', fontWeight: 900 }}>🧠 Novo Quiz Avulso</h2>
+                            <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '25px' }}>Diga para a inteligência artificial sobre o que é este quiz.</p>
+                            
+                            <div style={{ marginBottom: '20px' }}>
+                                <label className="form-label">📖 Título / Tema do Quiz</label>
+                                <input className="form-input" placeholder="Ex: Liderança e Gestão" value={standaloneTitle} onChange={(e) => setStandaloneTitle(e.target.value)} />
+                            </div>
+
+                            <div style={{ marginBottom: '25px' }}>
+                                <label className="form-label">📝 O que será testado?</label>
+                                <textarea className="form-input" style={{ height: '100px', resize: 'none' }} placeholder="Ex: Avaliar conhecimentos..." value={standaloneDesc} onChange={(e) => setStandaloneDesc(e.target.value)} />
+                            </div>
+
+                            <div style={{ width: '100%' }}>
+                                <GenerateQuizButton 
+                                    courseId={undefined} 
+                                    lessonId={undefined}
+                                    title={standaloneTitle || "Quiz Avulso"} 
+                                    description={standaloneDesc || "Conhecimentos gerais"}
+                                    onQuizGenerated={(data) => {
+                                        setActiveQuiz(data);
+                                        setShowStandaloneSetup(false);
+                                        setStandaloneTitle("");
+                                        setStandaloneDesc("");
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* EDITOR DE QUIZ (SÓ APARECE QUANDO A IA GERA O CONTEÚDO) */}
+                {activeQuiz && (
+                    <QuizEditor 
+                        initialData={activeQuiz} 
+                        courseId={null} 
+                        onClose={() => setActiveQuiz(null)} 
+                        onSaved={() => {
+                            setActiveQuiz(null);
+                        }} 
+                    />
                 )}
             </main>
         </div>
