@@ -14,10 +14,9 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
   const createSlug = (text: string) => 
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, "-").trim();
 
-  // Função robusta de redimensionamento com buffer de segurança
+  // Função de redimensionamento com buffer para não cortar o final das letras
   const handleResize = (target: HTMLTextAreaElement) => {
     target.style.height = 'auto';
-    // Adicionamos +4 pixels para garantir que o final das letras (g, j, p, q) não seja cortado
     target.style.height = `${target.scrollHeight + 4}px`;
   };
 
@@ -46,13 +45,16 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
     setSaving(true);
     try {
       const slug = createSlug(quiz.quiz_title);
+      const finalUrl = `${window.location.origin}/quizzes/${slug}`; // Gera a URL completa
       
+      // SALVANDO NO SUPABASE (Incluindo Slug e a URL completa)
       const { data: quizEntry, error: qError } = await supabase.from("quizzes").insert({
         course_id: courseId || null,
         lesson_id: lessonId || null,
         title: quiz.quiz_title,
         description: quiz.description,
-        slug: slug 
+        slug: slug,
+        url: finalUrl // <--- Salvando a URL aqui
       }).select().single();
 
       if (qError) throw qError;
@@ -67,8 +69,7 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
       });
       await supabase.from("options").insert(optionsPayload);
 
-      const finalUrl = `${window.location.origin}/quizzes/${slug}`;
-      alert(`✅ Publicado!\n\nLink: ${finalUrl}`);
+      alert(`✅ Publicado!\n\nLink salvo: ${finalUrl}`);
       
       onSaved();
       onClose();
@@ -222,6 +223,7 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
         .qe-check-icon { color: #334155; cursor: pointer; flex-shrink: 0; margin-top: 4px; }
         .is-correct .qe-check-icon { color: #10b981; }
         
+        /* FIX DO CORTE LATERAL (INICIO) E FINAL 👇 */
         .qe-opt-textarea { 
           flex: 1; 
           background: transparent; 
@@ -233,7 +235,7 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
           min-height: 22px; 
           font-family: inherit; 
           line-height: 1.5; 
-          padding: 4px 10px; 
+          padding: 4px 10px; /* Padding nas laterais e topo/fundo */
           margin: 0; 
           overflow: hidden; 
           white-space: pre-wrap; 
