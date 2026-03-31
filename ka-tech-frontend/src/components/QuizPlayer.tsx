@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom"; // Adicionado para capturar o slug e navegar
 import { supabase } from "../supabaseClient";
 import { CheckCircle2, XCircle, Trophy, ArrowRight, Loader2, Clock, Lock, BookOpen } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -7,12 +8,10 @@ interface Option { id: string; content: string; is_correct: boolean; }
 interface Question { id: string; content: string; options: Option[]; }
 interface QuizData { id: string; title: string; description: string; questions: Question[]; }
 
-interface QuizPlayerProps {
-  courseId: number;
-  onExit: () => void;
-}
-
-export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
+export default function QuizView() {
+  const { slug } = useParams(); // Captura o slug da URL (ex: /quizzes/meu-quiz)
+  const navigate = useNavigate();
+  
   const [quiz, setQuiz] = useState<QuizData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -28,6 +27,9 @@ export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
   const [timeLeft, setTimeLeft] = useState(60); 
   const timerRef = useRef<any>(null);
 
+  // Função para sair da tela (voltar ao dashboard)
+  const onExit = () => navigate("/dashboard");
+
   useEffect(() => {
     async function init() {
       try {
@@ -36,19 +38,18 @@ export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: quizzes, error: quizError } = await supabase
+        // BUSCA PELO SLUG EM VEZ DE COURSE_ID
+        const { data: quizData, error: quizError } = await supabase
           .from("quizzes")
           .select(`id, title, description, questions (id, content, options (id, content, is_correct))`)
-          .eq("course_id", courseId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .eq("slug", slug)
+          .maybeSingle();
 
-        if (quizError || !quizzes || quizzes.length === 0 || !quizzes[0].questions || quizzes[0].questions.length === 0) {
+        if (quizError || !quizData || !quizData.questions || quizData.questions.length === 0) {
             setNotFound(true);
             return;
         }
 
-        const quizData = quizzes[0];
         const { data: attempt } = await supabase
           .from("quiz_attempts")
           .select("score, created_at")
@@ -77,7 +78,7 @@ export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
       }
     }
     init();
-  }, [courseId]);
+  }, [slug]);
 
   useEffect(() => {
     if (gameFinished || alreadyAttempted || !quiz || notFound) return;
@@ -143,33 +144,37 @@ export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
     }
   };
 
-  if (loading) return <div className="flex-center" style={{height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6'}}><Loader2 className="animate-spin" size={32} /></div>;
+  if (loading) return <div className="flex-center" style={{height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617', color: '#8b5cf6'}}><Loader2 className="animate-spin" size={42} /></div>;
 
   if (notFound || !quiz || !quiz.questions || quiz.questions.length === 0) {
       return (
-        <div className="glass-panel qp-screen">
-            <BookOpen size={60} style={{margin: '0 auto 20px', color: '#64748b'}} />
-            <h2 className="qp-title">Quiz não disponível</h2>
-            <p className="qp-text">Este treinamento ainda não possui uma avaliação cadastrada.</p>
-            <button onClick={onExit} className="btn-primary" style={{marginTop: '30px', width: '200px'}}>Voltar</button>
+        <div className="quiz-container-full">
+            <div className="glass-panel qp-screen">
+                <BookOpen size={60} style={{margin: '0 auto 20px', color: '#64748b'}} />
+                <h2 className="qp-title">Quiz não disponível</h2>
+                <p className="qp-text">Este link não é válido ou a avaliação ainda não possui perguntas.</p>
+                <button onClick={onExit} className="btn-primary" style={{marginTop: '30px', width: '200px'}}>Voltar</button>
+            </div>
         </div>
       );
   }
 
   if (alreadyAttempted) {
     return (
-        <div className="glass-panel qp-screen">
-            <Lock size={50} style={{margin: '0 auto 20px', color: '#94a3b8'}} />
-            <h2 className="qp-title">Avaliação Concluída</h2>
-            <p className="qp-text">Já realizaste este quiz em {alreadyAttempted.date}.</p>
-            <div className="qp-score-box">
-                <span className="qp-score-label">Tua Nota</span>
-                <span className={`qp-score-value ${alreadyAttempted.score >= 70 ? 'text-success' : 'text-danger'}`}>
-                    {alreadyAttempted.score}%
-                </span>
+        <div className="quiz-container-full">
+            <div className="glass-panel qp-screen">
+                <Lock size={50} style={{margin: '0 auto 20px', color: '#94a3b8'}} />
+                <h2 className="qp-title">Avaliação Concluída</h2>
+                <p className="qp-text">Já realizaste este quiz em {alreadyAttempted.date}.</p>
+                <div className="qp-score-box">
+                    <span className="qp-score-label">Tua Nota</span>
+                    <span className={`qp-score-value ${alreadyAttempted.score >= 70 ? 'text-success' : 'text-danger'}`}>
+                        {alreadyAttempted.score}%
+                    </span>
+                </div>
+                <br />
+                <button onClick={onExit} className="btn-secondary" style={{marginTop: '25px'}}>Voltar ao Painel</button>
             </div>
-            <br />
-            <button onClick={onExit} className="btn-secondary" style={{marginTop: '25px'}}>Voltar ao Painel</button>
         </div>
     );
   }
@@ -177,29 +182,31 @@ export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
   if (gameFinished) {
     const percentage = Math.round((score / quiz.questions.length) * 100);
     return (
-      <div className="glass-panel qp-screen result-animate">
-        <Trophy size={70} color={percentage >= 70 ? '#10b981' : '#ef4444'} style={{margin: '0 auto 20px'}} />
-        <h2 className="qp-score-value" style={{fontSize: '4rem'}}>{percentage}%</h2>
-        <p className="qp-text">
-            {percentage >= 70 ? "Excelente! Dominaste o conteúdo." : "Nota insuficiente. Tenta novamente após rever as aulas."}
-        </p>
-        <button onClick={onExit} className="btn-primary" style={{width: '100%', maxWidth: '300px', marginTop: '30px'}}>Concluir</button>
+      <div className="quiz-container-full">
+          <div className="glass-panel qp-screen result-animate">
+            <Trophy size={70} color={percentage >= 70 ? '#10b981' : '#ef4444'} style={{margin: '0 auto 20px'}} />
+            <h2 className="qp-score-value" style={{fontSize: '4rem'}}>{percentage}%</h2>
+            <p className="qp-text">
+                {percentage >= 70 ? "Excelente! Dominaste o conteúdo." : "Nota insuficiente. Tenta novamente após rever as aulas."}
+            </p>
+            <button onClick={onExit} className="btn-primary" style={{width: '100%', maxWidth: '300px', marginTop: '30px'}}>Concluir</button>
+          </div>
       </div>
     );
   }
 
-  // GARANTIA FINAL PARA O TYPESCRIPT:
-  // Se chegarmos aqui, quiz.questions existe obrigatoriamente.
   const currentQ = quiz.questions[currentQuestionIndex];
   const totalQuestions = quiz.questions.length;
-  const progress = (currentQuestionIndex / totalQuestions) * 100;
+  const progress = ((currentQuestionIndex) / totalQuestions) * 100;
 
   return (
-    <div className="quiz-container">
+    <div className="quiz-view-wrapper">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        .quiz-view-wrapper { min-height: 100vh; background: #020617; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .quiz-container { max-width: 850px; margin: 0 auto; font-family: 'Inter', sans-serif; width: 100%; -webkit-font-smoothing: antialiased; }
-        .glass-panel { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px; overflow: hidden; }
+        .quiz-container-full { width: 100%; max-width: 600px; }
+        .glass-panel { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px; overflow: hidden; width: 100%; }
         .qp-screen { text-align: center; padding: 70px 25px; color: #fff; }
         .qp-title { font-size: 1.8rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.03em; }
         .qp-text { color: #94a3b8; font-size: 1.1rem; line-height: 1.6; max-width: 500px; margin: 0 auto; font-weight: 500; }
@@ -228,61 +235,63 @@ export function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
         }
       `}</style>
 
-      <div className="glass-panel">
-        <div style={{height: '8px', background: '#1e293b', width: '100%'}}>
-            <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-        </div>
-
-        <div className="qp-header" style={{ padding: '40px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
-                <div style={{ textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '2.5px', color: '#8b5cf6', fontWeight: 900, marginBottom: '12px' }}>
-                    Questão {currentQuestionIndex + 1} de {totalQuestions}
-                </div>
-                <h2 style={{ fontSize: '1.5rem', color: '#fff', fontWeight: 800, lineHeight: 1.3, margin: 0, letterSpacing: '-0.02em' }}>{currentQ?.content}</h2>
+      <div className="quiz-container">
+        <div className="glass-panel">
+            <div style={{height: '8px', background: '#1e293b', width: '100%'}}>
+                <div className="progress-bar" style={{ width: `${progress}%` }}></div>
             </div>
-            <div className="timer-badge"><Clock size={22} /> {timeLeft}s</div>
-        </div>
 
-        <div style={{ display: 'grid', gap: '16px', padding: '40px' }}>
-          {currentQ?.options?.map((option, idx) => {
-            let cardClass = "option-card";
-            if (isAnswerChecked) {
-                cardClass += " disabled";
-                if (option.is_correct) cardClass += " correct";
-                else if (option.id === selectedOptionId) cardClass += " wrong";
-            } else if (selectedOptionId === option.id) {
-                cardClass += " selected";
-            }
-            return (
-              <div key={option.id} className={cardClass} onClick={() => !isAnswerChecked && setSelectedOptionId(option.id)}>
-                {isAnswerChecked && option.is_correct && <CheckCircle2 className="text-emerald-500" size={26} />}
-                {isAnswerChecked && !option.is_correct && option.id === selectedOptionId && <XCircle className="text-red-500" size={26} />}
-                {!isAnswerChecked && (
-                    <div style={{
-                        width: '36px', height: '36px', borderRadius: '12px', 
-                        background: selectedOptionId === option.id ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                        fontSize: '1rem', fontWeight: 900, color: '#fff', border: '1px solid rgba(255,255,255,0.15)'
-                    }}>
-                        {String.fromCharCode(65 + idx)}
+            <div className="qp-header" style={{ padding: '40px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ flex: 1 }}>
+                    <div style={{ textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '2.5px', color: '#8b5cf6', fontWeight: 900, marginBottom: '12px' }}>
+                        Questão {currentQuestionIndex + 1} de {totalQuestions}
                     </div>
-                )} 
-                <span style={{flex: 1}}>{option.content}</span>
-              </div>
-            );
-          })}
-        </div>
+                    <h2 style={{ fontSize: '1.5rem', color: '#fff', fontWeight: 800, lineHeight: 1.3, margin: 0, letterSpacing: '-0.02em' }}>{currentQ?.content}</h2>
+                </div>
+                <div className="timer-badge"><Clock size={22} /> {timeLeft}s</div>
+            </div>
 
-        <div className="qp-footer" style={{ padding: '35px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <button onClick={onExit} className="btn-secondary" style={{background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer'}}>Sair</button>
-          {!isAnswerChecked ? (
-            <button className="btn-primary" onClick={handleConfirmAnswer} disabled={!selectedOptionId}>Confirmar Resposta</button>
-          ) : (
-            <button className="btn-primary" onClick={handleNextQuestion} style={{background: currentQuestionIndex + 1 === totalQuestions ? '#10b981' : '#8b5cf6', display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center'}}>
-                {currentQuestionIndex + 1 === totalQuestions ? (savingResult ? "A gravar..." : "Ver Resultado") : "Próxima Questão"} 
-                <ArrowRight size={24} />
-            </button>
-          )}
+            <div style={{ display: 'grid', gap: '16px', padding: '40px' }}>
+            {currentQ?.options?.map((option, idx) => {
+                let cardClass = "option-card";
+                if (isAnswerChecked) {
+                    cardClass += " disabled";
+                    if (option.is_correct) cardClass += " correct";
+                    else if (option.id === selectedOptionId) cardClass += " wrong";
+                } else if (selectedOptionId === option.id) {
+                    cardClass += " selected";
+                }
+                return (
+                <div key={option.id} className={cardClass} onClick={() => !isAnswerChecked && setSelectedOptionId(option.id)}>
+                    {isAnswerChecked && option.is_correct && <CheckCircle2 className="text-emerald-500" size={26} />}
+                    {isAnswerChecked && !option.is_correct && option.id === selectedOptionId && <XCircle className="text-red-500" size={26} />}
+                    {!isAnswerChecked && (
+                        <div style={{
+                            width: '36px', height: '36px', borderRadius: '12px', 
+                            background: selectedOptionId === option.id ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                            fontSize: '1rem', fontWeight: 900, color: '#fff', border: '1px solid rgba(255,255,255,0.15)'
+                        }}>
+                            {String.fromCharCode(65 + idx)}
+                        </div>
+                    )} 
+                    <span style={{flex: 1}}>{option.content}</span>
+                </div>
+                );
+            })}
+            </div>
+
+            <div className="qp-footer" style={{ padding: '35px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <button onClick={onExit} className="btn-secondary" style={{background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer'}}>Sair</button>
+            {!isAnswerChecked ? (
+                <button className="btn-primary" onClick={handleConfirmAnswer} disabled={!selectedOptionId}>Confirmar Resposta</button>
+            ) : (
+                <button className="btn-primary" onClick={handleNextQuestion} style={{background: currentQuestionIndex + 1 === totalQuestions ? '#10b981' : '#8b5cf6', display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center'}}>
+                    {currentQuestionIndex + 1 === totalQuestions ? (savingResult ? "A gravar..." : "Ver Resultado") : "Próxima Questão"} 
+                    <ArrowRight size={24} />
+                </button>
+            )}
+            </div>
         </div>
       </div>
     </div>

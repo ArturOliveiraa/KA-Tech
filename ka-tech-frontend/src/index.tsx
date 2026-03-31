@@ -28,9 +28,9 @@ const LiveHub = lazy(() => import('./pages/LiveHub'));
 const Admin = lazy(() => import('./pages/admin'));
 const ContentManagement = lazy(() => import('./pages/ContentManagement'));
 const Reports = lazy(() => import('./pages/Reports'));
-
-// NOVA PÁGINA ADICIONADA:
 const MeetingHub = lazy(() => import('./pages/MeetingHub'));
+
+const QuizView = lazy(() => import('./components/QuizPlayer'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +81,9 @@ root.render(
                 <Route path="/curso/:slug" element={<Player />} />
                 <Route path="/rankings" element={<Rankings />} />
                 <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                
+                {/* ROTA DO QUIZ PELO SLUG */}
+                <Route path="/quizzes/:slug" element={<QuizView />} />
 
                 {/* --- ROTAS DE LIVES E REUNIÕES --- */}
                 <Route path="/live" element={<LivePage />} />
