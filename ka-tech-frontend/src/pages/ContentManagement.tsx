@@ -344,7 +344,7 @@ export default function ContentManagement() {
                                                         courseId={c.id} 
                                                         title={c.title} 
                                                         description={c.description}
-                                                        onQuizGenerated={(data) => setActiveQuiz(data)} 
+                                                        onQuizGenerated={(data: any) => setActiveQuiz(data)}
                                                     />
                                                 </div>
                                             </div>
@@ -380,7 +380,7 @@ export default function ContentManagement() {
                                     lessonId={undefined}
                                     title={standaloneTitle || "Quiz Avulso"} 
                                     description={standaloneDesc || "Conhecimentos gerais"}
-                                    onQuizGenerated={(data) => {
+                                    onQuizGenerated={(data: any) => {
                                         setActiveQuiz(data);
                                         setShowStandaloneSetup(false);
                                         setStandaloneTitle("");

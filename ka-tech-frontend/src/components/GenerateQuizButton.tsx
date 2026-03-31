@@ -7,7 +7,8 @@ interface GenerateQuizButtonProps {
   lessonId?: number;
   title: string;
   description: string;
-  onQuizGenerated?: () => void;
+  // Ajustado para aceitar o parâmetro data e evitar erro TS2322
+  onQuizGenerated?: (data: any) => void; 
 }
 
 export function GenerateQuizButton({ courseId, lessonId, title, description, onQuizGenerated }: GenerateQuizButtonProps) {
@@ -18,14 +19,14 @@ export function GenerateQuizButton({ courseId, lessonId, title, description, onQ
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      // 1. Constrói as alternativas dinamicamente com base no que você selecionou
+      // 1. Constrói as alternativas dinamicamente
       let optionsExample = [];
       optionsExample.push(`{"content": "A resposta correta vai aqui", "is_correct": true}`);
       for (let i = 1; i < optionsCount; i++) {
         optionsExample.push(`{"content": "Alternativa errada ${i}", "is_correct": false}`);
       }
 
-      // 2. Prompt blindado com o exemplo exato que a IA deve copiar
+      // 2. Prompt para a IA
       const prompt = `Crie um quiz de múltipla escolha para o tema "${title}".
       Descrição: ${description}.
 
@@ -49,8 +50,7 @@ export function GenerateQuizButton({ courseId, lessonId, title, description, onQ
         ]
       }`;
 
-      // ATUALIZADO PARA O MODELO GEMINI-1.5-FLASH
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + import.meta.env.VITE_GEMINI_API_KEY, {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + import.meta.env.VITE_GEMINI_API_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -64,17 +64,24 @@ export function GenerateQuizButton({ courseId, lessonId, title, description, onQ
       const data = await response.json();
       let text = data.candidates[0].content.parts[0].text;
 
-      // Limpeza forçada caso a IA teime em mandar formatação Markdown
+      // Limpeza de Markdown
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
-      // Validação antes de abrir a tela
+      // Validação do JSON
+      let parsedData;
       try {
-        JSON.parse(text);
+        parsedData = JSON.parse(text);
       } catch (err) {
         throw new Error("A IA gerou um formato inválido. Clique em gerar novamente.");
       }
 
-      setQuizData(text);
+      // Se houver a função de callback externa (usada no ContentManagement), envia os dados
+      if (onQuizGenerated) {
+        onQuizGenerated(parsedData);
+      } else {
+        // Se não, abre o editor localmente
+        setQuizData(text);
+      }
 
     } catch (e: any) {
       alert("Erro ao gerar quiz: " + e.message);
@@ -122,7 +129,7 @@ export function GenerateQuizButton({ courseId, lessonId, title, description, onQ
           onClose={() => setQuizData(null)}
           onSaved={() => {
             setQuizData(null);
-            if(onQuizGenerated) onQuizGenerated();
+            // Chamada sem argumentos aqui pois no contexto local o dado já foi processado
           }}
         />
       )}

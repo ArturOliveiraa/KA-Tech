@@ -7,7 +7,7 @@ import LessonSidebar from "../components/LessonSidebar";
 import SEO from "../components/SEO"; 
 
 // --- IMPORTAÇÃO DO NOVO COMPONENTE ---
-import { QuizPlayer } from "../components/QuizPlayer";
+import QuizPlayer from "../components/QuizPlayer";
 
 import { Course, Lesson, LessonNote, Badge, UserProgress } from "../types";
 
