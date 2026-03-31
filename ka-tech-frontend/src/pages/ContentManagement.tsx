@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import ManageLessons from "../components/ManageLessons";
 import { useUser } from "../components/UserContext";
-import { X } from "lucide-react"; 
+import { X, LayoutList } from "lucide-react"; // Importei o ícone LayoutList
 
 // Imports da IA e do Editor de Quiz
 import { GenerateQuizButton } from "../components/GenerateQuizButton"; 
@@ -24,6 +24,7 @@ interface Course {
     category_id: number | null;
     xp_weight: number; 
     createdAt: string;
+    total_duration?: number;
 }
 
 const generateSlug = (text: string) => {
@@ -60,37 +61,38 @@ export default function ContentManagement() {
     const [showStandaloneSetup, setShowStandaloneSetup] = useState(false);
     const [standaloneTitle, setStandaloneTitle] = useState("");
     const [standaloneDesc, setStandaloneDesc] = useState("");
-    const [activeQuiz, setActiveQuiz] = useState<any>(null); // Ativa o Editor
+    const [activeQuiz, setActiveQuiz] = useState<any>(null);
+
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return navigate("/");
+
+            const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+            if (profile?.role !== 'admin' && profile?.role !== 'teacher') {
+                return navigate("/dashboard");
+            }
+
+            const [coursesRes, catsRes, tagsRes] = await Promise.all([
+                supabase.from("courses").select("*").order("createdAt", { ascending: false }),
+                supabase.from("categories").select("*").order("name"),
+                supabase.from("tags").select("*").order("name")
+            ]);
+
+            setCourses(coursesRes.data || []);
+            setCategories(catsRes.data || []);
+            setTags(tagsRes.data || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, [navigate]);
 
     useEffect(() => {
-        async function loadData() {
-            try {
-                setLoading(true);
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return navigate("/");
-
-                const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-                if (profile?.role !== 'admin' && profile?.role !== 'teacher') {
-                    return navigate("/dashboard");
-                }
-
-                const [coursesRes, catsRes, tagsRes] = await Promise.all([
-                    supabase.from("courses").select("*").order("createdAt", { ascending: false }),
-                    supabase.from("categories").select("*").order("name"),
-                    supabase.from("tags").select("*").order("name")
-                ]);
-
-                setCourses(coursesRes.data || []);
-                setCategories(catsRes.data || []);
-                setTags(tagsRes.data || []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        }
         loadData();
-    }, [navigate]);
+    }, [loadData]);
 
     const toggleTag = (tagId: string) => {
         setSelectedTags(prev => prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]);
@@ -146,8 +148,7 @@ export default function ContentManagement() {
 
             alert("Conteúdo salvo com sucesso!");
             resetForm();
-            const { data: refreshData } = await supabase.from("courses").select("*").order("createdAt", { ascending: false });
-            setCourses(refreshData || []);
+            loadData();
         } catch (err: any) { alert(err.message); }
     };
 
@@ -214,6 +215,8 @@ export default function ContentManagement() {
                 .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; font-weight: 900; cursor: pointer; transition: 0.4s; box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4); font-size: 1rem; text-transform: uppercase; letter-spacing: 1.5px; }
                 .btn-submit:hover { transform: translateY(-3px); filter: brightness(1.1); box-shadow: 0 15px 35px rgba(124, 58, 237, 0.6); }
                 .btn-quiz-avulso { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 15px 25px; border-radius: 18px; border: none; font-weight: 900; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2); display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+                .btn-biblioteca { background: #1e293b; color: #fff; padding: 15px 25px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); font-weight: 900; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+                .btn-biblioteca:hover { background: #334155; transform: translateY(-2px); }
                 .course-item { padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
                 .action-btn { flex: 1; padding: 12px; border-radius: 14px; border: none; cursor: pointer; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; transition: 0.2s; }
                 .action-btn.aulas { background: #1e293b; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
@@ -233,7 +236,10 @@ export default function ContentManagement() {
                         <ManageLessons
                             courseId={manageLessonsCourse.id}
                             courseTitle={manageLessonsCourse.title}
-                            onBack={() => setManageLessonsCourse(null)}
+                            onBack={() => {
+                                setManageLessonsCourse(null);
+                                loadData();
+                            }}
                         />
                     </div>
                 ) : (
@@ -244,6 +250,11 @@ export default function ContentManagement() {
                                 <p style={{ color: '#64748b', marginTop: '5px' }}>Administre treinamentos e gamificação da KA Tech</p>
                             </div>
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                {/* 👇 BOTÃO PARA A BIBLIOTECA DE QUIZZES ADICIONADO AQUI */}
+                                <button onClick={() => navigate("/admin/quizzes")} className="btn-biblioteca">
+                                    <LayoutList size={18} /> BIBLIOTECA DE QUIZZES
+                                </button>
+
                                 <button onClick={() => setShowStandaloneSetup(true)} className="btn-quiz-avulso">🧠 NOVO QUIZ AVULSO</button>
                                 <button onClick={() => navigate("/live-setup")} className="btn-live">🔴 CONFIGURAR LIVE</button>
                                 <button onClick={() => navigate("/dashboard")} className="action-btn edit" style={{ padding: '15px 30px', flex: 'none', borderRadius: '18px', fontWeight: 900 }}>🏠 VOLTAR AO PAINEL</button>
@@ -330,7 +341,9 @@ export default function ContentManagement() {
                                                 <div style={{ width: '5px', height: '30px', background: 'var(--primary)', borderRadius: '10px', boxShadow: '0 0 10px var(--primary)' }}></div>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                     <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#fff' }}>{c.title}</span>
-                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{c.xp_weight === 3 ? '🔴 Peso 3' : c.xp_weight === 2 ? '🟡 Peso 2' : '🟢 Peso 1'}</span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                        {c.xp_weight === 3 ? '🔴 Peso 3' : c.xp_weight === 2 ? '🟡 Peso 2' : '🟢 Peso 1'}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -392,7 +405,7 @@ export default function ContentManagement() {
                     </div>
                 )}
 
-                {/* EDITOR DE QUIZ (SÓ APARECE QUANDO A IA GERA O CONTEÚDO) */}
+                {/* EDITOR DE QUIZ */}
                 {activeQuiz && (
                     <QuizEditor 
                         initialData={activeQuiz} 

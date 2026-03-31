@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from './components/UserContext';
 import MeetPage from './pages/MeetPage';
 import ProtectedRoute from './components/ProtectedRoute';
+const QuizList = lazy(() => import('./pages/QuizList'));
 
 // --- LAZY LOADING ---
 const Login = lazy(() => import('./pages/Login'));
@@ -72,6 +73,7 @@ root.render(
                 <Route path="/update-password" element={<UpdatePassword />} />
                 <Route path="/planos" element={<Planos />} />
                 <Route path="/privacidade" element={<Privacy />} />
+                <Route path="/admin/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
 
                 {/* --- ROTAS DE USUÁRIO (ALUNO) --- */}
                 <Route path="/dashboard" element={<Dashboard />} />
