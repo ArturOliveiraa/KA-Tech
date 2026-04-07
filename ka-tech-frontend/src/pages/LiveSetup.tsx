@@ -21,6 +21,10 @@ export default function LiveSetup() {
     const [videoId, setVideoId] = useState("");
     const [liveDate, setLiveDate] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
+    
+    // ESTADOS PARA LIVE RETROATIVA
+    const [isRetroactive, setIsRetroactive] = useState(false);
+    const [manualDuration, setManualDuration] = useState("");
 
     useEffect(() => {
         fetchUpcomingLives();
@@ -38,7 +42,14 @@ export default function LiveSetup() {
         if (data) setLives(data);
     }
 
-    // FUNÇÃO PARA ENCERRAR LIVE E CALCULAR DURAÇÃO AUTOMÁTICA
+    const getYouTubeId = (urlOrId: string) => {
+        if (!urlOrId) return "";
+        if (urlOrId.length === 11 && !urlOrId.includes("/")) return urlOrId;
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+        const match = urlOrId.match(regex);
+        return match ? match[1] : urlOrId;
+    };
+
     const handleFinishLive = async (live: Live) => {
         if (!window.confirm("Deseja encerrar esta live agora?")) return;
 
@@ -48,7 +59,6 @@ export default function LiveSetup() {
 
         if (diffInMs <= 0) return alert("A live ainda não atingiu o horário de início agendado!");
 
-        // Cálculo da duração formatada
         const hours = Math.floor(diffInMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
         const finalDuration = `${hours > 0 ? hours + 'h ' : ''}${minutes}min`;
@@ -62,7 +72,7 @@ export default function LiveSetup() {
             alert("Erro ao finalizar: " + error.message);
         } else {
             alert(`Live finalizada com sucesso! Duração: ${finalDuration}`);
-            fetchUpcomingLives(); // Remove da lista de "Próximas"
+            fetchUpcomingLives(); 
         }
     };
 
@@ -70,9 +80,22 @@ export default function LiveSetup() {
         e.preventDefault();
         setLoading(true);
 
-        // Garante que a data está em formato ISO para o Postgres
-        const isoDate = new Date(liveDate).toISOString();
-        const liveData = { title, video_id: videoId, scheduled_at: isoDate };
+        const cleanVideoId = getYouTubeId(videoId); 
+
+        // Se for retroativo, adiciona um horário fictício (12:00) para evitar bugs de fuso horário voltando 1 dia
+        let finalDateString = liveDate;
+        if (isRetroactive && !liveDate.includes('T')) {
+            finalDateString = `${liveDate}T12:00:00`;
+        }
+        
+        const isoDate = new Date(finalDateString).toISOString();
+
+        const liveData = { 
+            title, 
+            video_id: cleanVideoId, 
+            scheduled_at: isoDate,
+            duration: isRetroactive ? (manualDuration || "1h 00min") : null
+        };
 
         try {
             const { error } = editingId 
@@ -81,7 +104,7 @@ export default function LiveSetup() {
 
             if (error) throw error;
 
-            alert(editingId ? "Agendamento atualizado!" : "Live agendada com sucesso!");
+            alert(editingId ? "Agendamento atualizado!" : (isRetroactive ? "Replay publicado com sucesso!" : "Live agendada com sucesso!"));
             resetForm();
             fetchUpcomingLives();
         } catch (err: any) {
@@ -93,7 +116,20 @@ export default function LiveSetup() {
     };
 
     const resetForm = () => {
-        setTitle(""); setVideoId(""); setLiveDate(""); setEditingId(null);
+        setTitle(""); 
+        setVideoId(""); 
+        setLiveDate(""); 
+        setEditingId(null);
+        setIsRetroactive(false);
+        setManualDuration("");
+    };
+
+    // Ajuste: Se o usuário trocar a checkbox, a gente limpa o horário se ele for mudar para tipo "date"
+    const handleCheckboxChange = (checked: boolean) => {
+        setIsRetroactive(checked);
+        if (checked && liveDate.includes('T')) {
+            setLiveDate(liveDate.split('T')[0]); // Corta o horário e deixa só a data
+        }
     };
 
     return (
@@ -116,11 +152,22 @@ export default function LiveSetup() {
                 .glass-card { background: var(--card-glass); backdrop-filter: blur(20px); border-radius: 30px; padding: 40px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
                 .form-label { color: #94a3b8; margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; display: block; }
                 .form-input { width: 100%; padding: 18px 22px; border-radius: 18px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); color: #fff; outline: none; font-family: 'Sora'; }
-                .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+                
+                /* Correção para o ícone de calendário no input type="date" e "datetime-local" ficar branco */
+                ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.6; }
+                ::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+                .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s; }
+                .btn-submit:hover { opacity: 0.9; transform: translateY(-2px); }
                 .course-item { padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
                 .action-btn { padding: 10px 15px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
                 .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; margin-right: 8px; }
                 .action-btn.finish { background: #ef4444; color: #fff; }
+
+                .checkbox-container { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; cursor: pointer; background: rgba(139, 92, 246, 0.1); padding: 15px 20px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.3); transition: 0.3s; }
+                .checkbox-container:hover { background: rgba(139, 92, 246, 0.2); }
+                .checkbox-container input { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
+                .checkbox-container span { font-weight: 700; font-size: 0.95rem; color: #e2e8f0; }
 
                 @media (max-width: 1024px) { 
                     .main-content { margin-left: 0; padding: 20px; width: 100%; } 
@@ -138,30 +185,60 @@ export default function LiveSetup() {
                 <header className="header-flex">
                     <div>
                         <h1>Agendamento de Live</h1>
-                        <p style={{ color: '#64748b', marginTop: '5px' }}>Gerencie as transmissões futuras</p>
+                        <p style={{ color: '#64748b', marginTop: '5px' }}>Gerencie as transmissões e replays</p>
                     </div>
                     <button onClick={() => navigate(-1)} className="action-btn edit" style={{ padding: '15px 30px', borderRadius: '18px', fontWeight: 900 }}>VOLTAR</button>
                 </header>
 
                 <div className="live-grid">
                     <div className="glass-card">
-                        <h2 style={{ color: '#fff', marginBottom: '30px', fontWeight: 900 }}>{editingId ? "✏️ Editar" : "✨ Novo Agendamento"}</h2>
+                        <h2 style={{ color: '#fff', marginBottom: '30px', fontWeight: 900 }}>{editingId ? "✏️ Editar" : "✨ Nova Publicação"}</h2>
                         <form onSubmit={handleSaveLive}>
+                            
+                            {!editingId && (
+                                <label className="checkbox-container">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isRetroactive} 
+                                        onChange={(e) => handleCheckboxChange(e.target.checked)} 
+                                    />
+                                    <span>Postar como Replay (Live já concluída)</span>
+                                </label>
+                            )}
+
                             <div style={{ marginBottom: '20px' }}>
                                 <label className="form-label">TÍTULO DA LIVE</label>
                                 <input className="form-input" placeholder="Ex: Aula de Faturamento" value={title} onChange={(e) => setTitle(e.target.value)} required />
                             </div>
+
                             <div style={{ marginBottom: '20px' }}>
-                                <label className="form-label">YOUTUBE VIDEO ID</label>
-                                <input className="form-input" placeholder="ID do vídeo (após o v=)" value={videoId} onChange={(e) => setVideoId(e.target.value)} required />
+                                <label className="form-label">YOUTUBE VIDEO ID OU LINK</label>
+                                <input className="form-input" placeholder="Ex: https://youtube.com/live/... ou apenas o ID" value={videoId} onChange={(e) => setVideoId(e.target.value)} required />
                             </div>
-                            <div style={{ marginBottom: '25px' }}>
-                                <label className="form-label">DATA E HORA DE INÍCIO</label>
-                                <input type="datetime-local" className="form-input" value={liveDate} onChange={(e) => setLiveDate(e.target.value)} required />
+
+                            {/* CAMPO DE DATA: Alterna entre date e datetime-local */}
+                            <div style={{ marginBottom: isRetroactive ? '20px' : '30px' }}>
+                                <label className="form-label">{isRetroactive ? "DATA EM QUE OCORREU" : "DATA E HORA DE INÍCIO"}</label>
+                                <input 
+                                    type={isRetroactive ? "date" : "datetime-local"} 
+                                    className="form-input" 
+                                    value={liveDate} 
+                                    onChange={(e) => setLiveDate(e.target.value)} 
+                                    required 
+                                />
                             </div>
+
+                            {isRetroactive && (
+                                <div style={{ marginBottom: '30px' }}>
+                                    <label className="form-label">DURAÇÃO DO REPLAY (Opcional)</label>
+                                    <input className="form-input" placeholder="Ex: 1h 30min" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
+                                </div>
+                            )}
+
                             <button type="submit" className="btn-submit" disabled={loading}>
-                                {loading ? "SALVANDO..." : editingId ? "SALVAR ALTERAÇÕES" : "PUBLICAR LIVE"}
+                                {loading ? "SALVANDO..." : editingId ? "SALVAR ALTERAÇÕES" : (isRetroactive ? "PUBLICAR REPLAY" : "AGENDAR LIVE")}
                             </button>
+                            
                             {editingId && (
                                 <button type="button" onClick={resetForm} style={{ width: '100%', marginTop: '15px', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 900 }}>CANCELAR</button>
                             )}
@@ -170,9 +247,9 @@ export default function LiveSetup() {
 
                     <div className="glass-card">
                         <h2 style={{ color: '#fff', marginBottom: '30px', fontWeight: 900 }}>🚀 Próximas Lives</h2>
-                        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                        <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '5px' }}>
                             {lives.length === 0 ? (
-                                <p style={{ color: '#64748b', textAlign: 'center' }}>Nenhuma live agendada para o futuro.</p>
+                                <p style={{ color: '#64748b', textAlign: 'center', marginTop: '20px' }}>Nenhuma live agendada para o futuro.</p>
                             ) : (
                                 lives.map(live => (
                                     <div key={live.id} className="course-item" style={{ borderLeft: '4px solid #8b5cf6' }}>
@@ -182,7 +259,13 @@ export default function LiveSetup() {
                                         </div>
                                         <div style={{ display: 'flex' }}>
                                             <button 
-                                                onClick={() => { setEditingId(live.id); setTitle(live.title); setVideoId(live.video_id); setLiveDate(new Date(live.scheduled_at).toISOString().slice(0, 16)); }} 
+                                                onClick={() => { 
+                                                    setEditingId(live.id); 
+                                                    setTitle(live.title); 
+                                                    setVideoId(live.video_id); 
+                                                    setLiveDate(new Date(live.scheduled_at).toISOString().slice(0, 16)); 
+                                                    setIsRetroactive(false); 
+                                                }} 
                                                 className="action-btn edit"
                                             >EDITAR</button>
                                             <button 
