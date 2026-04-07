@@ -2,6 +2,10 @@ import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import axios from "axios";
 
+// --- IMPORTAÇÕES DA IA E EDITOR DE QUIZ ---
+import { GenerateQuizButton } from "./GenerateQuizButton"; 
+import { QuizEditor } from "./QuizEditor";
+
 interface Lesson {
   id: number;
   title: string;
@@ -26,6 +30,9 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [loading, setLoading] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
 
+  // --- ESTADO PARA O QUIZ DA AULA ---
+  const [activeQuiz, setActiveQuiz] = useState<any>(null);
+
   // --- 1. SINCRONIZAÇÃO DE TEMPO TOTAL DO CURSO ---
   const syncCourseDuration = async () => {
     try {
@@ -48,7 +55,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   };
 
   // --- 2. GERAÇÃO DE INTELIGÊNCIA (EMBEDDINGS) ---
-const saveLessonEmbedding = async (lesson_id: number, text: string) => {
+  const saveLessonEmbedding = async (lesson_id: number, text: string) => {
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       
@@ -220,7 +227,7 @@ const saveLessonEmbedding = async (lesson_id: number, text: string) => {
   };
 
   return (
-    <div className="ka-lessons-wrapper" style={{ maxWidth: '100%', marginTop: '20px' }}>
+    <div className="ka-lessons-wrapper" style={{ maxWidth: '100%', marginTop: '20px', position: 'relative' }}>
       <style>{`
         .lesson-form-grid { display: grid; grid-template-columns: 1fr 140px; gap: 20px; }
         .input-with-icon { position: relative; }
@@ -232,22 +239,22 @@ const saveLessonEmbedding = async (lesson_id: number, text: string) => {
         }
         .form-input:focus { border-color: #8b5cf6; background: rgba(255,255,255,0.08); }
         .form-label { display: block; color: #94a3b8; font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
-        button { 
+        .main-btn { 
           background: #8b5cf6; color: #fff; border: none; padding: 14px 25px; 
           border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s;
         }
-        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .main-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .lesson-form-grid { grid-template-columns: 1fr !important; }
           .lesson-item-row { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
-          .lesson-actions-group { width: 100% !important; justify-content: space-between !important; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
+          .lesson-actions-group { width: 100% !important; justify-content: flex-start !important; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
         }
       `}</style>
 
       <header style={{ marginBottom: '30px' }}>
-        <button onClick={onBack} style={{ background: 'transparent', color: '#8b5cf6', padding: 0, marginBottom: '15px' }}>
+        <button onClick={onBack} style={{ background: 'transparent', color: '#8b5cf6', padding: 0, marginBottom: '15px', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
           ← Voltar para Cursos
         </button>
         <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: 900, margin: 0 }}>
@@ -319,12 +326,13 @@ const saveLessonEmbedding = async (lesson_id: number, text: string) => {
         </div>
 
         <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-          <button type="submit" disabled={loading} style={{ flex: 2 }}>
+          <button type="submit" className="main-btn" disabled={loading} style={{ flex: 2 }}>
             {loading ? "SINCROZINANDO..." : editingLesson ? "SALVAR ALTERAÇÕES" : "PUBLICAR AULA E IA"}
           </button>
           {editingLesson && (
             <button
               type="button"
+              className="main-btn"
               onClick={() => setEditingLesson(null)}
               style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', color: '#f87171' }}
             >
@@ -339,23 +347,51 @@ const saveLessonEmbedding = async (lesson_id: number, text: string) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {lessons.map((l, index) => (
             <div key={l.id} className="lesson-item-row" style={{ padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <span style={{ color: '#8b5cf6', fontWeight: 900 }}>#{l.order}</span>
-                <span style={{ color: '#fff' }}>{l.title}</span>
+                <span style={{ color: '#8b5cf6', fontWeight: 900, minWidth: '35px' }}>#{l.order}</span>
+                <span style={{ color: '#fff', fontWeight: 600 }}>{l.title}</span>
                 {l.duration !== undefined && l.duration > 0 && (
                   <span style={{ color: '#64748b', fontSize: '0.8rem' }}>({l.duration} min)</span>
                 )}
               </div>
-              <div className="lesson-actions-group" style={{ display: 'flex', gap: '15px' }}>
-                <button onClick={() => moveLesson(index, 'up')} disabled={index === 0} style={{ padding: '5px 10px' }}>↑</button>
-                <button onClick={() => moveLesson(index, 'down')} disabled={index === lessons.length - 1} style={{ padding: '5px 10px' }}>↓</button>
-                <button onClick={() => handleEditInit(l)} style={{ background: 'transparent', color: '#8b5cf6' }}>EDITAR</button>
-                <button onClick={() => handleDeleteLesson(l.id)} style={{ background: 'transparent', color: '#ef4444' }}>EXCLUIR</button>
+
+              <div className="lesson-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {/* BOTÃO GERADOR DE QUIZ ESPECÍFICO DESTA AULA */}
+                <div style={{ marginRight: '10px' }}>
+                    <GenerateQuizButton 
+                        courseId={courseId} 
+                        lessonId={l.id} 
+                        title={`Quiz da Aula: ${l.title}`} 
+                        description={l.content || `Crie um quiz focado exclusivamente nos ensinamentos da aula: ${l.title}`}
+                        onQuizGenerated={(data: any) => setActiveQuiz(data)}
+                    />
+                </div>
+
+                <button onClick={() => moveLesson(index, 'up')} disabled={index === 0} style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>↑</button>
+                <button onClick={() => moveLesson(index, 'down')} disabled={index === lessons.length - 1} style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>↓</button>
+                <button onClick={() => handleEditInit(l)} style={{ background: 'transparent', color: '#8b5cf6', border: 'none', cursor: 'pointer', fontWeight: 800 }}>EDITAR</button>
+                <button onClick={() => handleDeleteLesson(l.id)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 800 }}>EXCLUIR</button>
               </div>
+
             </div>
           ))}
         </div>
       </div>
+
+      {/* RENDERIZA O EDITOR DE QUIZ CASO UM TENHA SIDO GERADO */}
+      {activeQuiz && (
+          <QuizEditor 
+              initialData={activeQuiz} 
+              courseId={courseId} 
+              onClose={() => setActiveQuiz(null)} 
+              onSaved={() => {
+                  setActiveQuiz(null);
+                  alert("Quiz da aula salvo com sucesso!");
+              }} 
+          />
+      )}
+
     </div>
   );
 }
