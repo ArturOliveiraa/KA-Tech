@@ -25,12 +25,14 @@ export default function LessonView({
     onProgressUpdateRef.current = onProgressUpdate;
   }, [onProgressUpdate]);
 
+  // FUNÇÃO ATUALIZADA: Agora reconhece links /live/, /watch?v=, /embed/ e IDs puros
   const extractVideoId = (url: string) => {
     if (!url) return null;
-    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-    const match = url.match(regExp);
-    const id = (match && match[7].length === 11) ? match[7] : url.trim();
-    return id.length === 11 ? id : null;
+    if (url.length === 11 && !url.includes("/")) return url;
+    
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+    const match = url.match(regex);
+    return match ? match[1] : null;
   };
 
   const fetchLesson = useCallback(async () => {

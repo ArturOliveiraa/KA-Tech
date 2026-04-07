@@ -44,12 +44,22 @@ export default function LiveHub() {
         }
     }
 
+    // NOVA FUNÇÃO: Extrai apenas o ID limpo de 11 caracteres, não importa o formato do link salvo
+    const getYouTubeId = (urlOrId: string) => {
+        if (!urlOrId) return "";
+        if (urlOrId.length === 11 && !urlOrId.includes("/")) return urlOrId;
+        
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+        const match = urlOrId.match(regex);
+        return match ? match[1] : urlOrId;
+    };
+
     // FUNÇÃO DE NAVEGAÇÃO AJUSTADA
     const handleWatch = (live: Live) => {
         navigate('/live', { 
             state: { 
-                videoId: live.video_id, 
-                isReplay: !!live.duration // Define true se houver duração, false se for null
+                videoId: getYouTubeId(live.video_id), // Garante que a próxima tela receba o ID limpo
+                isReplay: !!live.duration 
             } 
         });
     };
@@ -105,6 +115,8 @@ export default function LiveHub() {
                 <div className="grid-container">
                     {upcoming.map(live => {
                         const isLive = new Date(live.scheduled_at) <= now;
+                        const cleanId = getYouTubeId(live.video_id); // Extraindo ID limpo
+                        
                         return (
                             <div key={live.id} className={`live-card ${isLive ? 'on-air' : ''}`} onClick={() => handleWatch(live)}>
                                 <div className="thumb-box">
@@ -116,7 +128,7 @@ export default function LiveHub() {
                                     ) : (
                                         <span className="badge agendada">AGENDADA</span>
                                     )}
-                                    <img src={`https://img.youtube.com/vi/${live.video_id}/maxresdefault.jpg`} alt="" />
+                                    <img src={`https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`} alt="" />
                                 </div>
                                 <div className="card-body">
                                     <div className="card-title">{live.title}</div>
@@ -138,18 +150,22 @@ export default function LiveHub() {
                 </h2>
                 
                 <div className="grid-container">
-                    {replays.map(live => (
-                        <div key={live.id} className="live-card" onClick={() => handleWatch(live)}>
-                            <div className="thumb-box">
-                                <span className="badge-time">⏱️ {live.duration}</span>
-                                <img src={`https://img.youtube.com/vi/${live.video_id}/maxresdefault.jpg`} alt="" />
+                    {replays.map(live => {
+                        const cleanId = getYouTubeId(live.video_id); // Extraindo ID limpo
+                        
+                        return (
+                            <div key={live.id} className="live-card" onClick={() => handleWatch(live)}>
+                                <div className="thumb-box">
+                                    <span className="badge-time">⏱️ {live.duration}</span>
+                                    <img src={`https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`} alt="" />
+                                </div>
+                                <div className="card-body">
+                                    <div className="card-title">{live.title}</div>
+                                    <div className="card-status">Replay de {new Date(live.scheduled_at).toLocaleDateString('pt-BR')}</div>
+                                </div>
                             </div>
-                            <div className="card-body">
-                                <div className="card-title">{live.title}</div>
-                                <div className="card-status">Replay de {new Date(live.scheduled_at).toLocaleDateString('pt-BR')}</div>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </main>
         </div>

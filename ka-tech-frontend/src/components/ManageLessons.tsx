@@ -26,6 +26,62 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   const [loading, setLoading] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
 
+  // --- 1. SINCRONIZAÇÃO DE TEMPO TOTAL DO CURSO ---
+  const syncCourseDuration = async () => {
+    try {
+      const { data: allLessons } = await supabase
+        .from("lessons")
+        .select("duration")
+        .eq("course_id", courseId);
+
+      if (allLessons) {
+        const total = allLessons.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+        await supabase
+          .from("courses")
+          .update({ total_duration: parseFloat(total.toFixed(2)) })
+          .eq("id", courseId);
+        console.log("⏱️ Tempo total do curso atualizado:", total);
+      }
+    } catch (err) {
+      console.error("Erro ao sincronizar tempo do curso:", err);
+    }
+  };
+
+  // --- 2. GERAÇÃO DE INTELIGÊNCIA (EMBEDDINGS) ---
+const saveLessonEmbedding = async (lesson_id: number, text: string) => {
+    try {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      
+      // URL oficial do Google AI Studio para Embeddings
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+        {
+          model: "models/text-embedding-004",
+          content: { 
+            parts: [{ text: text }] 
+          }
+        }
+      );
+
+      const vector = response.data?.embedding?.values;
+
+      if (vector) {
+        const { error: embError } = await supabase
+          .from("aula_embeddings")
+          .upsert({
+            lesson_id,
+            content: text,
+            embedding: vector
+          }, { onConflict: 'lesson_id' });
+
+        if (embError) throw embError;
+        console.log("✅ IA: Conteúdo da aula indexado com sucesso!");
+      }
+    } catch (err: any) {
+      console.error("❌ Erro na IA (404/403):", err.response?.data || err.message);
+    }
+  };
+
   const fetchLessons = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
@@ -46,52 +102,28 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     fetchLessons();
   }, [fetchLessons]);
 
-  // --- FUNÇÃO AUXILIAR PARA DURAÇÃO ATUALIZADA ---
   const getVideoDuration = async (url: string): Promise<number> => {
     try {
-      // Regex atualizado para suportar /shorts/ e /live/
       const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([^&?/\s]{11})/);
-      
-      if (!videoIdMatch) {
-        alert("⚠️ Link do YouTube inválido ou formato não suportado.");
-        return 0;
-      }
+      if (!videoIdMatch) return 0;
 
       const videoId = videoIdMatch[1];
-      const apiKey = (import.meta as any).env?.VITE_YOUTUBE_API_KEY || (process.env as any).REACT_APP_YOUTUBE_API_KEY;
-
-      if (!apiKey) {
-        console.error("ERRO: Chave da API do YouTube não configurada.");
-        alert("❌ Erro Técnico: API Key do YouTube não encontrada no arquivo .env");
-        return 0;
-      }
+      const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
 
       const { data } = await axios.get(
         `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${apiKey}`
       );
 
-      if (!data.items || data.items.length === 0) {
-        alert("⚠️ Vídeo não encontrado. Verifique se o vídeo é PÚBLICO ou se o link está correto.");
-        return 0;
-      }
+      if (!data.items?.length) return 0;
 
       const durationISO = data.items[0].contentDetails.duration;
-      
-      // Conversão robusta de ISO 8601 (PT10M30S) para minutos decimais
       const hours = durationISO.match(/(\d+)H/)?.[1] || "0";
       const minutes = durationISO.match(/(\d+)M/)?.[1] || "0";
       const seconds = durationISO.match(/(\d+)S/)?.[1] || "0";
 
-      const totalMinutes = (parseInt(hours) * 60) + parseInt(minutes) + (parseInt(seconds) / 60);
-      return parseFloat(totalMinutes.toFixed(2));
-
-    } catch (err: any) {
-      console.error("Erro na requisição YouTube API:", err);
-      if (err.response?.status === 403) {
-        alert("❌ Erro 403: Limite de uso da API do YouTube atingido ou chave inválida.");
-      } else {
-        alert("❌ Erro ao buscar duração: " + (err.message || "Erro desconhecido"));
-      }
+      return parseFloat(((parseInt(hours) * 60) + parseInt(minutes) + (parseInt(seconds) / 60)).toFixed(2));
+    } catch (err) {
+      console.error("Erro YouTube API:", err);
       return 0;
     }
   };
@@ -100,29 +132,28 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     e.preventDefault();
     setLoading(true);
 
-    const duration = await getVideoDuration(videoUrl);
+    try {
+      const duration = await getVideoDuration(videoUrl);
 
-    const { error } = await supabase.from("lessons").insert([
-      {
-        title,
-        videoUrl,
-        content,
-        order,
-        course_id: courseId,
-        duration: duration 
-      }
-    ]);
+      // 1. Salva a Aula
+      const { data: newLesson, error } = await supabase.from("lessons").insert([
+        { title, videoUrl, content, order, course_id: courseId, duration }
+      ]).select().single();
 
-    if (error) {
-      alert("Erro ao lançar aula: " + error.message);
-    } else {
-      alert(`Aula lançada com sucesso! (${duration} min)`);
-      setTitle("");
-      setVideoUrl("");
-      setContent("");
+      if (error) throw error;
+
+      // 2. Sincroniza Tempo e IA
+      await syncCourseDuration();
+      if (content) await saveLessonEmbedding(newLesson.id, content);
+      
+      alert(`Aula publicada com sucesso! (${duration} min)`);
+      setTitle(""); setVideoUrl(""); setContent("");
       fetchLessons();
+    } catch (err: any) {
+      alert("Erro ao publicar: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleUpdateLesson = async (e: React.FormEvent) => {
@@ -130,26 +161,32 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     if (!editingLesson) return;
     setLoading(true);
 
-    const duration = await getVideoDuration(editingLesson.videoUrl);
+    try {
+      const duration = await getVideoDuration(editingLesson.videoUrl);
 
-    const { error } = await supabase
-      .from("lessons")
-      .update({
-        title: editingLesson.title,
-        videoUrl: editingLesson.videoUrl,
-        content: editingLesson.content,
-        duration: duration
-      })
-      .eq("id", editingLesson.id);
+      const { error } = await supabase
+        .from("lessons")
+        .update({
+          title: editingLesson.title,
+          videoUrl: editingLesson.videoUrl,
+          content: editingLesson.content,
+          duration: duration
+        })
+        .eq("id", editingLesson.id);
 
-    if (error) {
-      alert("Erro ao atualizar aula: " + error.message);
-    } else {
-      alert("Aula atualizada com sucesso!");
+      if (error) throw error;
+
+      await syncCourseDuration();
+      if (editingLesson.content) await saveLessonEmbedding(editingLesson.id, editingLesson.content);
+      
+      alert("Aula atualizada!");
       setEditingLesson(null);
       fetchLessons();
+    } catch (err: any) {
+      alert("Erro ao atualizar: " + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const moveLesson = async (index: number, direction: 'up' | 'down') => {
@@ -159,23 +196,22 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
     const current = lessons[index];
     const target = lessons[targetIndex];
 
-    const responses = await Promise.all([
+    await Promise.all([
       supabase.from("lessons").update({ order: target.order }).eq("id", current.id),
       supabase.from("lessons").update({ order: current.order }).eq("id", target.id)
     ]);
-
-    if (responses.some(res => res.error)) {
-      console.error("Erro ao reordenar");
-    } else {
-      fetchLessons();
-    }
+    fetchLessons();
   };
 
   const handleDeleteLesson = async (id: number) => {
-    if (!window.confirm("Deseja realmente excluir esta aula?")) return;
+    if (!window.confirm("Deseja realmente excluir esta aula? Isso removerá também a inteligência associada.")) return;
+    
+    // O delete na tabela lessons deve disparar o delete em aula_embeddings se houver FK com cascade
     const { error } = await supabase.from("lessons").delete().eq("id", id);
-    if (error) alert("Erro ao deletar: " + error.message);
-    else fetchLessons();
+    if (!error) {
+      await syncCourseDuration();
+      fetchLessons();
+    }
   };
 
   const handleEditInit = (lesson: Lesson) => {
@@ -268,22 +304,23 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
         </div>
 
         <div className="local-field" style={{ marginTop: '20px' }}>
-          <label className="form-label">Descrição</label>
+          <label className="form-label">Conteúdo da Aula (Texto para IA)</label>
           <div className="input-with-icon">
             <span className="input-emoji" style={{ top: '22px' }}>📄</span>
             <textarea
               className="form-input"
+              placeholder="Cole aqui o texto/transcrição da aula para o gerador de quiz usar..."
               value={editingLesson ? editingLesson.content : content}
               onChange={(e) => editingLesson ? setEditingLesson({ ...editingLesson, content: e.target.value }) : setContent(e.target.value)}
               required
-              style={{ height: '100px', resize: 'none' }}
+              style={{ height: '150px', resize: 'none' }}
             />
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
           <button type="submit" disabled={loading} style={{ flex: 2 }}>
-            {loading ? "PROCESSANDO..." : editingLesson ? "SALVAR ALTERAÇÕES" : "PUBLICAR AULA"}
+            {loading ? "SINCROZINANDO..." : editingLesson ? "SALVAR ALTERAÇÕES" : "PUBLICAR AULA E IA"}
           </button>
           {editingLesson && (
             <button
