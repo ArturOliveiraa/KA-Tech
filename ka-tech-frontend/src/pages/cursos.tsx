@@ -2,8 +2,11 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import { 
+  Search, Sparkles, X, Compass, ArrowRight, BrainCircuit, 
+  MonitorPlay, CreditCard, Store, Tv, PlayCircle, Library
+} from "lucide-react";
 
-// --- INTERFACES ---
 interface Category {
   id: number;
   name: string;
@@ -12,41 +15,32 @@ interface Category {
   image_url: string;
 }
 
-// Interface para os resultados que vêm do Python
 interface AiLessonResult {
-  lesson_title: string; // Nome da aula (Ex: "Vendas com Pix")
-  course_slug: string;  // Pasta do curso (Ex: "pdv")
+  lesson_title: string;
+  course_slug: string;
   content: string;
   similarity: number;
 }
 
 function Cursos() {
-  // --- ESTADOS ORIGINAIS ---
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // --- NOVOS ESTADOS (IA) ---
   const [aiSearchTerm, setAiSearchTerm] = useState("");
   const [aiResults, setAiResults] = useState<AiLessonResult[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAiResults, setShowAiResults] = useState(false);
 
-  // --- ESTADO DE MATRÍCULAS (MANTIDO PARA OUTRAS LÓGICAS) ---
   const [enrolledSlugs, setEnrolledSlugs] = useState<string[]>([]);
-
   const navigate = useNavigate();
 
-  // --- CARREGAMENTO INICIAL ---
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
-        
-        // 1. Pega usuário atual para verificar matrículas
         const { data: { user } } = await supabase.auth.getUser();
 
-        // 2. Busca Categorias
         const { data: categoriesRes, error } = await supabase
           .from("categories")
           .select("*")
@@ -55,24 +49,17 @@ function Cursos() {
         if (error) throw error;
         setCategories(categoriesRes || []);
 
-        // 3. Busca Cursos Matriculados (Se usuário estiver logado)
         if (user) {
           const { data: enrollments } = await supabase
             .from("course_enrollments")
-            .select(`
-              courses (
-                slug
-              )
-            `)
+            .select(`courses (slug)`)
             .eq("userId", user.id);
 
           if (enrollments) {
-            // Cria lista de slugs permitidos: ['pdv', 'gestao', etc]
             const slugs = enrollments.map((e: any) => e.courses?.slug).filter(Boolean);
             setEnrolledSlugs(slugs);
           }
         }
-
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
       } finally {
@@ -82,10 +69,10 @@ function Cursos() {
     loadData();
   }, []);
 
-  // --- FILTRO LOCAL (Mantido) ---
   const filteredCategories = useMemo(() => {
     return categories.filter(cat =>
-      cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+      cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cat.description?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [categories, searchTerm]);
 
@@ -97,22 +84,16 @@ function Cursos() {
     setShowAiResults(true);
 
     try {
-      // --- AJUSTE: URL DO DISCLOUD ---
       const response = await fetch('https://pandai.discloud.app/search-lessons', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: aiSearchTerm }),
       });
 
-      if (!response.ok) {
-        throw new Error('Falha na comunicação com a IA');
-      }
+      if (!response.ok) throw new Error('Falha na comunicação com a IA');
 
       const data = await response.json();
       setAiResults(data.results || []);
-
     } catch (error) {
       console.error("Erro na busca IA:", error);
       alert("Não foi possível conectar ao cérebro da IA. Tente novamente.");
@@ -121,148 +102,157 @@ function Cursos() {
     }
   };
 
-  // --- FUNÇÃO DE VALIDAÇÃO DE ACESSO (AJUSTADA PARA LIBERAR ACESSO) ---
   const handleAccessLesson = (courseSlug: string) => {
-    // Agora permite que todos os usuários naveguem ao clicar
     navigate(`/curso/${courseSlug}`);
+  };
+
+  const getCategoryIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('live')) return <Tv size={28} />;
+    if (lowerName.includes('pdv')) return <CreditCard size={28} />;
+    if (lowerName.includes('shop')) return <Store size={28} />;
+    return <Library size={28} />;
   };
 
   return (
     <div className="dashboard-wrapper">
       <Sidebar />
 
+      {/* Fundo Decorativo para Preencher Telas Grandes */}
+      <div className="ambient-bg">
+        <div className="ambient-blob blob-1"></div>
+        <div className="ambient-blob blob-2"></div>
+      </div>
+
       <main className="main-content">
-        <header className="header-section">
-          <div className="header-titles">
-            <h1>Explorar Trilhas</h1>
-            <p>Escolha um caminho e comece a sua jornada.</p>
-          </div>
-
-          {/* Busca Clássica (Filtro) */}
-          <div className="search-box">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Filtrar categorias..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </header>
-
-        {/* ======================================================= */}
-        {/* NOVA SEÇÃO: BUSCA COM INTELIGÊNCIA ARTIFICIAL (GEMINI)  */}
-        {/* ======================================================= */}
-        <section className="ai-search-wrapper">
-          <div className="ai-container">
-            <div className="ai-header-content">
-              <span className="ai-badge">✨ Powered by  pandAI</span>
-              <h2>Dúvida específica? Pergunte à IA.</h2>
-              <p>Ela busca dentro do conteúdo falado de todas as aulas.</p>
+        
+        {/* HERO SECTION - IA EM DESTAQUE */}
+        <section className="hero-ai-section">
+            <div className="hero-content glass-panel">
+                <div className="hero-badge">
+                    <Sparkles size={14} className="text-cyan-400" />
+                    <span>Powered by pandAI</span>
+                </div>
+                
+                <h1 className="hero-title">O que você quer <span className="text-gradient">aprender hoje?</span></h1>
+                <p className="hero-subtitle">Faça uma pergunta específica e nossa IA encontrará o momento exato da aula para você.</p>
+                
+                <form onSubmit={handleAiSearch} className="ai-search-form">
+                    <div className="ai-input-wrapper">
+                        <BrainCircuit className="ai-icon" size={24} />
+                        <input
+                            type="text"
+                            className="ai-input"
+                            placeholder="Ex: Como cancelar uma venda no PDV?"
+                            value={aiSearchTerm}
+                            onChange={(e) => setAiSearchTerm(e.target.value)}
+                        />
+                        <button type="submit" className="ai-submit-btn" disabled={isAiLoading}>
+                            {isAiLoading ? <span className="animate-pulse">Analisando...</span> : "Pesquisar"}
+                        </button>
+                    </div>
+                </form>
             </div>
-
-            <form onSubmit={handleAiSearch} className="ai-form">
-              <input
-                type="text"
-                className="ai-input"
-                placeholder="Ex: Como cancelar uma venda no PDV?"
-                value={aiSearchTerm}
-                onChange={(e) => setAiSearchTerm(e.target.value)}
-              />
-              <button type="submit" className="ai-btn" disabled={isAiLoading}>
-                {isAiLoading ? "Pensando..." : "Buscar Aula"}
-              </button>
-            </form>
-          </div>
         </section>
 
-        {/* RESULTADOS DA IA (Só aparecem se houver busca) */}
+        {/* RESULTADOS DA IA */}
         {showAiResults && (
-          <section className="ai-results-area">
+          <section className="ai-results-area glass-panel">
             <div className="results-header">
-              <h3>🤖 Aulas Encontradas</h3>
-              <button onClick={() => setShowAiResults(false)} className="close-btn">Fechar</button>
+              <h3><BrainCircuit size={22} className="text-cyan-400" /> Soluções Encontradas</h3>
+              <button onClick={() => setShowAiResults(false)} className="close-btn">
+                <X size={20} />
+              </button>
             </div>
 
             {isAiLoading ? (
-              <div className="ai-loading">Consultando o cérebro digital... 🧠</div>
+              <div className="ai-loading">
+                 <Sparkles size={40} className="animate-spin-slow text-cyan-400" style={{ margin: '0 auto 15px' }}/>
+                 <p>Sincronizando com a base de conhecimento neural...</p>
+              </div>
             ) : aiResults.length > 0 ? (
-              <div className="lessons-grid">
-                {aiResults.map((item, index) => {
-                  // Mantemos a verificação apenas para estilo visual, se desejar, mas o clique agora funciona para todos
-                  const isEnrolled = enrolledSlugs.includes(item.course_slug);
-                  return (
-                    <div
-                      key={index}
-                      // Removida a classe 'locked' para permitir interação visual de todos
-                      className="lesson-card-ai"
-                      // Usa a função ajustada que agora navega direto
-                      onClick={() => handleAccessLesson(item.course_slug)}
-                    >
-                      <div className="match-badge">Match: {(item.similarity * 100).toFixed(0)}%</div>
-
-                      <h4>
-                        Aula: {item.lesson_title}
-                      </h4>
-
-                      <p className="lesson-snippet">"{item.content.substring(0, 160)}..."</p>
-
-                      <span className="link-text">
-                        Ver na Trilha →
-                      </span>
+              <div className="ai-grid">
+                {aiResults.map((item, index) => (
+                  <div key={index} className="ai-result-card" onClick={() => handleAccessLesson(item.course_slug)}>
+                    <div className="ai-card-header">
+                        <div className="ai-card-icon"><PlayCircle size={20} /></div>
+                        <div className="match-badge">Match {(item.similarity * 100).toFixed(0)}%</div>
                     </div>
-                  );
-                })}
+                    <h4 className="ai-card-title">{item.lesson_title}</h4>
+                    <p className="ai-snippet">"{item.content.substring(0, 150)}..."</p>
+                    <div className="ai-card-footer">
+                        <span>Acessar Aula</span>
+                        <ArrowRight size={16} />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="ai-no-results">
-                Ainda não possuímos nenhum conteúdo sobre esse tema.
+                Ainda não possuímos nenhum conteúdo sobre esse tema específico em nossa base de aulas.
               </div>
             )}
-            <hr className="divider" />
           </section>
         )}
-        {/* ======================================================= */}
 
+        {/* CONTROLES DE TRILHAS (HEADER DA GRID) */}
+        <div className="section-controls">
+            <div className="section-title-wrapper">
+                <Compass size={28} className="text-primary" />
+                <h2>Trilhas de Conhecimento</h2>
+            </div>
 
-        {/* --- LISTAGEM DE CATEGORIAS (MANTIDA) --- */}
+            <div className="classic-search">
+                <Search className="classic-search-icon" size={18} />
+                <input
+                    type="text"
+                    placeholder="Filtrar trilhas..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="classic-search-input"
+                />
+            </div>
+        </div>
+
+        {/* GRID DE CATEGORIAS */}
         {loading ? (
-          <div className="loading-container">
-            Sincronizando trilhas...
+          <div className="loading-container glass-panel">
+             <Compass size={48} className="animate-spin-slow text-primary" style={{ margin: '0 auto 15px' }} />
+             <p>Carregando acervo de trilhas...</p>
           </div>
         ) : (
           <div className="categories-grid">
             {filteredCategories.length > 0 ? (
               filteredCategories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="category-card"
-                  onClick={() => navigate(`/categoria/${cat.slug}`)}
-                >
-                  <div className="card-glow"></div>
-
-                  <div className="card-icon">
-                    {cat.image_url ? (
-                      <img src={cat.image_url} alt={cat.name} />
-                    ) : (
-                      <span>🚀</span>
-                    )}
+                <div key={cat.id} className="category-card glass-panel" onClick={() => navigate(`/categoria/${cat.slug}`)}>
+                  
+                  <div className="card-top">
+                      <div className="card-icon-wrapper">
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt={cat.name} className="cat-img" />
+                        ) : (
+                          getCategoryIcon(cat.name)
+                        )}
+                      </div>
                   </div>
 
-                  <h2>{cat.name}</h2>
-                  <p>
-                    {cat.description || "Inicie seu aprendizado nesta trilha de conhecimento específica."}
-                  </p>
+                  <div className="card-content">
+                      <h3 className="card-title">{cat.name}</h3>
+                      <p className="card-desc">
+                        {cat.description || "Inicie seu aprendizado nesta trilha de conhecimento especializada. Domine o assunto passo a passo."}
+                      </p>
+                  </div>
 
-                  <button className="btn-access">
-                    Acessar Cursos <span>→</span>
-                  </button>
+                  <div className="card-footer">
+                      <button className="card-btn">
+                          Acessar Trilha <ArrowRight size={18} className="btn-icon-slide" />
+                      </button>
+                  </div>
                 </div>
               ))
             ) : (
-              <div className="no-results">
-                Nenhuma trilha encontrada com o nome "{searchTerm}".
+              <div className="no-results glass-panel">
+                Nenhuma trilha encontrada para <strong>"{searchTerm}"</strong>.
               </div>
             )}
           </div>
@@ -270,318 +260,209 @@ function Cursos() {
       </main>
 
       <style>{`
-        /* Importando fonte INTER para ficar mais robusta */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
         :root {
-            --primary: #8b5cf6;
-            --ai-accent: #0ea5e9; /* Azul Ciano para IA */
-            --bg-dark: #020617;
-            --card-glass: rgba(15, 23, 42, 0.6);
-            --text-light: #fff;
-            --text-dim: #9ca3af;
+            --primary: #8b5cf6; 
+            --primary-hover: #7c3aed;
+            --ai-cyan: #06b6d4;
+            --bg-dark: #020617; 
+            --bg-card: rgba(15, 23, 42, 0.5); 
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-light: #f8fafc;
+            --text-dim: #94a3b8;
         }
         
         * { box-sizing: border-box; }
 
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin-slow 4s linear infinite; }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        /* Utilidades Rápidas */
+        .text-primary { color: var(--primary); }
+        .text-cyan-400 { color: var(--ai-cyan); }
+        .text-gradient { background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
         .dashboard-wrapper {
-            display: flex;
-            width: 100%;
-            min-height: 100vh;
-            background-color: var(--bg-dark);
-            font-family: 'Inter', sans-serif;
+            display: flex; width: 100%; min-height: 100vh; position: relative;
+            background-color: var(--bg-dark); font-family: 'Inter', system-ui, sans-serif;
+            overflow-x: hidden; color: var(--text-light);
         }
 
+        /* BACKGROUND AMBIENTE PARA PREENCHER TELA */
+        .ambient-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .ambient-blob { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.15; }
+        .blob-1 { top: -10%; left: 10%; width: 50vw; height: 50vw; background: var(--primary); }
+        .blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: var(--ai-cyan); }
+
+        /* CONTEÚDO PRINCIPAL */
         .main-content {
-            flex: 1;
-            padding: 40px;
-            margin-left: 260px;
-            transition: all 0.3s ease;
+            position: relative; z-index: 1; flex: 1; margin-left: 260px; 
+            padding: 60px 80px 100px 80px; width: calc(100% - 260px); 
+            animation: fadeUp 0.6s ease-out forwards;
         }
 
-        .ai-search-wrapper {
-            margin-bottom: 40px;
-            background: linear-gradient(90deg, rgba(14, 165, 233, 0.15), rgba(139, 92, 246, 0.05));
-            border-radius: 20px;
-            padding: 2px;
-            box-shadow: 0 0 30px rgba(14, 165, 233, 0.1);
+        /* COMPONENTE DE VIDRO */
+        .glass-panel {
+            background: var(--bg-card); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-color); border-top-color: rgba(255,255,255,0.15);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
         }
 
-        .ai-container {
-            background: rgba(2, 6, 23, 0.95);
-            border-radius: 18px;
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        /* HERO AI SECTION */
+        .hero-ai-section { margin-bottom: 60px; }
+        .hero-content { 
+            border-radius: 32px; padding: 60px; text-align: center; 
+            display: flex; flex-direction: column; align-items: center; position: relative; overflow: hidden;
         }
-
-        .ai-header-content h2 { color: white; margin: 10px 0 5px 0; font-size: 1.5rem; font-weight: 700; }
-        .ai-header-content p { color: var(--text-dim); margin: 0; font-size: 0.9rem; font-weight: 500; }
+        .hero-content::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100%;
+            background: radial-gradient(ellipse at top, rgba(6, 182, 212, 0.15) 0%, transparent 60%); pointer-events: none;
+        }
         
-        .ai-badge {
-            background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            color: white;
-            text-transform: uppercase;
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px; background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3); padding: 8px 16px; border-radius: 20px;
+            font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px;
         }
 
-        .ai-form {
-            display: flex;
-            gap: 15px;
-        }
+        .hero-title { font-size: 3.5rem; font-weight: 900; margin: 0 0 16px 0; letter-spacing: -1.5px; line-height: 1.1; }
+        .hero-subtitle { color: var(--text-dim); font-size: 1.25rem; max-width: 600px; margin: 0 0 40px 0; line-height: 1.5; }
 
+        .ai-search-form { width: 100%; max-width: 800px; }
+        .ai-input-wrapper {
+            display: flex; background: rgba(2, 6, 23, 0.6); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px; padding: 8px; position: relative; transition: 0.3s ease;
+        }
+        .ai-input-wrapper:focus-within {
+            border-color: var(--ai-cyan); box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.15);
+            background: rgba(2, 6, 23, 0.8);
+        }
+        .ai-icon { position: absolute; left: 24px; top: 50%; transform: translateY(-50%); color: #64748b; }
+        
         .ai-input {
-            flex: 1;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 12px;
-            color: white;
-            outline: none;
-            transition: 0.3s;
-            font-family: 'Inter', sans-serif;
+            flex: 1; background: transparent; border: none; padding: 20px 20px 20px 64px;
+            color: #fff; font-size: 1.15rem; outline: none; font-family: 'Inter', sans-serif;
         }
-        .ai-input:focus { border-color: var(--ai-accent); box-shadow: 0 0 10px rgba(14,165,233,0.3); }
+        .ai-input::placeholder { color: #475569; }
 
-        .ai-btn {
-            background: var(--ai-accent);
-            border: none;
-            padding: 0 30px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.3s;
-            font-family: 'Inter', sans-serif;
+        .ai-submit-btn {
+            background: var(--ai-cyan); color: #000; border: none; padding: 0 32px;
+            border-radius: 16px; font-weight: 800; font-size: 1.05rem; cursor: pointer; transition: 0.3s;
         }
-        .ai-btn:hover { filter: brightness(1.2); }
+        .ai-submit-btn:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 10px 25px rgba(6, 182, 212, 0.4); }
+        .ai-submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .ai-results-area { margin-bottom: 50px; animation: fadeIn 0.5s ease; }
-        .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .results-header h3 { color: var(--ai-accent); margin: 0; font-weight: 700; }
-        .close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; text-decoration: underline; font-weight: 600; }
 
-        .ai-loading, .ai-no-results { text-align: center; color: var(--text-dim); padding: 30px; font-style: italic; }
+        /* RESULTADOS DA IA */
+        .ai-results-area { border-radius: 32px; padding: 40px; margin-bottom: 60px; animation: fadeUp 0.4s ease; }
+        .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;}
+        .results-header h3 { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 1.4rem; font-weight: 800;}
+        .close-btn { background: rgba(255,255,255,0.05); border: none; color: var(--text-dim); padding: 8px; border-radius: 50%; cursor: pointer; transition: 0.2s;}
+        .close-btn:hover { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
 
-        .lessons-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+        .ai-loading { text-align: center; color: var(--text-dim); padding: 60px; font-size: 1.1rem; }
+        .ai-no-results { text-align: center; color: var(--text-dim); padding: 40px; font-size: 1.1rem; }
+
+        .ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
+        .ai-result-card {
+            background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 20px; padding: 24px; cursor: pointer; transition: 0.3s;
+            display: flex; flex-direction: column;
         }
-
-        .lesson-card-ai {
-            background: rgba(14, 165, 233, 0.05);
-            border: 1px solid rgba(14, 165, 233, 0.2);
-            padding: 20px;
-            border-radius: 16px;
-            cursor: pointer;
-            transition: 0.3s;
-            position: relative;
-        }
-        .lesson-card-ai:hover { transform: translateY(-5px); background: rgba(14, 165, 233, 0.1); }
+        .ai-result-card:hover { background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.4); transform: translateY(-4px); }
         
-        .match-badge {
-            position: absolute;
-            top: 15px; right: 15px;
-            background: rgba(0,0,0,0.6);
-            color: var(--ai-accent);
-            font-size: 0.7rem;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-weight: 800;
-        }
-
-        .lesson-card-ai h4 { color: white; margin: 0 0 10px 0; font-size: 1.1rem; padding-right: 50px; font-weight: 700; }
-        .lesson-card-ai p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px; font-weight: 400; }
-        .link-text { color: var(--ai-accent); font-weight: 800; font-size: 0.9rem; }
+        .ai-card-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .ai-card-icon { width: 40px; height: 40px; background: rgba(0,0,0,0.3); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ai-cyan);}
+        .match-badge { background: var(--text-light); color: #000; font-size: 0.75rem; font-weight: 800; padding: 6px 12px; border-radius: 20px; align-self: flex-start;}
         
-        .divider { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 40px; }
+        .ai-card-title { color: #fff; font-size: 1.15rem; font-weight: 800; margin: 0 0 10px 0; line-height: 1.4;}
+        .ai-snippet { color: var(--text-dim); font-size: 0.95rem; line-height: 1.6; margin: 0 0 20px 0; font-style: italic; flex: 1;}
+        .ai-card-footer { display: flex; align-items: center; gap: 8px; color: var(--ai-cyan); font-weight: 700; font-size: 0.95rem; }
+        .ai-result-card:hover .ai-card-footer { gap: 12px; }
 
-        .header-section {
-            margin-bottom: 50px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 30px;
+
+        /* HEADER DAS TRILHAS */
+        .section-controls {
+            display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; margin-bottom: 40px;
         }
+        .section-title-wrapper { display: flex; align-items: center; gap: 12px; }
+        .section-title-wrapper h2 { font-size: 1.8rem; font-weight: 800; margin: 0; }
 
-        .header-titles h1 {
-            color: var(--text-light);
-            font-size: 2.5rem;
-            font-weight: 800;
-            letter-spacing: -1px;
-            margin: 0 0 10px 0;
+        .classic-search { position: relative; width: 100%; max-width: 320px; }
+        .classic-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #64748b; }
+        .classic-search-input {
+            width: 100%; padding: 16px 16px 16px 45px; border-radius: 16px; background: var(--bg-card);
+            border: 1px solid var(--border-color); color: #fff; font-size: 1rem; outline: none; transition: 0.3s;
         }
+        .classic-search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1); }
 
-        .header-titles p {
-            color: var(--text-dim);
-            font-size: 1.1rem;
-            margin: 0;
-            font-weight: 500;
-        }
 
-        .search-box {
-            position: relative;
-            width: 100%;
-            max-width: 350px;
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.2rem;
-            z-index: 10;
-            opacity: 0.7;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 16px 20px 16px 55px;
-            border-radius: 16px;
-            background: var(--card-glass);
-            border: 1px solid rgba(139, 92, 246, 0.2);
-            color: var(--text-light);
-            outline: none;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-            transition: 0.3s;
-            backdrop-filter: blur(10px);
-            font-weight: 500;
-        }
-
-        .search-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
-        }
-
-        .loading-container, .no-results {
-            color: var(--text-dim);
-            text-align: center;
-            padding: 100px;
-            font-size: 1.2rem;
-            font-weight: 700;
-            grid-column: 1 / -1;
-        }
-        .loading-container { color: var(--primary); }
-
-        .categories-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 30px;
+        /* GRID DE TRILHAS (BENTO STYLE) */
+        .categories-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 35px; 
         }
 
         .category-card {
-            background: linear-gradient(145deg, rgba(9, 9, 11, 0.8) 0%, rgba(2, 6, 23, 0.8) 100%);
-            backdrop-filter: blur(10px);
-            border-radius: 28px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 35px;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            overflow: hidden;
-            cursor: pointer;
+            border-radius: 28px; padding: 40px 35px; display: flex; flex-direction: column; min-height: 320px;
+            cursor: pointer; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
         .category-card:hover {
-            transform: translateY(-10px);
-            border-color: rgba(139, 92, 246, 0.4);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transform: translateY(-8px) scale(1.02); border-color: rgba(139, 92, 246, 0.5);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.15);
         }
 
-        .card-glow {
-            position: absolute;
-            top: -20px;
-            right: -20px;
-            width: 100px;
-            height: 100px;
-            background: rgba(139, 92, 246, 0.1);
-            border-radius: 50%;
-            filter: blur(40px);
-            pointer-events: none;
+        .card-top { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .card-icon-wrapper {
+            width: 64px; height: 64px; background: rgba(0,0,0,0.4); border-radius: 18px;
+            display: flex; align-items: center; justify-content: center; color: var(--primary);
+            border: 1px solid rgba(255,255,255,0.08); transition: 0.4s;
         }
+        .category-card:hover .card-icon-wrapper { background: var(--primary); color: #fff; border-color: var(--primary); transform: scale(1.1) rotate(-5deg); }
+        .cat-img { width: 36px; height: 36px; object-fit: contain; }
 
-        .card-icon {
-            width: 60px;
-            height: 60px;
-            background: rgba(139, 92, 246, 0.1);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 25px;
-            border: 1px solid rgba(139, 92, 246, 0.2);
+        .card-content { flex: 1; display: flex; flex-direction: column;}
+        .card-title { font-size: 1.5rem; font-weight: 800; margin: 0 0 12px 0; line-height: 1.3;}
+        .card-desc { color: var(--text-dim); font-size: 1.05rem; line-height: 1.6; margin: 0; }
+
+        .card-footer { margin-top: 35px; }
+        .card-btn {
+            width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: #fff;
+            padding: 18px; border-radius: 16px; font-weight: 700; font-size: 1.05rem; cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; justify-content: space-between;
         }
-
-        .card-icon img { width: 32px; height: 32px; object-fit: contain; }
-        .card-icon span { font-size: 1.5rem; }
-
-        .category-card h2 {
-            color: var(--text-light);
-            font-size: 1.6rem;
-            font-weight: 800;
-            margin: 0 0 12px 0;
+        .btn-icon-slide { transition: 0.3s; opacity: 0.5;}
+        
+        .category-card:hover .card-btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            border-color: transparent; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
         }
+        .category-card:hover .btn-icon-slide { transform: translateX(5px); opacity: 1;}
 
-        .category-card p {
-            color: var(--text-dim);
-            font-size: 0.95rem;
-            line-height: 1.6;
-            margin: 0 0 30px 0;
-            flex: 1;
-            font-weight: 400;
-        }
+        .loading-container, .no-results { text-align: center; padding: 100px 20px; color: var(--text-dim); font-size: 1.1rem; border-radius: 32px;}
 
-        .btn-access {
-            background: rgba(139, 92, 246, 0.1);
-            color: #a78bfa;
-            border: 1px solid rgba(139, 92, 246, 0.2);
-            padding: 16px;
-            border-radius: 14px;
-            cursor: pointer;
-            font-weight: 800;
-            font-size: 0.9rem;
-            transition: 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .category-card:hover .btn-access {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
+        /* RESPONSIVIDADE */
         @media (max-width: 1024px) {
-            .main-content {
-                margin-left: 0;
-                padding: 30px 20px 180px 20px; 
-            }
-            .header-section {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .search-box {
-                max-width: 100%;
-            }
+            .main-content { margin-left: 0; padding: 40px 30px 100px 30px; width: 100%; }
+            .hero-content { padding: 40px 25px; }
+            .hero-title { font-size: 2.5rem; }
+            .ai-input-wrapper { flex-direction: column; background: transparent; border: none; padding: 0;}
+            .ai-input { background: rgba(2, 6, 23, 0.6); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px;}
+            .ai-icon { top: 30px; }
+            .ai-submit-btn { padding: 20px; width: 100%; }
+            .section-controls { flex-direction: column; align-items: flex-start; gap: 20px; }
+            .classic-search { max-width: 100%; }
+            .categories-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
         }
 
         @media (max-width: 600px) {
-            .header-titles h1 { font-size: 2rem; }
+            .main-content { padding: 30px 20px 100px 20px; }
+            .hero-title { font-size: 2rem; }
             .categories-grid { grid-template-columns: 1fr; }
-            .category-card { padding: 25px; }
-            .ai-form { flex-direction: column; }
+            .category-card { padding: 30px 25px; }
         }
       `}</style>
     </div>
