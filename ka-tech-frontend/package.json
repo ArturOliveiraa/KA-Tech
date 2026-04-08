@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@jitsi/react-sdk": "^1.4.4",
     "@livekit/components-react": "^2.9.19",
     "@livekit/components-styles": "^1.2.0",

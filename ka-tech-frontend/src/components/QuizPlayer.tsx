@@ -8,14 +8,15 @@ interface Option { id: string; content: string; is_correct: boolean; }
 interface Question { id: string; content: string; options: Option[]; }
 interface QuizData { id: string; title: string; description: string; questions: Question[]; min_score?: number; }
 
-// DEFINIÇÃO DAS PROPS (Para funcionar dentro do Player de Curso)
+// DEFINIÇÃO DAS PROPS ATUALIZADA
 interface QuizPlayerProps {
   courseId?: number;
+  lessonId?: number; // <-- ADICIONADO: Para puxar o quiz da aula exata
   onExit?: () => void;
 }
 
-export default function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
-  const { slug } = useParams(); // Para funcionar via URL direta (/quizzes/slug)
+export default function QuizPlayer({ courseId, lessonId, onExit }: QuizPlayerProps) {
+  const { slug } = useParams(); 
   const navigate = useNavigate();
   
   const [quiz, setQuiz] = useState<QuizData | null>(null);
@@ -33,7 +34,6 @@ export default function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
   const [timeLeft, setTimeLeft] = useState(60); 
   const timerRef = useRef<any>(null);
 
-  // Função para fechar (usa a prop onExit ou volta pro dashboard)
   const handleExit = () => {
     if (onExit) {
       onExit();
@@ -54,9 +54,13 @@ export default function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
           .from("quizzes")
           .select(`id, title, description, min_score, questions (id, content, options (id, content, is_correct))`);
 
-        // LÓGICA DUPLA: Busca por ID de curso OU por Slug da URL
-        if (courseId) {
-          query = query.eq("course_id", courseId).order('created_at', { ascending: false }).limit(1);
+        // --- NOVA LÓGICA DE BUSCA ---
+        if (lessonId) {
+          // Busca o quiz específico daquela aula
+          query = query.eq("lesson_id", lessonId).order('created_at', { ascending: false }).limit(1);
+        } else if (courseId) {
+          // Busca o quiz geral do módulo (garante que não tem lesson_id atrelado)
+          query = query.eq("course_id", courseId).is("lesson_id", null).order('created_at', { ascending: false }).limit(1);
         } else if (slug) {
           query = query.eq("slug", slug);
         } else {
@@ -100,7 +104,7 @@ export default function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
       }
     }
     init();
-  }, [courseId, slug]);
+  }, [courseId, lessonId, slug]); // <-- Adicionado lessonId nas dependências
 
   useEffect(() => {
     if (gameFinished || alreadyAttempted || !quiz || notFound) return;
@@ -256,7 +260,7 @@ export default function QuizPlayer({ courseId, onExit }: QuizPlayerProps) {
 
             <div style={{ padding: '40px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <div style={{ textTransform: 'uppercase', fontSize: '0.8rem', color: '#8b5cf6', fontWeight: 900, marginBottom: '10px' }}>
+                    <div style={{ textTransform: 'uppercase', fontSize: '0.8rem', color: '#8b5cf6', fontWeight: 900, margin: '10px 0' }}>
                         Questão {currentQuestionIndex + 1} de {totalQuestions}
                     </div>
                     <h2 style={{ fontSize: '1.5rem', color: '#fff', fontWeight: 800, margin: 0 }}>{currentQ?.content}</h2>
