@@ -3,10 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext";
+import { 
+  FolderTree, Tags, Tag as TagIcon, Link as LinkIcon, Plus, User, 
+  Trash2, ArrowRight, Settings, Sparkles, Layers, Search, ChevronDown, Check 
+} from "lucide-react";
 
 interface Tag { id: string; name: string; }
 interface Category { id: number; name: string; slug: string; }
-// CORREÇÃO 1: Ajustada interface pois 'email' não vem da tabela profiles
 interface Profile { id: string; full_name: string | null; }
 
 const generateSlug = (text: string) => {
@@ -26,6 +29,14 @@ function Admin() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedTagId, setSelectedTagId] = useState("");
 
+  // Estados para o Custom Dropdown do Colaborador
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+
+  // Estados para o Custom Dropdown do Setor (Tag)
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+
   const navigate = useNavigate();
 
   const fetchTags = useCallback(async () => {
@@ -38,7 +49,6 @@ function Admin() {
     if (data) setCategories(data);
   }, []);
 
-  // CORREÇÃO 2: Removido 'email' do select para evitar o erro 400
   const fetchProfiles = useCallback(async () => {
     const { data, error } = await supabase
       .from("profiles")
@@ -66,22 +76,35 @@ function Admin() {
     }
   }, [contextLoading, userRole, navigate, fetchTags, fetchCategories, fetchProfiles]);
 
+  // Fechar os dropdowns se clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.custom-dropdown-container')) {
+        setIsStudentDropdownOpen(false);
+        setIsTagDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleDeleteTag = async (id: string) => {
     if (userRole !== 'admin') return alert("Apenas administradores podem remover tags.");
-    if (!window.confirm("Deseja remover esta tag?")) return;
+    if (!window.confirm("Deseja realmente remover este Setor (Tag)?")) return;
     await supabase.from("tags").delete().eq("id", id);
     fetchTags();
   };
 
   const handleDeleteCategory = async (id: number) => {
     if (userRole !== 'admin') return alert("Apenas administradores podem remover categorias.");
-    if (!window.confirm("Deseja remover esta trilha?")) return;
+    if (!window.confirm("Deseja realmente remover esta Trilha? Isso não apagará as aulas vinculadas automaticamente, cuidado com os vínculos perdidos!")) return;
     await supabase.from("categories").delete().eq("id", id);
     fetchCategories();
   };
 
   const handleCreateTag = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tagName.trim()) return;
     await supabase.from("tags").upsert([{ name: tagName.toUpperCase().trim() }], { onConflict: 'name' });
     setTagName("");
     fetchTags();
@@ -89,6 +112,7 @@ function Admin() {
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!categoryName.trim()) return;
     const slug = generateSlug(categoryName);
     await supabase.from("categories").insert([{ name: categoryName.trim(), slug }]);
     setCategoryName("");
@@ -98,11 +122,10 @@ function Admin() {
   const handleAssignTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudentId || !selectedTagId) {
-      return alert("Selecione um aluno e uma tag.");
+      return alert("Por favor, selecione um Colaborador e um Setor antes de confirmar.");
     }
 
     try {
-      // Chamada à função RPC que criamos no banco
       const { error } = await supabase.rpc('vincular_tag_aluno', {
         aluno_id: selectedStudentId,
         tag_uuid: selectedTagId
@@ -110,12 +133,9 @@ function Admin() {
 
       if (error) {
         console.error(error);
-        // Tratamento de erro amigável
         alert("Erro ao vincular: " + error.message);
       } else {
-        alert("Tag vinculada com sucesso!");
-        // Limpa apenas o aluno para facilitar inserção em massa na mesma tag, se quiser
-        // Ou limpe ambos:
+        alert("Vínculo realizado com sucesso! ✨");
         setSelectedStudentId("");
         setSelectedTagId("");
       }
@@ -125,252 +145,434 @@ function Admin() {
     }
   };
 
+  // Filtros de perfis e tags para os campos de busca
+  const filteredProfiles = profiles.filter(profile => 
+    (profile.full_name || "Sem nome cadastrado").toLowerCase().includes(studentSearch.toLowerCase())
+  );
+  const selectedStudentName = profiles.find(p => p.id === selectedStudentId)?.full_name || "Selecione o Colaborador...";
+
+  const filteredTags = tags.filter(tag => 
+    tag.name.toLowerCase().includes(tagSearch.toLowerCase())
+  );
+  const selectedTagName = tags.find(t => t.id === selectedTagId)?.name || "Selecione o Setor...";
+
+  if (contextLoading || loadingData) return (
+    <div className="dashboard-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+       <div style={{ textAlign: 'center' }}>
+          <Settings size={44} color="#8b5cf6" style={{ animation: 'spin 3s linear infinite', margin: '0 auto 15px' }} />
+          <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>Carregando Estrutura...</h3>
+          <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+       </div>
+    </div>
+  );
+
   return (
     <div className="dashboard-wrapper">
       <style>{`
         :root { 
-            --primary: #8b5cf6; 
+            --primary: #8b5cf6; --primary-hover: #7c3aed;
             --bg-dark: #020617; 
-            --card-glass: rgba(15, 23, 42, 0.7); 
+            --card-glass: rgba(15, 23, 42, 0.4); 
+            --border: rgba(255, 255, 255, 0.06);
+            --text-muted: #94a3b8;
         }
         
         * { box-sizing: border-box; }
 
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes dropdownFade {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
         .dashboard-wrapper { 
-            display: flex; 
-            width: 100%; 
-            min-height: 100vh; 
-            background: var(--bg-dark); 
-            font-family: 'Sora', sans-serif;
-            overflow-x: hidden;
+            display: flex; width: 100%; min-height: 100vh; 
+            background: var(--bg-dark); font-family: 'Inter', system-ui, sans-serif;
+            overflow-x: hidden; color: #f8fafc;
         }
 
         .dashboard-content { 
-          flex: 1; 
-          margin-left: 260px; 
-          padding: 40px; 
-          transition: 0.3s;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
+          flex: 1; margin-left: 260px; padding: 50px 60px; transition: 0.3s;
+          animation: fadeUp 0.5s ease-out forwards;
         }
 
-        .dashboard-header {
-          display: flex;
-          flex-direction: column;
-          margin-bottom: 40px;
+        /* Cabeçalho */
+        .dashboard-header { margin-bottom: 40px; }
+        .dashboard-header h1 { 
+          color: #fff; font-size: 2.6rem; font-weight: 900; margin: 0 0 8px 0; letter-spacing: -1px; 
+          background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 100%);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
+        .dashboard-header p { color: var(--text-muted); font-size: 1.05rem; margin: 0; font-weight: 500; }
 
-        .dashboard-header h1 { color: #fff; font-size: 2.5rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: -1px; }
-        .dashboard-header p { color: #9ca3af; margin: 0; }
-
-        .nav-card { 
-          background: linear-gradient(135deg, rgba(30, 30, 46, 0.8) 0%, rgba(17, 17, 22, 0.8) 100%); 
-          padding: 40px; border-radius: 24px; text-align: center; border: 1px solid var(--primary); 
-          width: 100%; margin-bottom: 40px; backdrop-filter: blur(10px);
+        /* Banner de Navegação Premium */
+        .cta-banner { 
+          background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.9) 100%); 
+          padding: 40px 45px; border-radius: 28px; border: 1px solid rgba(139, 92, 246, 0.2); 
+          display: flex; align-items: center; justify-content: space-between; gap: 30px;
+          margin-bottom: 50px; 
+          box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+          position: relative; overflow: hidden; backdrop-filter: blur(20px);
         }
+        .cta-banner::before {
+          content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+          background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 50%);
+          pointer-events: none;
+        }
+        .cta-text h2 { color: #fff; font-size: 1.7rem; font-weight: 800; margin: 0 0 8px 0; letter-spacing: -0.5px; }
+        .cta-text p { color: var(--text-muted); font-size: 1.05rem; margin: 0; line-height: 1.5; }
+        
+        .btn-cta { 
+          background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); 
+          color: #fff; padding: 16px 36px; border-radius: 18px; border: none; font-weight: 800; 
+          cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+          display: inline-flex; align-items: center; gap: 10px;
+          white-space: nowrap; font-size: 1.05rem; 
+          box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+          z-index: 2;
+        }
+        .btn-cta:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(139, 92, 246, 0.5), inset 0 1px 0 rgba(255,255,255,0.3); }
+        .btn-cta:active { transform: translateY(0); }
 
-        .admin-content-container { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 25px; 
-            width: 100%;
+        /* Grid de Cards */
+        .admin-grid { 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; 
         }
         
-        .admin-card-local { 
-          background: var(--card-glass); 
-          border-radius: 24px; 
-          padding: 30px; 
-          flex: 1 1 400px; 
-          max-width: 100%;
-          border: 1px solid rgba(255, 255, 255, 0.05); 
-          box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-          backdrop-filter: blur(12px);
+        .glass-card { 
+          background: var(--card-glass); border-radius: 28px; padding: 40px; 
+          border: 1px solid var(--border); 
+          box-shadow: 0 20px 40px -10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+          backdrop-filter: blur(20px); display: flex; flex-direction: column;
+          position: relative; overflow: visible; 
         }
+        .card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 30px; position: relative; z-index: 2; }
+        .card-header h2 { color: #fff; font-size: 1.5rem; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
 
-        .local-input-wrapper { position: relative; display: flex; align-items: center; margin-bottom: 20px; width: 100%; }
-        .local-input-wrapper span { position: absolute; left: 18px; font-size: 1.2rem; z-index: 5; pointer-events: none; }
+        /* Inputs e Forms */
+        .input-group { position: relative; margin-bottom: 24px; width: 100%; z-index: 2; }
+        .input-icon { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: #64748b; display: flex; transition: 0.3s; z-index: 3; pointer-events: none;}
         
-        .local-input-wrapper input,
-        .local-input-wrapper select { 
-          width: 100%; background-color: #020617; color: white; border: 1px solid rgba(139, 92, 246, 0.2); 
-          border-radius: 14px; padding: 18px 18px 18px 55px; outline: none; transition: 0.3s;
-          font-family: 'Sora'; font-size: 1rem; appearance: none;
+        .form-input { 
+          width: 100%; background-color: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.05); 
+          border-radius: 18px; padding: 20px 20px 20px 60px; outline: none; transition: all 0.3s ease;
+          font-family: 'Inter', sans-serif; font-size: 1.05rem; appearance: none;
         }
+        .form-input::placeholder { color: #475569; }
         
-        .select-arrow {
-            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%238b5cf6%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-            background-repeat: no-repeat;
-            background-position: right 15px center;
-            background-size: 12px;
+        .form-input:focus { 
+          border-color: var(--primary); background: rgba(139, 92, 246, 0.03); 
+          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15); 
         }
+        .form-input:focus + .input-icon { color: var(--primary); }
 
-        .local-input-wrapper input:focus,
-        .local-input-wrapper select:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
-
-        .local-primary-button { 
-          width: 100%; padding: 18px; border-radius: 16px; border: none; 
-          background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); 
-          color: #fff; font-weight: 800; cursor: pointer; transition: 0.3s;
-          text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem;
+        /* ESTILOS DO DROPDOWN CUSTOMIZADO (COMBOBOX) */
+        .custom-dropdown-container { position: relative; width: 100%; margin-bottom: 24px; z-index: 50; }
+        .dropdown-trigger {
+          width: 100%; background-color: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.05); 
+          border-radius: 18px; padding: 20px 20px 20px 60px; transition: all 0.3s ease;
+          font-family: 'Inter', sans-serif; font-size: 1.05rem; display: flex; align-items: center; justify-content: space-between;
+          cursor: pointer; text-align: left;
         }
-        .local-primary-button:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4); }
-
-        .tag-badge { 
-          background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); 
-          padding: 12px 18px; border-radius: 12px; font-size: 0.85rem; color: #a78bfa; 
-          font-weight: 700; display: flex; align-items: center; gap: 10px;
+        .dropdown-trigger:hover, .dropdown-trigger.open {
+          border-color: var(--primary); background: rgba(139, 92, 246, 0.03);
+          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15);
         }
-        .btn-delete-pill { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.4rem; line-height: 1; padding: 0; }
+        .dropdown-trigger .placeholder { color: #94a3b8; }
+        
+        .dropdown-menu {
+          position: absolute; top: calc(100% + 8px); left: 0; width: 100%;
+          background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+          box-shadow: 0 15px 40px rgba(0,0,0,0.6); overflow: hidden;
+          animation: dropdownFade 0.2s ease-out; z-index: 100;
+        }
+        .dropdown-search-box {
+          padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+          position: relative; background: #0f172a;
+        }
+        .dropdown-search-icon {
+          position: absolute; left: 24px; top: 50%; transform: translateY(-50%); color: #64748b;
+        }
+        .dropdown-search-input {
+          width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px; padding: 12px 12px 12px 40px; color: #fff; outline: none; font-size: 0.95rem;
+        }
+        .dropdown-search-input:focus { border-color: var(--primary); }
+        
+        .dropdown-list { max-height: 250px; overflow-y: auto; padding: 8px; }
+        .dropdown-list::-webkit-scrollbar { width: 6px; }
+        .dropdown-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .dropdown-item {
+          padding: 12px 16px; border-radius: 10px; cursor: pointer; color: #cbd5e1;
+          transition: 0.2s; display: flex; align-items: center; justify-content: space-between;
+          font-size: 0.95rem;
+        }
+        .dropdown-item:hover { background: rgba(139, 92, 246, 0.1); color: #fff; }
+        .dropdown-item.selected { background: var(--primary); color: #fff; font-weight: 600; }
 
-        .loading-container { display: flex; justify-content: center; align-items: center; height: 60vh; width: 100%; color: var(--primary); font-weight: 800; font-size: 1.2rem; }
+        /* Botoes e Pilulas */
+        .btn-submit { 
+          width: 100%; padding: 20px; border-radius: 16px; border: none; 
+          background: rgba(255,255,255,0.03); color: #fff; font-weight: 800; cursor: pointer; transition: 0.3s;
+          display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--border);
+          font-size: 1.05rem; z-index: 2; position: relative;
+        }
+        .btn-submit:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .btn-submit:active { transform: translateY(0); }
+
+        .pill-container { margin-top: 35px; display: flex; flex-wrap: wrap; gap: 12px; position: relative; z-index: 2; }
+        
+        .data-pill { 
+          background: rgba(2, 6, 23, 0.6); border: 1px solid var(--border); 
+          padding: 10px 16px; border-radius: 14px; font-size: 0.9rem; color: #e2e8f0; 
+          font-weight: 600; display: inline-flex; align-items: center; gap: 10px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative; overflow: hidden;
+        }
+        .data-pill:hover { border-color: rgba(255,255,255,0.15); background: rgba(30, 41, 59, 0.9); padding-right: 42px; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        
+        .data-pill.category:hover { border-color: rgba(52, 211, 153, 0.4); }
+        .data-pill.tag:hover { border-color: rgba(139, 92, 246, 0.4); }
+        
+        .btn-delete-pill { 
+          position: absolute; right: -40px; top: 0; bottom: 0; width: 40px;
+          background: rgba(239, 68, 68, 0.15); border: none; color: #f87171; 
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: 0.3s; opacity: 0;
+        }
+        .btn-delete-pill:hover { background: #ef4444; color: #fff; }
+        .data-pill:hover .btn-delete-pill { right: 0; opacity: 1; }
 
         @media (max-width: 1024px) {
-          .dashboard-content { 
-              margin-left: 0; 
-              padding: 40px 20px 150px 20px; 
-          }
-          .dashboard-header { 
-            text-align: center;
-            align-items: center;
-            margin-top: 20px;
-          }
-          .dashboard-header h1 { 
-            font-size: 2.2rem; 
-            width: 100%;
-          }
-          .dashboard-header p {
-            width: 100%;
-          }
-          .admin-card-local { flex: 1 1 100%; }
+          .dashboard-content { margin-left: 0; padding: 40px 20px; }
+          .cta-banner { flex-direction: column; text-align: center; padding: 30px 20px; }
+          .cta-banner .btn-cta { width: 100%; justify-content: center; }
+          .glass-card { padding: 30px 20px; }
         }
       `}</style>
 
       <Sidebar />
 
       <main className="dashboard-content">
-        {(contextLoading || loadingData) ? (
-          <div className="loading-container">Sincronizando portal administrativo...</div>
-        ) : (
-          <>
-            <header className="dashboard-header">
-              <h1>Gestão de Estrutura</h1>
-              <p>Gerencie as Trilhas, Tags e <strong style={{ color: '#8b5cf6' }}>Atribuições</strong> da plataforma KA Tech.</p>
-            </header>
+        <header className="dashboard-header">
+          <h1>Painel do Admin</h1>
+          <p>Organize categorias, setores e gerencie os acessos do seu time com precisão.</p>
+        </header>
 
-            <div className="nav-card">
-              <h2 style={{ color: '#fff', fontSize: '1.8rem', fontWeight: 800, marginBottom: '15px' }}>Lançar Cursos e Aulas</h2>
-              <p style={{ color: '#9ca3af', marginBottom: '30px', fontSize: '1.1rem' }}>Os dados abaixo alimentam a estrutura de cadastro de novos conteúdos.</p>
-              <button
-                onClick={() => navigate("/admin/gestao-conteudo")}
-                className="local-primary-button"
-                style={{ maxWidth: '400px', margin: '0 auto' }}
-              >
-                Ir para Cadastro de Cursos →
+        {/* CTA BANNER: Chamada para a Gestão de Aulas */}
+        <div className="cta-banner">
+          <div className="cta-text">
+            <h2>Gestão de Trilhas & Aulas</h2>
+            <p>Monte o conteúdo da plataforma, edite vídeos, inteligência artificial e gamificação em um só lugar.</p>
+          </div>
+          <button onClick={() => navigate("/admin/gestao-conteudo")} className="btn-cta">
+            Acessar Gerenciador <ArrowRight size={20} />
+          </button>
+        </div>
+
+        <div className="admin-grid">
+          
+          {/* CARD 1: TRILHAS (CATEGORIAS) */}
+          <div className="glass-card">
+            <div className="card-header">
+              <Layers size={30} color="#34d399" />
+              <h2>Categorias</h2>
+            </div>
+            
+            <form onSubmit={handleCreateCategory}>
+              <div className="input-group">
+                <input 
+                  type="text" className="form-input" placeholder="Nova Categoria (Ex: Vendas)" 
+                  value={categoryName} onChange={(e) => setCategoryName(e.target.value)} required 
+                />
+                <div className="input-icon"><FolderTree size={22} /></div>
+              </div>
+              <button className="btn-submit" type="submit"><Plus size={20} /> Adicionar Categoria</button>
+            </form>
+
+            <div className="pill-container">
+              {categories.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Nenhuma categoria criada.</span>}
+              {categories.map(cat => (
+                <div key={cat.id} className="data-pill category">
+                  <span>{cat.name}</span>
+                  {userRole === 'admin' && (
+                    <button className="btn-delete-pill" onClick={() => handleDeleteCategory(cat.id)} title="Excluir Categoria">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CARD 2: TAGS (SETORES) */}
+          <div className="glass-card">
+            <div className="card-header">
+              <Tags size={30} color="var(--primary)" />
+              <h2>Setores (Tags)</h2>
+            </div>
+            
+            <form onSubmit={handleCreateTag}>
+              <div className="input-group">
+                <input 
+                  type="text" className="form-input" placeholder="Novo Setor (Ex: COMERCIAL)" 
+                  value={tagName} onChange={(e) => setTagName(e.target.value)} required 
+                />
+                <div className="input-icon"><TagIcon size={22} /></div>
+              </div>
+              <button className="btn-submit" type="submit"><Plus size={20} /> Adicionar Setor</button>
+            </form>
+
+            <div className="pill-container">
+              {tags.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>Nenhuma tag criada.</span>}
+              {tags.map(tag => (
+                <div key={tag.id} className="data-pill tag">
+                  <span>{tag.name}</span>
+                  {userRole === 'admin' && (
+                    <button className="btn-delete-pill" onClick={() => handleDeleteTag(tag.id)} title="Excluir Setor">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CARD 3: VÍNCULOS (ATRIBUIÇÕES) */}
+          <div className="glass-card" style={{ border: '1px solid rgba(139, 92, 246, 0.25)' }}>
+            <div style={{ position: 'absolute', top: '-10%', right: '-10%', padding: '20px', opacity: 0.05, pointerEvents: 'none' }}>
+              <Sparkles size={180} />
+            </div>
+            
+            <div className="card-header">
+              <LinkIcon size={30} color="#60a5fa" />
+              <h2>Atribuir Acessos</h2>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginBottom: '30px', position: 'relative', zIndex: 2, lineHeight: '1.5' }}>
+              Vincule um Colaborador a um Setor específico para liberar permissões exclusivas ou segmentar análises no dashboard.
+            </p>
+
+            <form onSubmit={handleAssignTag} style={{ position: 'relative', zIndex: 2 }}>
+              
+              {/* SELECT CUSTOMIZADO (COLABORADOR COM BUSCA) */}
+              <div className="custom-dropdown-container">
+                <button 
+                  type="button"
+                  className={`dropdown-trigger ${isStudentDropdownOpen ? 'open' : ''}`}
+                  onClick={() => {
+                    setIsStudentDropdownOpen(!isStudentDropdownOpen);
+                    setIsTagDropdownOpen(false); // Fecha o outro se estiver aberto
+                  }}
+                >
+                  <div className="input-icon" style={{ left: '20px' }}><User size={22} /></div>
+                  <span className={selectedStudentId ? "" : "placeholder"}>{selectedStudentName}</span>
+                  <ChevronDown size={20} color="#94a3b8" style={{ transition: '0.3s', transform: isStudentDropdownOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                </button>
+
+                {isStudentDropdownOpen && (
+                  <div className="dropdown-menu">
+                    <div className="dropdown-search-box">
+                      <Search size={18} className="dropdown-search-icon" />
+                      <input 
+                        autoFocus
+                        type="text" 
+                        className="dropdown-search-input" 
+                        placeholder="Buscar colaborador..."
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="dropdown-list">
+                      {filteredProfiles.length === 0 ? (
+                        <div style={{ padding: '15px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>Nenhum colaborador encontrado.</div>
+                      ) : (
+                        filteredProfiles.map(profile => (
+                          <div 
+                            key={profile.id} 
+                            className={`dropdown-item ${selectedStudentId === profile.id ? 'selected' : ''}`}
+                            onClick={() => {
+                              setSelectedStudentId(profile.id);
+                              setIsStudentDropdownOpen(false);
+                              setStudentSearch("");
+                            }}
+                          >
+                            {profile.full_name || "Sem nome cadastrado"}
+                            {selectedStudentId === profile.id && <Check size={18} />}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SELECT CUSTOMIZADO (SETOR/TAG COM BUSCA) */}
+              <div className="custom-dropdown-container" style={{ zIndex: 49 }}>
+                <button 
+                  type="button"
+                  className={`dropdown-trigger ${isTagDropdownOpen ? 'open' : ''}`}
+                  onClick={() => {
+                    setIsTagDropdownOpen(!isTagDropdownOpen);
+                    setIsStudentDropdownOpen(false); // Fecha o outro se estiver aberto
+                  }}
+                >
+                  <div className="input-icon" style={{ left: '20px' }}><TagIcon size={22} /></div>
+                  <span className={selectedTagId ? "" : "placeholder"}>{selectedTagName}</span>
+                  <ChevronDown size={20} color="#94a3b8" style={{ transition: '0.3s', transform: isTagDropdownOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                </button>
+
+                {isTagDropdownOpen && (
+                  <div className="dropdown-menu">
+                    <div className="dropdown-search-box">
+                      <Search size={18} className="dropdown-search-icon" />
+                      <input 
+                        autoFocus
+                        type="text" 
+                        className="dropdown-search-input" 
+                        placeholder="Buscar setor..."
+                        value={tagSearch}
+                        onChange={(e) => setTagSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="dropdown-list">
+                      {filteredTags.length === 0 ? (
+                        <div style={{ padding: '15px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>Nenhum setor encontrado.</div>
+                      ) : (
+                        filteredTags.map(tag => (
+                          <div 
+                            key={tag.id} 
+                            className={`dropdown-item ${selectedTagId === tag.id ? 'selected' : ''}`}
+                            onClick={() => {
+                              setSelectedTagId(tag.id);
+                              setIsTagDropdownOpen(false);
+                              setTagSearch("");
+                            }}
+                          >
+                            {tag.name}
+                            {selectedTagId === tag.id && <Check size={18} />}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button className="btn-submit" type="submit" style={{ 
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', 
+                borderColor: 'transparent', marginTop: '15px', color: '#fff',
+                boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)'
+              }}>
+                <LinkIcon size={20} /> Confirmar Vínculo
               </button>
-            </div>
+            </form>
+          </div>
 
-            <div className="admin-content-container">
-              {/* CARD 1: TRILHAS */}
-              <div className="admin-card-local">
-                <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  📁 Trilhas (Categorias)
-                </h2>
-                <form onSubmit={handleCreateCategory}>
-                  <div className="local-input-wrapper">
-                    <span>📝</span>
-                    <input type="text" placeholder="Nome da Trilha" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} required />
-                  </div>
-                  <button className="local-primary-button" type="submit">Criar Trilha</button>
-                </form>
-                <div style={{ marginTop: '30px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                  {categories.map(cat => (
-                    <span key={cat.id} className="tag-badge" style={{ borderColor: 'rgba(34, 197, 94, 0.4)', color: '#4ade80' }}>
-                      {cat.name}
-                      {userRole === 'admin' && (
-                        <button className="btn-delete-pill" onClick={() => handleDeleteCategory(cat.id)} title="Remover Trilha">&times;</button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* CARD 2: CRIAR TAGS */}
-              <div className="admin-card-local">
-                <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  🏷️ Tags (Setor)
-                </h2>
-                <form onSubmit={handleCreateTag}>
-                  <div className="local-input-wrapper">
-                    <span>🖋️</span>
-                    <input type="text" placeholder="Nome da Tag" value={tagName} onChange={(e) => setTagName(e.target.value)} required />
-                  </div>
-                  <button className="local-primary-button" type="submit">Criar Tag</button>
-                </form>
-                <div style={{ marginTop: '30px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                  {tags.map(tag => (
-                    <span key={tag.id} className="tag-badge">
-                      {tag.name}
-                      {userRole === 'admin' && (
-                        <button className="btn-delete-pill" onClick={() => handleDeleteTag(tag.id)} title="Remover Tag">&times;</button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* CARD 3: ATRIBUIR TAGS */}
-              <div className="admin-card-local" style={{ borderColor: 'rgba(139, 92, 246, 0.3)' }}>
-                <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  🔗 Atribuir Tags a Alunos
-                </h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>
-                  Vincule alunos a setores específicos (ex: Franquia) para segmentar relatórios.
-                </p>
-                <form onSubmit={handleAssignTag}>
-                  {/* Select Aluno */}
-                  <div className="local-input-wrapper">
-                    <span>👤</span>
-                    <select
-                      className="select-arrow"
-                      value={selectedStudentId}
-                      onChange={(e) => setSelectedStudentId(e.target.value)}
-                      required
-                    >
-                      <option value="" disabled>Selecione o Aluno...</option>
-                      {profiles.map(profile => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.full_name || "Aluno sem nome"}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Select Tag */}
-                  <div className="local-input-wrapper">
-                    <span>🏷️</span>
-                    <select
-                      className="select-arrow"
-                      value={selectedTagId}
-                      onChange={(e) => setSelectedTagId(e.target.value)}
-                      required
-                    >
-                      <option value="" disabled>Selecione a Tag...</option>
-                      {tags.map(tag => (
-                        <option key={tag.id} value={tag.id}>
-                          {tag.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button className="local-primary-button" type="submit">Vincular Tag</button>
-                </form>
-              </div>
-
-            </div>
-          </>
-        )}
+        </div>
       </main>
     </div>
   );
