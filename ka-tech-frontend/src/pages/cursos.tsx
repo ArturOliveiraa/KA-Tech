@@ -53,7 +53,7 @@ function Cursos() {
           const { data: enrollments } = await supabase
             .from("course_enrollments")
             .select(`courses (slug)`)
-            .eq("userId", user.id);
+            .eq("user_id", user.id);
 
           if (enrollments) {
             const slugs = enrollments.map((e: any) => e.courses?.slug).filter(Boolean);

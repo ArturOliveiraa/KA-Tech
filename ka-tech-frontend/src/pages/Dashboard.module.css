@@ -1,182 +1,687 @@
-/* src/pages/Dashboard.module.css */
+/* =============================================================
+   Dashboard.module.css — fonte única de estilos do Dashboard
+   O bloco <style> dentro de Dashboard.tsx foi removido.
+   ============================================================= */
 
-/* VARIÁVEIS GERAIS */
+/* -------------------------------------------------------------
+   TOKENS / VARIÁVEIS
+   ------------------------------------------------------------- */
 :root {
-    --primary: #8b5cf6;
-    --primary-hover: #7c3aed;
-    --bg-main: #020617;
-    --bg-card: #09090b;
-    --bg-card-hover: #131316;
-    --text-light: #fff;
-    --text-dim: #94a3b8;
-    --track-bg: #1e1b4b;
+  --primary:          #8b5cf6;
+  --primary-hover:    #7c3aed;
+  --bg-dark:          #020617;
+  --bg-card:          rgba(15, 23, 42, 0.4);
+  --bg-card-solid:    #09090b;
+  --bg-card-hover:    #131316;
+  --border-subtle:    rgba(255, 255, 255, 0.08);
+  --border-top:       rgba(255, 255, 255, 0.12);
+  --text-light:       #f8fafc;
+  --text-dim:         #94a3b8;
+  --track-bg:         rgba(0, 0, 0, 0.4);
+
+  --sidebar-width:    260px;
+  --content-padding:  60px;
+  --radius-card:      20px;
+  --radius-banner:    32px;
+
+  --recent-grid-min:  300px;
+  --all-grid-min:     400px;
+  --max-recent:       3;        /* controla .slice() no TSX via constante */
 }
 
+
+/* -------------------------------------------------------------
+   ANIMAÇÕES
+   ------------------------------------------------------------- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spinSlow {
+  to { transform: rotate(360deg); }
+}
+
+
+/* -------------------------------------------------------------
+   UTILITÁRIOS GLOBAIS
+   ------------------------------------------------------------- */
+.textPrimary   { color: var(--primary); }
+.textGradient  {
+  background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.spinSlow      { animation: spinSlow 4s linear infinite; }
+
+
+/* -------------------------------------------------------------
+   LAYOUT PRINCIPAL
+   ------------------------------------------------------------- */
 .dashboardWrapper {
-    display: flex; width: 100%; min-height: 100vh;
-    background-color: var(--bg-main); font-family: 'Sora', sans-serif;
-    position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  background-color: var(--bg-dark);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow-x: hidden;
+  color: var(--text-light);
+  box-sizing: border-box;
 }
 
 .dashboardContent {
-    flex: 1; padding: 30px 50px; margin-left: 260px;
-    width: 100%; overflow-x: hidden;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  padding: 50px var(--content-padding) 100px var(--content-padding);
+  width: calc(100% - var(--sidebar-width));
+  box-sizing: border-box;
 }
 
-/* DESKTOP DEFAULTS */
-.brandLogoContainer { display: none; }
-.headerContainer { margin-bottom: 40px; }
-.headerContainer h1 { color: var(--text-light); font-size: 2rem; font-weight: 800; }
-.headerContainer p { color: var(--text-dim); margin-top: 8px; font-size: 1.1rem; }
-
-/* GRID DE CARDS SUPERIORES */
-.dashboardGrid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 30px; margin-bottom: 50px;
+/* Fundo decorativo */
+.ambientBg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-.premiumCard {
-    background: var(--bg-card); border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px; overflow: hidden; transition: all 0.3s ease;
-    cursor: pointer; display: flex; flex-direction: column;
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-}
-.premiumCard:hover { transform: translateY(-5px); border-color: var(--primary); }
-
-.thumbBox { width: 100%; height: 180px; background: #000; position: relative; }
-.thumbBox img { width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
-
-.cardBody { padding: 24px; display: flex; flex-direction: column; flex: 1; }
-.cardBody h3 { color: var(--text-light); font-size: 1.2rem; margin-bottom: 20px; font-weight: 700; line-height: 1.3; flex-grow: 1; }
-
-.progressBlock { margin-bottom: 25px; }
-.progressLabel { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; }
-.progressTrack { width: 100%; height: 8px; background: var(--track-bg); border-radius: 99px; overflow: hidden; }
-.progressFill { height: 100%; background: linear-gradient(90deg, #8b5cf6, #d946ef); border-radius: 99px; transition: width 0.6s ease; }
-
-.btnMain { width: 100%; background: var(--primary); color: var(--text-light); border: none; padding: 14px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: all 0.2s; text-transform: uppercase; font-size: 0.85rem; }
-
-/* =========================================
-   LISTA DE CURSOS (DESKTOP)
-   ========================================= */
-.tableSection { margin-top: 50px; }
-.tableSection h2 { color: var(--text-light); font-size: 1.5rem; margin-bottom: 25px; }
-
-.listContainer { background: var(--bg-card); border-radius: 24px; padding: 10px 30px; border: 1px solid rgba(255, 255, 255, 0.05); }
-.customTable { width: 100%; border-collapse: separate; border-spacing: 0 10px; color: var(--text-light); }
-
-.customTable th { text-align: left; color: var(--text-dim); font-weight: 600; padding: 10px 20px; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
-
-.customTable tbody tr { background: transparent; transition: background 0.2s, transform 0.2s; border-radius: 16px; }
-.customTable tbody tr:hover { background: var(--bg-card-hover); transform: scale(1.005); }
-
-/* Células Desktop */
-.customTable td { padding: 12px 20px; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.03); }
-.customTable tr:last-child td { border-bottom: none; }
-
-/* 1. Imagem Desktop (Controlada para não ficar gigante) */
-.courseThumb {
-    width: 56px; 
-    height: 56px; 
-    border-radius: 12px;
-    object-fit: cover;
-    display: block;
-    background: #1e1b4b; /* Placeholder bg */
+.ambientBlob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  opacity: 0.15;
 }
 
-/* 2. Conteúdo Central Desktop (Título + Barra) */
-.desktopInfo { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-.desktopTitle { font-weight: 700; font-size: 1rem; color: #fff; line-height: 1.2; }
-
-/* 3. Botão Play Desktop (Redondo) */
-.btnPlayDesktop {
-    width: 48px; height: 48px; border-radius: 50%;
-    background: var(--bg-card-hover); 
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    color: var(--primary);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.2s;
-    margin-left: auto; /* Empurra para direita */
+.blob1 {
+  top: -10%;
+  left: 10%;
+  width: 40vw;
+  height: 40vw;
+  background: var(--primary);
 }
-.btnPlayDesktop:hover {
-    background: var(--primary); color: #fff; border-color: var(--primary); transform: scale(1.1);
-    box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+
+.blob2 {
+  bottom: -20%;
+  right: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: #0ea5e9;
 }
-.btnPlayDesktop svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
-
-/* Utilitários de Visibilidade */
-.desktopOnly { display: block; }
-.mobileOnly { display: none !important; }
 
 
-/* =========================================
-   📱 MOBILE & TABLET (100% PRESERVADO)
-   ========================================= */
+/* -------------------------------------------------------------
+   GLASS PANEL (reutilizável)
+   ------------------------------------------------------------- */
+.glassPanel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-top-color: var(--border-top);
+}
+
+
+/* -------------------------------------------------------------
+   LOGO MOBILE
+   ------------------------------------------------------------- */
+.brandLogoMobile {
+  display: none;
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.brandLogoMobile img {
+  height: 50px;
+  object-fit: contain;
+}
+
+
+/* -------------------------------------------------------------
+   HEADER
+   ------------------------------------------------------------- */
+.heroHeader {
+  margin-bottom: 40px;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  font-weight: 900;
+  margin: 0 0 5px;
+  letter-spacing: -1px;
+  color: #fff;
+}
+
+.heroSubtitle {
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+
+/* -------------------------------------------------------------
+   1. BANNER DE DESTAQUE
+   ------------------------------------------------------------- */
+.featuredBanner {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  border-radius: var(--radius-banner);
+  overflow: hidden;
+  margin-bottom: 40px;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s;
+  display: flex;
+  align-items: flex-end;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+  animation: fadeUp 0.6s ease-out both;
+}
+
+.featuredBanner:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.7);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.featuredBg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(5px) brightness(0.8);
+  transform: scale(1.05);
+  transition: filter 0.8s, transform 0.8s;
+}
+
+.featuredBanner:hover .featuredBg {
+  filter: blur(2px) brightness(1);
+  transform: scale(1.08);
+}
+
+.featuredOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(2, 6, 23, 1)   0%,
+    rgba(2, 6, 23, 0.6) 50%,
+    transparent         100%
+  );
+}
+
+.featuredContent {
+  position: relative;
+  z-index: 2;
+  padding: 40px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.featuredBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+}
+
+.featuredTitle {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #fff;
+  margin: 0 0 20px;
+  line-height: 1.2;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.featuredProgressWrapper {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 25px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.featuredPercent {
+  font-weight: 700;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.btnFeaturedPlay {
+  background: #fff;
+  color: #000;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 16px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
+}
+
+.featuredBanner:hover .btnFeaturedPlay {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
+}
+
+
+/* -------------------------------------------------------------
+   SEÇÕES
+   ------------------------------------------------------------- */
+.sectionBlock {
+  margin-bottom: 50px;
+}
+
+.sectionBlockSpaced {
+  margin-bottom: 50px;
+  margin-top: 50px;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.3px;
+}
+
+
+/* -------------------------------------------------------------
+   2. GRID DE RECENTES
+   ------------------------------------------------------------- */
+.recentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--recent-grid-min), 1fr));
+  gap: 24px;
+}
+
+.recentCard {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  animation: fadeUp 0.5s ease-out both;
+}
+
+.recentCard:hover {
+  transform: translateY(-5px);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+}
+
+.recentThumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+.recentThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.8;
+  transition: transform 0.5s, opacity 0.5s;
+}
+
+.recentCard:hover .recentThumb img {
+  transform: scale(1.05);
+  opacity: 1;
+}
+
+.thumbOverlayDark {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 1;
+  transition: background 0.3s;
+}
+
+.recentCard:hover .thumbOverlayDark {
+  background: rgba(0, 0, 0, 0);
+}
+
+.playIconCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  opacity: 0.5;
+  transition: opacity 0.3s, transform 0.3s, color 0.3s;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.recentCard:hover .playIconCenter {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.1);
+  color: var(--primary);
+}
+
+.recentInfo {
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.recentTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 15px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recentPercent {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+
+/* -------------------------------------------------------------
+   3. GRID DE TODOS OS CURSOS
+   ------------------------------------------------------------- */
+.allCoursesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--all-grid-min), 1fr));
+  gap: 20px;
+}
+
+.listCard {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: transform 0.3s ease, border-color 0.3s ease,
+              background 0.3s ease, box-shadow 0.3s ease;
+  animation: fadeUp 0.5s ease-out both;
+}
+
+.listCard:hover {
+  transform: translateX(5px);
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(30, 41, 59, 0.6);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.listThumb {
+  width: 90px;
+  height: 60px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.listThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.listCard:hover .listThumb img {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.listInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.listTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listProgressArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 250px;
+}
+
+.listPercent {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  min-width: 35px;
+}
+
+.listAction {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 10px;
+}
+
+.btnCirclePlay {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.3s, transform 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.listCard:hover .btnCirclePlay {
+  color: var(--primary);
+  transform: translateX(5px);
+}
+
+
+/* -------------------------------------------------------------
+   BARRAS DE PROGRESSO
+   ------------------------------------------------------------- */
+.progressTrack {
+  background: var(--track-bg);
+  border-radius: 99px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progressTrackFeatured { height: 8px; flex: 1; }
+.progressTrackCompact  { height: 4px; margin-bottom: 8px; }
+.progressTrackList     { height: 4px; flex: 1; }
+
+.progressFill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+
+/* -------------------------------------------------------------
+   ESTADOS: LOADING / VAZIO / ERRO
+   ------------------------------------------------------------- */
+.loadingState {
+  text-align: center;
+  padding: 60px 20px;
+  border-radius: 24px;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 100px 20px;
+  border-radius: var(--radius-banner);
+  border-style: dashed;
+}
+
+.emptyStateTitle {
+  color: #fff;
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+  font-weight: 800;
+}
+
+.emptyStateText {
+  color: var(--text-dim);
+  max-width: 450px;
+  margin: 0 auto 30px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #ef4444;
+  text-align: center;
+  margin-left: var(--sidebar-width);
+  padding: 60px 20px;
+}
+
+.errorState h3 { margin: 0; font-size: 1.3rem; }
+.errorState p  { margin: 0; color: var(--text-dim); }
+
+
+/* -------------------------------------------------------------
+   BOTÕES
+   ------------------------------------------------------------- */
+.btnPrimaryLarge {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  color: #fff;
+  border: none;
+  padding: 18px 36px;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s, filter 0.3s;
+  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
+}
+
+.btnPrimaryLarge:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px rgba(139, 92, 246, 0.5);
+  filter: brightness(1.1);
+}
+
+.btnRetry {
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  padding: 10px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btnRetry:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+
+/* -------------------------------------------------------------
+   RESPONSIVIDADE
+   ------------------------------------------------------------- */
 @media (max-width: 1024px) {
-    .dashboardContent { margin-left: 0; padding: 20px 20px 140px 20px; min-height: 100vh; }
-    
-    .brandLogoContainer { display: flex; justify-content: center; margin-bottom: 20px; }
-    .brandLogoContainer img { width: 150px; height: auto; }
-    .headerContainer { text-align: center; margin-bottom: 30px; }
-    
-    .dashboardGrid { gap: 20px; }
-    .thumbBox { height: 160px; }
+  .dashboardContent {
+    margin-left: 0;
+    padding: 40px 30px 120px 30px;
+    width: 100%;
+  }
 
-    /* LISTA MOBILE */
-    .tableSection h2 { font-size: 1.3rem; margin-left: 5px; margin-bottom: 15px; }
-    .listContainer { background: transparent; border: none; padding: 0; }
-    
-    .customTable, .customTable tbody { display: block; width: 100%; }
-    .customTable thead { display: none; }
+  .errorState { margin-left: 0; }
 
-    /* CARD GRID MOBILE */
-    .customTable tbody tr {
-        display: grid;
-        grid-template-columns: 70px 1fr 50px; /* Layout Aprovado */
-        gap: 15px;
-        align-items: center;
-        background: var(--bg-card);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 12px;
-        margin-bottom: 12px;
-    }
-    .customTable tbody tr:hover { background: var(--bg-card); transform: none; } /* Remove hover effect desktop no mobile */
+  .featuredBanner { height: 320px; }
+  .featuredContent { padding: 30px; }
+  .featuredTitle   { font-size: 2rem; }
 
-    /* Reset styles de célula */
-    .customTable td { border: none !important; padding: 0 !important; }
+  .allCoursesGrid  { grid-template-columns: 1fr; }
+}
 
-    /* 1. IMAGEM MOBILE */
-    .customTable td:first-child { display: flex; justify-content: center; align-items: center; height: 100%; }
-    .courseThumb {
-        width: 60px; height: 60px; /* Mobile size */
-        border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-    
-    /* 2. CONTEÚDO CENTRAL */
-    .customTable td:nth-child(2) { display: flex; flex-direction: column; justify-content: center; gap: 8px; width: 100%; }
-    
-    /* Troca visibilidade */
-    .desktopOnly { display: none !important; }
-    .mobileOnly { display: block !important; }
+@media (max-width: 600px) {
+  .dashboardContent { padding: 30px 20px 100px 20px; }
 
-    /* Estilo do título Mobile (igual ao que estava) */
-    .mobileTitleText {
-        font-size: 0.95rem; font-weight: 700; color: #fff; line-height: 1.2;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
+  .brandLogoMobile { display: flex; }
 
-    .customTable td:nth-child(2) > div { display: flex; align-items: center; gap: 10px; width: 100%; }
-    .progressTrack.compact { height: 5px; width: 100%; background: #27272a; margin: 0; }
-    .percentageCompact { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); }
+  .pageTitle { font-size: 2.2rem; }
 
-    /* 3. BOTÃO PLAY MOBILE */
-    .customTable td:last-child { display: flex; justify-content: flex-end; align-items: center; }
+  .featuredBanner  { height: auto; min-height: 300px; }
+  .featuredContent { padding: 25px 20px; }
+  .featuredTitle   { font-size: 1.6rem; }
 
-    /* Reusa o estilo do botão desktop mas ajusta tamanho se precisar, ou cria um especifico mobile */
-    .btnPlayDesktop {
-        width: 42px; height: 42px; 
-        background: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.3);
-        margin: 0;
-    }
+  .recentGrid { grid-template-columns: 1fr; }
+
+  .listCard:hover { transform: none; }
+
+  .listCard   { padding: 12px 16px; gap: 15px; }
+  .listThumb  { width: 70px; height: 50px; }
+  .listTitle  {
+    font-size: 0.95rem;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .listProgressArea { max-width: 100%; }
+  .listAction       { display: none; }
 }

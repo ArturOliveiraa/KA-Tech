@@ -31,6 +31,7 @@ const getYouTubeId = (url: string) => {
 export default function ManageLessons({ courseId, courseTitle, onBack }: ManageLessonsProps) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   
   // Estado unificado para o formulário
@@ -105,6 +106,28 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   };
 
   // --- ACTIONS ---
+  const handleExtractTranscript = async () => {
+    if (!formData.videoUrl) {
+      alert("Insira o link do YouTube primeiro!");
+      return;
+    }
+    setExtracting(true);
+    try {
+      // Chama a Edge Function do Supabase que criaremos depois
+      const { data, error } = await supabase.functions.invoke('extract-transcript', {
+        body: { videoUrl: formData.videoUrl }
+      });
+      if (error) throw error;
+      if (data && data.text) {
+        setFormData(prev => ({ ...prev, content: data.text }));
+      }
+    } catch (err: any) {
+      alert("Não foi possível extrair a legenda. Verifique se o vídeo possui legendas disponíveis. Erro: " + err.message);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleSaveLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -434,7 +457,17 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
           </div>
 
           <div className="form-group">
-            <label className="form-label">Transcrição / Material Base (IA)</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Transcrição / Material Base (IA)</label>
+              <button 
+                type="button" 
+                onClick={handleExtractTranscript} 
+                disabled={extracting || !formData.videoUrl}
+                style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#c4b5fd', border: '1px solid rgba(139, 92, 246, 0.4)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.8rem', cursor: extracting ? 'not-allowed' : 'pointer', transition: '0.2s' }}
+              >
+                {extracting ? '⏳ Extraindo do YouTube...' : '🪄 Extrair Legenda'}
+              </button>
+            </div>
             <textarea 
               className="form-input" placeholder="Cole aqui a transcrição do vídeo, apostila ou resumo detalhado. Isso alimentará o gerador de Quiz e o Chat com IA..." required
               style={{ height: '220px', resize: 'vertical', lineHeight: '1.5' }}
