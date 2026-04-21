@@ -78,7 +78,7 @@ export default function Player() {
                 // 1. Buscamos o curso incluindo a thumbnail corrigida
                 const { data: courseData } = await supabase
                     .from("courses")
-                    .select("id, title, slug, thumbnail_url") // Use thumbnail_url
+                    .select("id, title, slug, thumbnail_url")
                     .eq("slug", slug)
                     .single();
 
@@ -87,15 +87,15 @@ export default function Player() {
                 // Mapeamos para o tipo Course (camelCase)
                 setCourse({
                     ...courseData,
-                    thumbnailUrl: courseData.thumbnail_url // De-para para o frontend
+                    thumbnailUrl: courseData.thumbnail_url
                 } as Course);
                 setRealCourseId(courseData.id);
 
-                // 2. Buscamos as lições incluindo a video_url
+                // 2. Buscamos as lições incluindo course_id e content para satisfazer a tipagem
                 const [lessonsRes, progressRes] = await Promise.all([
                     supabase
                         .from("lessons")
-                        .select("id, order, title, video_url") // IMPORTANTE: video_url incluído aqui
+                        .select("id, order, title, video_url, course_id, content") // Adicionado course_id e content
                         .eq("course_id", courseData.id)
                         .order("order", { ascending: true }),
                     supabase
@@ -105,11 +105,12 @@ export default function Player() {
                         .eq("course_id", courseData.id)
                 ]);
 
-                // Mapeamos as lições para camelCase (videoUrl)
+                // Mapeamos as lições garantindo que todas as propriedades existam
                 const allLessons = (lessonsRes.data || []).map(l => ({
                     ...l,
-                    videoUrl: l.video_url // Garante que a URL chegue ao player
-                })) as Lesson[];
+                    videoUrl: l.video_url || "",
+                    content: l.content || "" // Evita que o campo content seja nulo
+                })) as unknown as Lesson[]; // Conversão dupla para evitar erro de overlap do TS
 
                 setLessons(allLessons);
                 const userProgress = (progressRes.data || []) as UserProgress[];

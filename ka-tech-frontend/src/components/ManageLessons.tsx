@@ -42,7 +42,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
-  
+
   const [formData, setFormData] = useState<Partial<Lesson>>({
     id: 0, title: "", videoUrl: "", content: "", order: 1
   });
@@ -77,9 +77,9 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
 
       const genAI = new GoogleGenerativeAI("SUA_API_KEY"); // Lembre-se de usar variáveis de ambiente
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      
+
       const prompt = `Transforme esta transcrição bruta de aula em um conteúdo estruturado, técnico e rico para uma base de conhecimento. Remova vícios de linguagem e foque nos conceitos principais: ${rawTranscript}`;
-      
+
       const result = await model.generateContent(prompt);
       const refinedText = result.response.text();
 
@@ -98,7 +98,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
     if (!formData.title || formData.title.length < 5) newErrors.title = "Título muito curto";
     if (!formData.videoUrl || !YouTubeEngine.extractId(formData.videoUrl)) newErrors.videoUrl = "URL do YouTube inválida";
     if (!formData.content || formData.content.length < 20) newErrors.content = "Conteúdo insuficiente";
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -120,7 +120,7 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
 
       const isUpdate = formData.id && formData.id !== 0;
 
-      const { error } = isUpdate 
+      const { error } = isUpdate
         ? await supabase.from("lessons").update(payload).eq("id", Number(formData.id))
         : await supabase.from("lessons").insert([payload]);
 
@@ -234,8 +234,14 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
                   {l.content ? '● IA READY' : '○ IA OFFLINE'}
                 </span>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <GenerateQuizButton courseId={courseId} lessonId={l.id} onQuizGenerated={(data: any) => setActiveQuiz(data)} />
-                  <button onClick={() => { setFormData({...l}); setErrors({}); setIsPanelOpen(true); }} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: '#fff', padding: '8px 15px', borderRadius: '12px', cursor: 'pointer', fontSize: '0.7rem' }}>EDITAR</button>
+                  <GenerateQuizButton
+                    courseId={courseId}
+                    lessonId={l.id}
+                    title={l.title} // Adicione esta linha
+                    description={l.content || ""} // Adicione esta linha
+                    onQuizGenerated={(data: any) => setActiveQuiz(data)}
+                  />
+                  <button onClick={() => { setFormData({ ...l }); setErrors({}); setIsPanelOpen(true); }} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: '#fff', padding: '8px 15px', borderRadius: '12px', cursor: 'pointer', fontSize: '0.7rem' }}>EDITAR</button>
                 </div>
               </div>
             </div>
@@ -249,11 +255,11 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '20px' }}>
             <label className="ka-form-label">Título</label>
-            <input className={`ka-input ${errors.title ? 'error' : ''}`} value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+            <input className={`ka-input ${errors.title ? 'error' : ''}`} value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
           </div>
           <div style={{ marginBottom: '20px' }}>
             <label className="ka-form-label">URL YouTube</label>
-            <input className={`ka-input ${errors.videoUrl ? 'error' : ''}`} value={formData.videoUrl} onChange={e => setFormData({...formData, videoUrl: e.target.value})} />
+            <input className={`ka-input ${errors.videoUrl ? 'error' : ''}`} value={formData.videoUrl} onChange={e => setFormData({ ...formData, videoUrl: e.target.value })} />
           </div>
           <div style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -262,12 +268,12 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: any) {
                 {isExtracting ? '...' : '⚡ CAPTURAR'}
               </button>
             </div>
-            <textarea className={`ka-input ${errors.content ? 'error' : ''}`} style={{ height: '200px', resize: 'none' }} value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} />
+            <textarea className={`ka-input ${errors.content ? 'error' : ''}`} style={{ height: '200px', resize: 'none' }} value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div>
               <label className="ka-form-label">Ordem</label>
-              <input type="number" className="ka-input" value={formData.order} onChange={e => setFormData({...formData, order: Number(e.target.value)})} />
+              <input type="number" className="ka-input" value={formData.order} onChange={e => setFormData({ ...formData, order: Number(e.target.value) })} />
             </div>
             <div>
             </div>
