@@ -19,15 +19,15 @@ export default function LessonView({
   const playerRef = useRef<any>(null);
   const lastValidTimeRef = useRef(initialTime); 
   const onProgressUpdateRef = useRef(onProgressUpdate);
-  const hasCompletedRef = useRef(false); // Evita disparar conclusão múltiplas vezes
+  const hasCompletedRef = useRef(false);
 
   useEffect(() => {
     onProgressUpdateRef.current = onProgressUpdate;
   }, [onProgressUpdate]);
 
-  // FUNÇÃO ATUALIZADA: Agora reconhece links /live/, /watch?v=, /embed/ e IDs puros
   const extractVideoId = (url: string) => {
     if (!url) return null;
+    // Se já for um ID de 11 caracteres
     if (url.length === 11 && !url.includes("/")) return url;
     
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
@@ -40,9 +40,10 @@ export default function LessonView({
     setLoading(true);
     setError(null);
 
+    // Buscamos explicitamente a coluna video_url
     const { data, error: dbError } = await supabase
       .from("lessons")
-      .select("*")
+      .select("id, title, video_url, content")
       .eq("id", lessonId)
       .maybeSingle();
     
@@ -52,16 +53,20 @@ export default function LessonView({
       return;
     }
 
-    const rawUrl = data.videoUrl || data.videourl || "";
+    // CORREÇÃO: Usando video_url (snake_case) vindo do banco
+    const rawUrl = data.video_url || "";
     const vId = extractVideoId(rawUrl);
 
     if (!vId) {
-      setError(`URL Inválida: ${rawUrl}`);
+      setError(`URL ou ID de vídeo inválido: ${rawUrl}`);
     } else {
       setLesson({ ...data, videoId: vId });
+      // Resetar flags de controle para a nova aula
+      hasCompletedRef.current = false;
+      lastValidTimeRef.current = initialTime;
     }
     setLoading(false);
-  }, [lessonId]);
+  }, [lessonId, initialTime]);
 
   useEffect(() => { fetchLesson(); }, [fetchLesson]);
 
@@ -74,6 +79,7 @@ export default function LessonView({
     const initPlayer = () => {
       if (!isMounted) return;
       
+      // Verifica se a API do YouTube já carregou
       if (!(window as any).YT?.Player) {
         setTimeout(initPlayer, 200);
         return;
@@ -99,19 +105,17 @@ export default function LessonView({
                   const curr = event.target.getCurrentTime();
                   const duration = event.target.getDuration();
 
-                  // --- LÓGICA DE CONCLUSÃO ANTECIPADA (THRESHOLD 1s) ---
-                  // Se faltar menos de 1 segundo para o fim, marca como concluído
+                  // Conclusão antecipada (1 segundo antes do fim)
                   if (duration > 0 && curr >= (duration - 1) && !hasCompletedRef.current) {
                     hasCompletedRef.current = true;
                     onProgressUpdateRef.current?.(duration, true);
                   }
 
-                  // Lógica anti-skip
+                  // Lógica anti-skip (pula para o último tempo válido se o usuário tentar avançar)
                   if (curr > lastValidTimeRef.current + 3) {
                     event.target.seekTo(lastValidTimeRef.current, true);
                   } else if (curr > lastValidTimeRef.current) {
                     lastValidTimeRef.current = curr;
-                    // Só envia progresso normal se ainda não completou
                     if (!hasCompletedRef.current) {
                         onProgressUpdateRef.current?.(curr, false);
                     }
@@ -120,7 +124,6 @@ export default function LessonView({
               }, 1000);
             },
             onStateChange: (event: any) => {
-              // Segurança extra: Caso o YouTube dispare o ENDED nativo
               if (event.data === (window as any).YT.PlayerState.ENDED && !hasCompletedRef.current) {
                 hasCompletedRef.current = true;
                 onProgressUpdateRef.current?.(event.target.getDuration(), true);
@@ -129,14 +132,15 @@ export default function LessonView({
           }
         });
       } catch (e) {
-        console.error("Player error:", e);
+        console.error("Erro ao inicializar o player:", e);
       }
     };
 
     if (!(window as any).YT) {
       const tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
       (window as any).onYouTubeIframeAPIReady = initPlayer;
     } else {
       initPlayer();
@@ -149,9 +153,9 @@ export default function LessonView({
         try { playerRef.current.destroy(); } catch(e){}
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lesson?.videoId, loading, error]); 
+  }, [lesson?.videoId, loading, error, initialTime]); 
 
+  // Efeito para anotações (seekTo)
   useEffect(() => {
     if (seekTo !== null && playerRef.current?.seekTo) {
       playerRef.current.seekTo(seekTo, true);
@@ -159,8 +163,8 @@ export default function LessonView({
     }
   }, [seekTo]);
 
-  if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', textAlign: 'center' }}>Sincronizando vídeo...</div>;
-  if (error) return <div style={{ color: '#ef4444', padding: '40px' }}>{error}</div>;
+  if (loading) return <div style={{ color: '#8b5cf6', padding: '40px', textAlign: 'center' }}>Sincronizando arquitetura de vídeo...</div>;
+  if (error) return <div style={{ color: '#ef4444', padding: '40px', textAlign: 'center' }}>⚠️ {error}</div>;
 
   return (
     <div style={{ width: '100%', margin: '0' }}>

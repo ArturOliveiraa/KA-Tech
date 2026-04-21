@@ -4,12 +4,12 @@ import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import LessonView from "../components/LessonView";
 import LessonSidebar from "../components/LessonSidebar";
-import SEO from "../components/SEO"; 
+import SEO from "../components/SEO";
 import QuizPlayer from "../components/QuizPlayer";
 import { Course, Lesson, LessonNote, Badge, UserProgress } from "../types";
-import { 
-  ChevronLeft, ChevronRight, Maximize, Minimize, 
-  BrainCircuit, FileText, ListVideo, Trash2, PlayCircle, Loader2
+import {
+    ChevronLeft, ChevronRight, Maximize, Minimize,
+    BrainCircuit, FileText, ListVideo, Trash2, PlayCircle, Loader2
 } from "lucide-react";
 
 export default function Player() {
@@ -21,16 +21,16 @@ export default function Player() {
     const [lessons, setLessons] = useState<Lesson[]>([]);
     const [realCourseId, setRealCourseId] = useState<number | null>(null);
     const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
-    
+
     // Estados de UI/Player
     const [loading, setLoading] = useState(true);
     const [lessonStartTime, setLessonStartTime] = useState(0);
     const [isTimeLoaded, setIsTimeLoaded] = useState(false);
-    const [theaterMode, setTheaterMode] = useState(false); 
-    
+    const [theaterMode, setTheaterMode] = useState(false);
+
     // Estados do Quiz
     const [showQuiz, setShowQuiz] = useState(false);
-    const [showLessonQuiz, setShowLessonQuiz] = useState(false); 
+    const [showLessonQuiz, setShowLessonQuiz] = useState(false);
 
     // Gamificação/Notas
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
@@ -75,25 +75,43 @@ export default function Player() {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return navigate("/");
 
+                // 1. Buscamos o curso incluindo a thumbnail corrigida
                 const { data: courseData } = await supabase
                     .from("courses")
-                    .select("id, title, slug")
+                    .select("id, title, slug, thumbnail_url") // Use thumbnail_url
                     .eq("slug", slug)
                     .single();
-                
+
                 if (!courseData) return navigate("/dashboard");
-                
-                setCourse(courseData as Course);
+
+                // Mapeamos para o tipo Course (camelCase)
+                setCourse({
+                    ...courseData,
+                    thumbnailUrl: courseData.thumbnail_url // De-para para o frontend
+                } as Course);
                 setRealCourseId(courseData.id);
 
+                // 2. Buscamos as lições incluindo a video_url
                 const [lessonsRes, progressRes] = await Promise.all([
-                    supabase.from("lessons").select("id, order, title").eq("course_id", courseData.id).order("order", { ascending: true }),
-                    supabase.from("user_progress").select("lesson_id, is_completed").eq("user_id", user.id).eq("course_id", courseData.id)
+                    supabase
+                        .from("lessons")
+                        .select("id, order, title, video_url") // IMPORTANTE: video_url incluído aqui
+                        .eq("course_id", courseData.id)
+                        .order("order", { ascending: true }),
+                    supabase
+                        .from("user_progress")
+                        .select("lesson_id, is_completed")
+                        .eq("user_id", user.id)
+                        .eq("course_id", courseData.id)
                 ]);
 
-                const allLessons = (lessonsRes.data || []) as Lesson[];
+                // Mapeamos as lições para camelCase (videoUrl)
+                const allLessons = (lessonsRes.data || []).map(l => ({
+                    ...l,
+                    videoUrl: l.video_url // Garante que a URL chegue ao player
+                })) as Lesson[];
+
                 setLessons(allLessons);
-                
                 const userProgress = (progressRes.data || []) as UserProgress[];
 
                 if (allLessons.length > 0) {
@@ -205,15 +223,15 @@ export default function Player() {
         if (!activeLessonId) return;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        
+
         const { data } = await supabase
             .from("lesson_notes")
             .select("*")
             .eq("user_id", user.id)
             .eq("lesson_id", activeLessonId)
             .order("video_timestamp", { ascending: true });
-            
-        if (data) setNotes(data as LessonNote[]); 
+
+        if (data) setNotes(data as LessonNote[]);
     }, [activeLessonId]);
 
     useEffect(() => { fetchNotes(); }, [fetchNotes]);
@@ -251,18 +269,18 @@ export default function Player() {
     );
 
     const currentLessonTitle = lessons.find(l => l.id === activeLessonId)?.title || "Aula";
-    const theaterMaxWidth = '75vw'; 
+    const theaterMaxWidth = '75vw';
     const isFirstLesson = lessons.findIndex(l => l.id === activeLessonId) <= 0;
     const isLastLesson = lessons.findIndex(l => l.id === activeLessonId) >= lessons.length - 1;
 
     return (
         <div className="dashboard-wrapper">
             <SEO title={currentLessonTitle} description={`Assistindo ${course?.title}`} />
-            
+
             {!theaterMode && <Sidebar />}
 
             <main className={`player-main-content ${theaterMode ? 'theater-active' : ''} ${isMobile ? 'mobile-active' : ''}`}>
-                
+
                 {/* CABEÇALHO DO PLAYER */}
                 <header className="player-header">
                     <div className="header-titles">
@@ -281,17 +299,17 @@ export default function Player() {
                             </button>
 
                             <button onClick={() => setTheaterMode(!theaterMode)} className="btn-theater-mode" title="Expandir/Reduzir">
-                                {theaterMode ? <><Minimize size={18}/> Normal</> : <><Maximize size={18}/> Teatro</>}
+                                {theaterMode ? <><Minimize size={18} /> Normal</> : <><Maximize size={18} /> Teatro</>}
                             </button>
                         </div>
                     )}
                 </header>
 
                 <div className="player-body">
-                    
+
                     {/* ÁREA DO VÍDEO E CONTROLES */}
                     <div className="video-column" style={{ flex: theaterMode ? `0 1 ${theaterMaxWidth}` : '1' }}>
-                        
+
                         <div className="video-wrapper glass-panel">
                             {activeLessonId && isTimeLoaded ? (
                                 <LessonView
@@ -334,23 +352,23 @@ export default function Player() {
                     {/* SIDEBAR DO PLAYER (Aulas e Notas) */}
                     {(!theaterMode || isMobile) && (
                         <aside className="content-sidebar">
-                            
+
                             {/* Tabs Style Apple */}
                             <div className="sidebar-tabs-container glass-panel">
-                                <button 
-                                    className={`tab-btn ${activeTab === 'content' ? 'active' : ''}`} 
+                                <button
+                                    className={`tab-btn ${activeTab === 'content' ? 'active' : ''}`}
                                     onClick={() => setActiveTab('content')}
                                 >
                                     <ListVideo size={16} /> Conteúdo
                                 </button>
-                                <button 
-                                    className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`} 
+                                <button
+                                    className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`}
                                     onClick={() => setActiveTab('notes')}
                                 >
                                     <FileText size={16} /> Anotações
                                 </button>
                             </div>
-                            
+
                             <div className="sidebar-content-area glass-panel">
                                 {activeTab === 'content' ? (
                                     realCourseId && <LessonSidebar course_id={realCourseId} currentLessonId={activeLessonId || 0} onSelectLesson={setActiveLessonId} />
@@ -359,7 +377,7 @@ export default function Player() {
                                         <div className="notes-list">
                                             {notes.length === 0 ? (
                                                 <div className="empty-notes">
-                                                    <FileText size={32} opacity={0.3} style={{ marginBottom: '10px' }}/>
+                                                    <FileText size={32} opacity={0.3} style={{ marginBottom: '10px' }} />
                                                     <p>Nenhuma anotação nesta aula.</p>
                                                     <span>Suas notas aparecerão aqui.</span>
                                                 </div>
@@ -379,12 +397,12 @@ export default function Player() {
                                                 ))
                                             )}
                                         </div>
-                                        
+
                                         <div className="note-input-area">
-                                            <textarea 
-                                                value={newNote} 
-                                                onChange={(e) => setNewNote(e.target.value)} 
-                                                placeholder="Adicione uma anotação..." 
+                                            <textarea
+                                                value={newNote}
+                                                onChange={(e) => setNewNote(e.target.value)}
+                                                placeholder="Adicione uma anotação..."
                                                 className="note-textarea"
                                             />
                                             <button onClick={handleAddNote} className="note-save-btn" disabled={!newNote.trim()}>
