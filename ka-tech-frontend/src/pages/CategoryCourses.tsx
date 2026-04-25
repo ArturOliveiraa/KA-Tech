@@ -9,8 +9,9 @@ interface Course {
   id: number;
   title: string;
   description: string;
-  thumbnailUrl: string; // Mantemos camelCase aqui para o React
+  thumbnailUrl: string;
   slug: string;
+  // Adicionado para suportar os cálculos
   lessons?: { duration: number }[]; 
 }
 
@@ -39,7 +40,7 @@ export default function CategoryCourses() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Busca de dados corrigida para snake_case
+  // Busca de dados otimizada
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -55,34 +56,19 @@ export default function CategoryCourses() {
       if (catError || !catData) return navigate("/cursos");
       setCategory(catData);
 
-      // BUSCA CORRIGIDA: camelCase alterado para snake_case nos filtros e ordens
+      // BUSCA OTIMIZADA: Agora trazemos também as durações das aulas de cada curso
       const [coursesRes, enrollmentsRes, progressRes] = await Promise.all([
         supabase
           .from("courses")
-          .select("*, lessons(duration)") 
+          .select("*, lessons(duration)") // Traz as durações das aulas relacionadas
           .eq("category_id", catData.id)
-          .order("created_at", { ascending: false }), // CORRIGIDO: created_at
-        
-        supabase
-          .from("course_enrollments")
-          .select("course_id") // CORRIGIDO: course_id
-          .eq("user_id", user.id), // CORRIGIDO: user_id
-        
-        supabase
-          .from("user_progress")
-          .select("course_id")
-          .eq("user_id", user.id)
-          .eq("is_completed", true)
+          .order("createdAt", { ascending: false }),
+        supabase.from("course_enrollments").select("courseId").eq("userId", user.id),
+        supabase.from("user_progress").select("course_id").eq("user_id", user.id).eq("is_completed", true)
       ]);
 
-      // MAPEAMENTO: Traduzimos o snake_case do banco para o camelCase do seu front
-      const formattedCourses = (coursesRes.data || []).map((c: any) => ({
-        ...c,
-        thumbnailUrl: c.thumbnail_url // Tradução aqui para o <img> funcionar
-      }));
-
-      setCourses(formattedCourses);
-      setEnrolledCourseIds(enrollmentsRes.data?.map(e => e.course_id) || []); // CORRIGIDO: course_id
+      setCourses(coursesRes.data || []);
+      setEnrolledCourseIds(enrollmentsRes.data?.map(e => e.courseId) || []);
       setCompletedCourseIds(progressRes.data?.map(p => p.course_id) || []);
 
     } catch (err) {
@@ -102,17 +88,16 @@ export default function CategoryCourses() {
     if (!isEnrolled) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // CORRIGIDO: Nomes das colunas para o INSERT
         const { error } = await supabase
           .from("course_enrollments")
           .insert([{ 
-            user_id: user.id, 
-            course_id: course.id 
+            userId: user.id, 
+            courseId: course.id 
           }]);
 
         if (error) {
           console.error("Erro técnico na inscrição:", error.message);
-          alert("Não foi possível confirmar sua inscrição.");
+          alert("Não foi possível confirmar sua inscrição. Verifique as configurações do servidor.");
           return;
         }
         
@@ -122,7 +107,6 @@ export default function CategoryCourses() {
     navigate(`/curso/${course.slug}`);
   };
 
-  // O restante do seu retorno JSX permanece idêntico
   return (
     <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
       <Sidebar />
@@ -166,6 +150,7 @@ export default function CategoryCourses() {
                 const isEnrolled = enrolledCourseIds.includes(course.id);
                 const isCompleted = completedCourseIds.includes(course.id);
 
+                // Cálculos de aulas e duração
                 const totalLessons = course.lessons?.length || 0;
                 const totalMinutes = course.lessons?.reduce((acc, lesson) => acc + (lesson.duration || 0), 0) || 0;
 
@@ -174,7 +159,22 @@ export default function CategoryCourses() {
                     <div style={{ width: '100%', height: '180px', background: '#1e293b', position: 'relative' }}>
                       
                       {isCompleted && (
-                        <div style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: '#22c55e', color: '#fff', padding: '6px 12px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, zIndex: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: '#22c55e',
+                          color: '#fff',
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          zIndex: 2,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                        }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12"></polyline>
                           </svg>
@@ -187,6 +187,7 @@ export default function CategoryCourses() {
                     <div style={{ padding: '25px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800, marginBottom: '5px' }}>{course.title}</h3>
                       
+                      {/* --- NOVO: INFORMAÇÕES DE DURAÇÃO E AULAS --- */}
                       <div style={{ display: 'flex', gap: '12px', marginBottom: '15px' }}>
                         <span style={{ color: '#8b5cf6', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                           📚 {totalLessons} {totalLessons === 1 ? 'aula' : 'aulas'}

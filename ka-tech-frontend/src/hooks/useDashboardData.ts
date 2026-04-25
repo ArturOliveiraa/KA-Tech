@@ -16,7 +16,7 @@ export function useDashboardData() {
   const navigate = useNavigate();
 
   return useQuery({
-    queryKey: ['dashboard-courses'],
+    queryKey: ['dashboard-courses'], // Nome único para o cache
     queryFn: async () => {
       // 1. Verifica autenticação
       const { data: { user } } = await supabase.auth.getUser();
@@ -33,19 +33,9 @@ export function useDashboardData() {
         throw error;
       }
 
-      // 3. Mapeia os dados do formato do banco (snake_case) para o React (camelCase)
-      const formattedCourses: DashboardCourse[] = (data || []).map((course: any) => ({
-        id: course.id,
-        title: course.title,
-        slug: course.slug,
-        thumbnailUrl: course.thumbnail_url,   // Traduzindo a capa
-        progress: course.progress,
-        totalDuration: course.total_duration, // Traduzindo a duração
-        enrolledAt: course.enrolled_at        // Traduzindo a data
-      }));
-
-      // 4. Filtra cursos não concluídos (Progresso < 100%)
-      return formattedCourses.filter(c => c.progress < 100);
+      // 3. Filtra cursos não concluídos (Progresso < 100%)
+      // O cast 'as DashboardCourse[]' garante a tipagem correta
+      return (data as DashboardCourse[]).filter(c => c.progress < 100);
     }
   });
 }
