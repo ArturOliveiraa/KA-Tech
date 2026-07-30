@@ -1,24 +1,66 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext";
 import logo from "../assets/ka-tech-logo.png";
 import SEO from "../components/SEO";
 import { useDashboardData } from "../hooks/useDashboardData";
-import { Play, PlayCircle, BookOpen, Compass, Target, Flame, ChevronRight } from "lucide-react";
+import { Play, PlayCircle, BookOpen, Compass, Target, Flame, ChevronRight, Search, Heart } from "lucide-react";
 
 export default function Dashboard() {
   const { userName } = useUser();
   const navigate = useNavigate();
   const { data: enrolledCourses = [], isLoading, isError } = useDashboardData();
 
-  // Ordenações
-  const recentCourses = [...enrolledCourses].sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime());
-  const featuredCourse = recentCourses[0]; // O mais recente ganha o Banner Principal
-  const otherRecent = recentCourses.slice(1, 4); // Os próximos 3
-  const tableCourses = [...enrolledCourses].sort((a, b) => b.progress - a.progress);
+  // Estados de Busca, Abas e Favoritos
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "favorites">("all");
+  const [favorites, setFavorites] = useState<number[]>([]);
 
-  // Helper para garantir que a imagem não quebre
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('ka_tech_favorite_courses');
+    if (savedFavorites) {
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const toggleFavorite = (courseId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    let updatedFavorites;
+    if (favorites.includes(courseId)) {
+      updatedFavorites = favorites.filter(id => id !== courseId);
+    } else {
+      updatedFavorites = [...favorites, courseId];
+    }
+    setFavorites(updatedFavorites);
+    localStorage.setItem('ka_tech_favorite_courses', JSON.stringify(updatedFavorites));
+  };
+
+  // Filtragem inicial por aba (Todos ou Favoritos) e depois por termo de busca (Título ou Descrição)
+  const tabFilteredCourses = enrolledCourses.filter(course => {
+    if (activeTab === "favorites") {
+      return favorites.includes(course.id);
+    }
+    return true;
+  });
+
+  const filteredCourses = tabFilteredCourses.filter(course => {
+    const term = searchTerm.toLowerCase();
+    const titleMatch = course.title?.toLowerCase().includes(term);
+    const descMatch = course.description?.toLowerCase().includes(term);
+    return titleMatch || descMatch;
+  });
+
+  // Ordenações baseadas nos cursos filtrados
+  const recentCourses = [...filteredCourses].sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime());
+  const featuredCourse = recentCourses[0]; 
+  const otherRecent = recentCourses.slice(1, 4); 
+  const tableCourses = [...filteredCourses].sort((a, b) => b.progress - a.progress);
+
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.src = logo;
   };
@@ -51,11 +93,41 @@ export default function Dashboard() {
           <img src={logo} alt="KA Tech Logo" />
         </div>
         
-        {/* HEADER MINIMALISTA */}
+        {/* HEADER */}
         <header className="hero-header">
-          <h1 className="page-title">Minha <span className="text-gradient">Jornada</span></h1>
-          <p className="hero-subtitle">Bem-vindo de volta, <strong>{userName.split(' ')[0]}</strong>. Retome seu foco.</p>
+          <div>
+            <h1 className="page-title">Minha <span className="text-gradient">Jornada</span></h1>
+            <p className="hero-subtitle">Bem-vindo de volta, <strong>{userName.split(' ')[0]}</strong>. Retome seu foco.</p>
+          </div>
+
+          <div className="search-wrapper">
+            <Search className="search-icon" size={18} />
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Pesquisar por título ou descrição..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </header>
+
+        {/* ABAS DE NAVEGAÇÃO (TODOS / FAVORITOS) */}
+        <div className="dashboard-tabs">
+          <button 
+            className={`tab-btn ${activeTab === "all" ? "active" : ""}`} 
+            onClick={() => setActiveTab("all")}
+          >
+            Meus Cursos ({enrolledCourses.length})
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === "favorites" ? "active" : ""}`} 
+            onClick={() => setActiveTab("favorites")}
+          >
+            <Heart size={16} fill={activeTab === "favorites" ? "currentColor" : "none"} />
+            Favoritos ({favorites.length})
+          </button>
+        </div>
 
         {isLoading ? (
           <div className="loading-state glass-panel">
@@ -64,17 +136,24 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {enrolledCourses.length > 0 ? (
+            {filteredCourses.length > 0 ? (
               <>
-                {/* 1. DESTAQUE PRINCIPAL (HERO BANNER FLUIDO) */}
-                {featuredCourse && (
+                {/* 1. DESTAQUE PRINCIPAL (HERO BANNER) - Apenas na aba "Todos" sem busca */}
+                {featuredCourse && !searchTerm && activeTab === "all" && (
                   <div className="featured-banner glass-panel" onClick={() => navigate(`/curso/${featuredCourse.slug}`)}>
-                      {/* Fundo do Banner usa a imagem do curso escurecida */}
                       <div 
                         className="featured-bg" 
                         style={{ backgroundImage: `url(${featuredCourse.thumbnailUrl || logo})` }}
                       ></div>
                       <div className="featured-overlay"></div>
+
+                      <button 
+                        className={`favorite-badge-btn ${favorites.includes(featuredCourse.id) ? 'active' : ''}`}
+                        onClick={(e) => toggleFavorite(featuredCourse.id, e)}
+                        title="Favoritar Curso"
+                      >
+                        <Heart size={18} fill={favorites.includes(featuredCourse.id) ? "currentColor" : "none"} />
+                      </button>
 
                       <div className="featured-content">
                           <div className="featured-badge"><Flame size={14} /> CONTINUAR ASSISTINDO</div>
@@ -94,83 +173,109 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* 2. RECENTES (Caso tenha mais de 1 curso em andamento) */}
-                {otherRecent.length > 0 && (
+                {/* 2. RECENTES - Apenas na aba "Todos" sem busca */}
+                {otherRecent.length > 0 && !searchTerm && activeTab === "all" && (
                   <div className="section-block">
                     <h3 className="section-title"><Target size={20} className="text-primary"/> Assistidos Recentemente</h3>
                     <div className="recent-grid">
-                      {otherRecent.map((course, index) => (
-                        <div 
-                            key={course.id} 
-                            className="recent-card glass-panel" 
-                            onClick={() => navigate(`/curso/${course.slug}`)}
-                            style={{ animationDelay: `${index * 0.1}s` }}
-                        >
-                          <div className="recent-thumb">
-                            <div className="thumb-overlay-dark"></div>
-                            <img src={course.thumbnailUrl || logo} alt={course.title} onError={handleImageError} />
-                            <div className="play-icon-center"><PlayCircle size={36} color="#fff" /></div>
-                          </div>
-
-                          <div className="recent-info">
-                            <h4 className="recent-title" title={course.title}>{course.title}</h4>
-                            <div className="progress-track compact-track">
-                                <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                      {otherRecent.map((course, index) => {
+                        const isFav = favorites.includes(course.id);
+                        return (
+                          <div 
+                              key={course.id} 
+                              className="recent-card glass-panel" 
+                              onClick={() => navigate(`/curso/${course.slug}`)}
+                              style={{ animationDelay: `${index * 0.1}s` }}
+                          >
+                            <div className="recent-thumb">
+                              <div className="thumb-overlay-dark"></div>
+                              <img src={course.thumbnailUrl || logo} alt={course.title} onError={handleImageError} />
+                              <div className="play-icon-center"><PlayCircle size={36} color="#fff" /></div>
+                              <button 
+                                className={`card-fav-btn ${isFav ? 'active' : ''}`}
+                                onClick={(e) => toggleFavorite(course.id, e)}
+                              >
+                                <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+                              </button>
                             </div>
-                            <span className="recent-percent">{course.progress}%</span>
+
+                            <div className="recent-info">
+                              <h4 className="recent-title" title={course.title}>{course.title}</h4>
+                              <div className="progress-track compact-track">
+                                  <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                              </div>
+                              <span className="recent-percent">{course.progress}%</span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 
-                {/* 3. TODOS OS CURSOS ATIVOS (GRID FLUIDO PREENCHENDO 100%) */}
-                <div className="section-block" style={{ marginTop: '50px' }}>
-                    <h3 className="section-title"><BookOpen size={20} className="text-primary"/> Seu Acervo Completo</h3>
+                {/* 3. ACERVO / LISTA DE CURSOS (Exibido completo na aba de Favoritos ou com Busca ativa) */}
+                <div className="section-block" style={{ marginTop: (activeTab === "favorites" || searchTerm) ? '0' : '50px' }}>
+                    <h3 className="section-title">
+                      <BookOpen size={20} className="text-primary"/> 
+                      {activeTab === "favorites" ? "Cursos Favoritos" : searchTerm ? 'Resultados da Busca' : 'Seu Acervo Completo'}
+                    </h3>
                     
                     <div className="all-courses-grid">
-                        {tableCourses.map((course, index) => (
-                            <div 
-                                key={course.id} 
-                                className="list-card glass-panel"
-                                onClick={() => navigate(`/curso/${course.slug}`)}
-                                style={{ animationDelay: `${index * 0.05}s` }}
-                            >
-                                <div className="list-thumb">
-                                    <img src={course.thumbnailUrl || logo} alt={course.title} onError={handleImageError} />
-                                </div>
+                        {tableCourses.map((course, index) => {
+                            const isFav = favorites.includes(course.id);
+                            return (
+                                <div 
+                                    key={course.id} 
+                                    className="list-card glass-panel"
+                                    onClick={() => navigate(`/curso/${course.slug}`)}
+                                    style={{ animationDelay: `${index * 0.05}s` }}
+                                >
+                                    <div className="list-thumb">
+                                        <img src={course.thumbnailUrl || logo} alt={course.title} onError={handleImageError} />
+                                    </div>
 
-                                <div className="list-info">
-                                    <h4 className="list-title" title={course.title}>{course.title}</h4>
-                                    
-                                    <div className="list-progress-area">
-                                        <div className="progress-track super-compact">
-                                            <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                                    <div className="list-info">
+                                        <h4 className="list-title" title={course.title}>{course.title}</h4>
+                                        
+                                        <div className="list-progress-area">
+                                            <div className="progress-track super-compact">
+                                                <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                                            </div>
+                                            <span className="list-percent">{course.progress}%</span>
                                         </div>
-                                        <span className="list-percent">{course.progress}%</span>
+                                    </div>
+
+                                    <div className="list-action">
+                                        <button 
+                                          className={`list-fav-btn ${isFav ? 'active' : ''}`}
+                                          onClick={(e) => toggleFavorite(course.id, e)}
+                                          title="Favoritar"
+                                        >
+                                          <Heart size={18} fill={isFav ? "currentColor" : "none"} />
+                                        </button>
+                                        <button className="btn-circle-play" title="Acessar">
+                                            <ChevronRight size={24} />
+                                        </button>
                                     </div>
                                 </div>
-
-                                <div className="list-action">
-                                    <button className="btn-circle-play" title="Acessar">
-                                        <ChevronRight size={24} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
               </>
             ) : (
               <div className="empty-state glass-panel">
                 <Compass size={64} color="#475569" style={{ marginBottom: '20px', opacity: 0.5 }} />
-                <h3 style={{ color: '#fff', fontSize: '1.8rem', marginBottom: '10px', fontWeight: 800 }}>O início da sua jornada.</h3>
+                <h3 style={{ color: '#fff', fontSize: '1.8rem', marginBottom: '10px', fontWeight: 800 }}>
+                  {activeTab === "favorites" ? "Nenhum favorito encontrado." : "Nenhum curso encontrado."}
+                </h3>
                 <p style={{ color: '#94a3b8', maxWidth: '450px', margin: '0 auto 30px', fontSize: '1.05rem', lineHeight: '1.5' }}>
-                    Seu painel está vazio. Explore as trilhas de conhecimento no menu lateral e dê o primeiro passo rumo à maestria.
+                    {activeTab === "favorites" 
+                      ? "Você ainda não marcou nenhum curso com coração. Clique no ícone de favorito nos cards para salvá-los aqui."
+                      : `Não encontramos resultados para "${searchTerm}". Tente buscar por outro termo.`}
                 </p>
-                <button onClick={() => navigate('/cursos')} className="btn-primary-large">
-                    Explorar Trilhas Agora
+                <button onClick={() => { setSearchTerm(''); setActiveTab('all'); }} className="btn-primary-large">
+                    {activeTab === "favorites" ? "Explorar Cursos" : "Limpar Pesquisa"}
                 </button>
               </div>
             )}
@@ -208,13 +313,11 @@ export default function Dashboard() {
             overflow-x: hidden; color: var(--text-light);
         }
 
-        /* AMBIENT BACKGROUND */
         .ambient-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
         .ambient-blob { position: absolute; border-radius: 50%; filter: blur(140px); opacity: 0.15; }
         .blob-1 { top: -10%; left: 10%; width: 40vw; height: 40vw; background: var(--primary); }
         .blob-2 { bottom: -20%; right: -10%; width: 50vw; height: 50vw; background: #0ea5e9; }
 
-        /* CONTENT: Remoção do Max-Width para Ocupar 100% */
         .dashboard-content {
             position: relative; z-index: 1; flex: 1; margin-left: 260px; 
             padding: 50px 60px 100px 60px; width: calc(100% - 260px); 
@@ -228,12 +331,54 @@ export default function Dashboard() {
             border: 1px solid var(--border-color); border-top-color: rgba(255,255,255,0.12);
         }
 
-        /* HEADER */
-        .hero-header { margin-bottom: 40px; }
+        /* HEADER & SEARCH BAR */
+        .hero-header { margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; }
         .page-title { font-size: 2.5rem; font-weight: 900; margin: 0 0 5px 0; letter-spacing: -1px; color: #fff;}
         .hero-subtitle { color: var(--text-dim); font-size: 1.1rem; margin: 0; font-weight: 400; }
 
-        /* 1. FEATURED BANNER (HERO) */
+        .search-wrapper { position: relative; width: 100%; max-width: 320px; }
+        .search-input {
+            width: 100%; height: 48px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color);
+            border-radius: 14px; color: #fff; padding: 0 16px 0 44px; font-size: 0.95rem; outline: none; transition: 0.3s;
+        }
+        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15); }
+        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim); pointer-events: none; }
+
+        /* TABS (MEUS CURSOS / FAVORITOS) */
+        .dashboard-tabs { display: flex; gap: 12px; margin-bottom: 35px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .tab-btn {
+            background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color); color: var(--text-dim);
+            padding: 10px 20px; border-radius: 12px; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+            transition: 0.2s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .tab-btn:hover { background: rgba(30, 41, 59, 0.6); color: #fff; }
+        .tab-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
+
+        /* FAVORITE BUTTONS */
+        .favorite-badge-btn {
+            position: absolute; top: 25px; right: 25px; z-index: 3; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15); color: #fff; width: 42px; height: 42px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+        }
+        .favorite-badge-btn:hover { transform: scale(1.1); background: rgba(0,0,0,0.8); }
+        .favorite-badge-btn.active { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); }
+
+        .card-fav-btn {
+            position: absolute; top: 12px; right: 12px; z-index: 3; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15); color: #fff; width: 34px; height: 34px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+        }
+        .card-fav-btn:hover { transform: scale(1.1); }
+        .card-fav-btn.active { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.15); }
+
+        .list-fav-btn {
+            background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 8px;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        .list-fav-btn:hover { color: #fff; transform: scale(1.1); }
+        .list-fav-btn.active { color: #ef4444; }
+
+        /* FEATURED BANNER */
         .featured-banner {
             position: relative; width: 100%; height: 380px; border-radius: 32px; overflow: hidden;
             margin-bottom: 40px; cursor: pointer; transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -273,11 +418,10 @@ export default function Dashboard() {
         }
         .featured-banner:hover .btn-featured-play { background: var(--primary); color: #fff; box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4); }
 
-        /* SECTION TITLES */
         .section-block { margin-bottom: 50px; }
         .section-title { font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px; letter-spacing: -0.3px;}
 
-        /* 2. RECENTES GRID */
+        /* RECENTES GRID */
         .recent-grid { 
             display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; 
         }
@@ -305,9 +449,7 @@ export default function Dashboard() {
         .compact-track { height: 4px; margin-bottom: 8px;}
         .recent-percent { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); }
 
-
-        /* 3. TODOS OS CURSOS (GRID FLUIDO 100%) */
-        /* Essa é a grande sacada: grid com minmax() longo faz a lista se comportar como cards largos que preenchem a tela */
+        /* TODOS OS CURSOS */
         .all-courses-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px;
         }
@@ -335,14 +477,13 @@ export default function Dashboard() {
         .super-compact { height: 4px; flex: 1;}
         .list-percent { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); min-width: 35px;}
 
-        .list-action { flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding-right: 10px;}
+        .list-action { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-right: 5px;}
         .btn-circle-play {
             background: transparent; border: none; color: var(--text-dim);
             cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center;
         }
         .list-card:hover .btn-circle-play { color: var(--primary); transform: translateX(5px); }
 
-        /* BARRAS DE PROGRESSO GLOBAIS */
         .progress-track { background: var(--track-bg); border-radius: 99px; overflow: hidden; width: 100%; }
         .progress-fill { 
             height: 100%; border-radius: 99px; transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
@@ -350,7 +491,6 @@ export default function Dashboard() {
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
         }
 
-        /* EMPTY STATE / LOADING */
         .loading-state { text-align: center; padding: 60px 20px; border-radius: 24px; color: var(--text-dim); font-size: 1.1rem; }
         .empty-state { text-align: center; padding: 100px 20px; border-radius: 32px; border-style: dashed;}
         
@@ -361,14 +501,14 @@ export default function Dashboard() {
         }
         .btn-primary-large:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(139, 92, 246, 0.5); filter: brightness(1.1); }
 
-
-        /* MOBILE RESPONSIVE */
         @media (max-width: 1024px) {
             .dashboard-content { margin-left: 0; padding: 40px 30px 120px 30px; width: 100%; max-width: 100%; }
             .featured-banner { height: 320px; }
             .featured-content { padding: 30px; }
             .featured-title { font-size: 2rem; }
-            .all-courses-grid { grid-template-columns: 1fr; } /* Em tablet, a lista vira 1 coluna */
+            .all-courses-grid { grid-template-columns: 1fr; }
+            .hero-header { flex-direction: column; align-items: stretch; }
+            .search-wrapper { max-width: 100%; }
         }
 
         @media (max-width: 600px) {
@@ -382,13 +522,12 @@ export default function Dashboard() {
             
             .recent-grid { grid-template-columns: 1fr; }
             
-            /* Lista de cursos em Mobile */
             .list-card { padding: 12px 16px; gap: 15px; }
             .list-card:hover { transform: none; }
             .list-thumb { width: 70px; height: 50px; }
             .list-title { font-size: 0.95rem; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
             .list-progress-area { max-width: 100%; }
-            .list-action { display: none; } /* Oculta a seta no mobile para economizar espaço */
+            .list-action .btn-circle-play { display: none; } 
         }
       `}</style>
     </div>
