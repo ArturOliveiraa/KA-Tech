@@ -17,7 +17,6 @@ declare module '*.svg';
 declare module '*.jpeg';
 declare module '*.jpg';
 
-// 3. Tipagem para CSS Modules (resolve o erro do dashboard.module.css)
 declare module '*.module.css' {
   const classes: { [key: string]: string };
   export default classes;

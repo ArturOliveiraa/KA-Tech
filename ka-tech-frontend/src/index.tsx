@@ -30,8 +30,11 @@ const Admin = lazy(() => import('./pages/admin'));
 const ContentManagement = lazy(() => import('./pages/ContentManagement'));
 const Reports = lazy(() => import('./pages/Reports'));
 const MeetingHub = lazy(() => import('./pages/MeetingHub'));
-
 const QuizView = lazy(() => import('./components/QuizPlayer'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminCourses = lazy(() => import('./pages/AdminCourses'));
+const AdminLives = lazy(() => import('./pages/AdminLives'));
+const AdminGamification = lazy(() => import('./pages/AdminGamification'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,6 +105,13 @@ root.render(
                 <Route path="/admin/gestao-conteudo" element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} />
                 <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                 <Route path="/live-setup" element={<LiveSetup />} />
+
+                {/* NOVAS ROTAS DIVIDIDAS (GESTÃO) */}
+                <Route path="/admin/usuarios" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
+                <Route path="/admin/cursos" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
+                <Route path="/admin/lives" element={<ProtectedRoute><AdminLives /></ProtectedRoute>} />
+                <Route path="/admin/gamificacao" element={<ProtectedRoute><AdminGamification /></ProtectedRoute>} />
+                
               </Routes>
             </Suspense>
           </BrowserRouter>

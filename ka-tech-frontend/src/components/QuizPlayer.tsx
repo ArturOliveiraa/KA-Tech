@@ -11,7 +11,7 @@ interface QuizData { id: string; title: string; description: string; questions: 
 // DEFINIÇÃO DAS PROPS ATUALIZADA
 interface QuizPlayerProps {
   courseId?: number;
-  lessonId?: number; // <-- ADICIONADO: Para puxar o quiz da aula exata
+  lessonId?: number;
   onExit?: () => void;
 }
 

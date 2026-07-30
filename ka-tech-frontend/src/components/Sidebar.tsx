@@ -8,14 +8,15 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const { userRole, userName, avatarUrl, themeColor, sidebarLogo, loading } = useUser();
 
-  // Estado dinâmico para controlar a visibilidade do botão LIVE!
   const [isLiveActive, setIsLiveActive] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
-  // Efeito para verificar o status da live no Supabase
+  // Estado para controlar a abertura do menu lateral no Mobile
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
   useEffect(() => {
     const checkLiveStatus = async () => {
       const now = new Date().toISOString();
-
       const { data } = await supabase
         .from("lives")
         .select("id")
@@ -31,133 +32,410 @@ const Sidebar: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Função para gerar um link de sala amigável baseado no nome do usuário
-  const getMeetingLink = () => {
-    const slug = userName ? userName.toLowerCase().replace(/\s+/g, '-') : 'sala-geral';
-    return `/meet/${slug}`;
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
-  const LARGURA_SIDEBAR = "260px";
+  const toggleMenu = (menu: string) => {
+    setExpandedMenu(expandedMenu === menu ? null : menu);
+  };
 
-  if (loading) return <aside className="sidebar-container" style={{ width: LARGURA_SIDEBAR, backgroundColor: '#020617' }} />;
+  const handleLinkClick = () => {
+    setIsMobileOpen(false);
+  };
+
+  const LARGURA_SIDEBAR = "270px";
+
+  if (loading) return <aside className="sidebar-container" style={{ width: LARGURA_SIDEBAR, backgroundColor: '#060913' }} />;
 
   return (
     <>
       <style>{`
-        :root { --primary-color: ${themeColor}; --bg-sidebar: #020617; }
+        /* PALETA DE CORES PREMIUM INSPIRADA NO DASHBOARD (DARK) */
+        :root { 
+          --bg-sidebar: linear-gradient(180deg, #111625 0%, #050810 100%); /* Fundo com profundidade */
+          --bg-hover: rgba(255, 255, 255, 0.06);   
+          --active-orange: #FF9800; 
+          --text-main: #E2E8F0;  
+          --text-muted: #8BA0B8; 
+          --border-color: rgba(255, 255, 255, 0.05); /* Borda bem sutil */
+        }
         
+        /* CONTAINER PRINCIPAL */
         .sidebar-container { 
           width: ${LARGURA_SIDEBAR}; 
           height: 100vh; 
-          background-color: var(--bg-sidebar); 
-          border-right: 1px solid rgba(139, 92, 246, 0.1); 
+          background: var(--bg-sidebar); 
           display: flex; 
           flex-direction: column; 
           position: fixed; 
           left: 0; 
           top: 0; 
           z-index: 1000; 
+          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3); /* Sombra para descolar do fundo do dashboard */
         }
 
-        .sidebar-logo { height: 100px; padding: 20px 10px; display: flex; align-items: center; justify-content: center; width: 100%; }
-        .logo-img { max-width: 200px; max-height: 65px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.4)); }
+        /* LOGO */
+        .sidebar-logo { 
+          height: 80px; 
+          padding: 15px 20px; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          width: 100%; 
+          border-bottom: 1px solid var(--border-color); 
+        }
+        .logo-img { max-width: 180px; max-height: 45px; object-fit: contain; }
         
-        .sidebar-nav { flex: 1; display: flex; flex-direction: column; padding: 20px 16px; gap: 8px; overflow-y: auto; overflow-x: hidden; }
-        .nav-link { display: flex; align-items: center; padding: 12px 16px; color: #9ca3af; text-decoration: none; border-radius: 12px; font-size: 0.9rem; transition: all 0.3s ease; }
-        .nav-link:hover { background-color: rgba(139, 92, 246, 0.05); color: #fff; }
-        .nav-link.active { background: linear-gradient(90deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%); color: var(--primary-color); border-left: 4px solid var(--primary-color); border-radius: 0 12px 12px 0; font-weight: 600; }
-        .nav-icon { font-size: 1.2rem; margin-right: 12px; }
+        /* SCROLL E NAVEGAÇÃO */
+        .sidebar-nav { 
+          flex: 1; 
+          display: flex; 
+          flex-direction: column; 
+          padding: 15px 12px; 
+          gap: 6px; 
+          overflow-y: auto; 
+          overflow-x: hidden; 
+        }
+        
+        .sidebar-nav::-webkit-scrollbar { width: 6px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        
+        .nav-group { display: flex; flex-direction: column; width: 100%; }
+        
+        /* BOTÕES PRINCIPAIS E LINKS */
+        .nav-button { 
+          background: transparent; 
+          border: none; 
+          width: 100%; 
+          cursor: pointer; 
+          text-align: left; 
+          padding: 12px 14px; 
+          color: var(--text-main); 
+          border-radius: 8px; /* Cantos um pouco mais arredondados */
+          font-size: 0.95rem; 
+          font-weight: 500;
+          transition: background-color 0.2s ease, color 0.2s ease;
+          display: flex;
+          align-items: center;
+          text-decoration: none;
+        }
+        
+        .nav-button:hover:not(.active) { background-color: var(--bg-hover); }
+        
+        .nav-button.active { 
+          background-color: var(--active-orange); 
+          color: #FFFFFF; 
+        }
 
+        .nav-item-content { display: flex; align-items: center; width: 100%; }
+        
+        .nav-icon { 
+          font-size: 1.1rem; 
+          margin-right: 12px; 
+          width: 22px; 
+          text-align: center; 
+          color: var(--text-muted);
+        }
+        .nav-button.active .nav-icon { color: #FFFFFF; }
+        
+        .nav-text { flex: 1; }
+        
+        .nav-arrow { 
+          font-size: 0.8rem; 
+          font-weight: bold;
+          color: var(--text-muted); 
+          transition: transform 0.2s ease;
+        }
+        .nav-button.active .nav-arrow { color: #FFFFFF; }
+
+        /* AREA DOS SUBMENUS */
+        .sub-menu { display: flex; flex-direction: column; padding: 4px 0 10px 0; gap: 2px; }
+
+        .sub-link { 
+          padding: 8px 16px 8px 48px; 
+          color: var(--text-main); 
+          text-decoration: none; 
+          font-size: 0.9rem; 
+          font-weight: 400;
+          transition: background-color 0.2s ease, color 0.2s ease;
+          display: block; 
+          border-radius: 6px;
+          margin: 0 4px;
+        }
+        .sub-link:hover { color: #FFFFFF; background-color: var(--bg-hover); }
+        .sub-link.active { color: #FFFFFF; font-weight: 600; }
+
+        .divider { height: 1px; background-color: var(--border-color); margin: 10px 0; width: 100%; }
+
+        /* BOTÃO LIVE */
         .nav-live {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+          background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
           color: white !important;
-          font-weight: 800 !important;
-          box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
-          margin-bottom: 8px;
           animation: pulse-live 2s infinite;
         }
 
         @keyframes pulse-live {
-          0% { transform: scale(1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
-          50% { transform: scale(1.02); box-shadow: 0 4px 25px rgba(239, 68, 68, 0.6); }
-          100% { transform: scale(1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+          0% { transform: scale(1); box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+          50% { transform: scale(1.01); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+          100% { transform: scale(1); box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
         }
 
-        .sidebar-footer { padding: 20px 16px; border-top: 1px solid rgba(139, 92, 246, 0.1); background: rgba(0, 0, 0, 0.2); }
+        /* RODAPÉ DO USUÁRIO */
+        .sidebar-footer { 
+          padding: 15px 20px; 
+          border-top: 1px solid var(--border-color); 
+          background: rgba(0, 0, 0, 0.15); /* Fundo sutil para separar o rodapé */
+        }
+
+        /* ESTILOS ESPECÍFICOS PARA O MOBILE (MENU LATERAL VERDADEIRO) */
+        .mobile-overlay {
+          display: none;
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.6);
+          backdrop-filter: blur(3px); /* Efeito de desfoque elegante */
+          z-index: 998;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        .mobile-overlay.show { opacity: 1; }
         
+        .mobile-toggle {
+          display: none;
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          width: 55px;
+          height: 55px;
+          border-radius: 50%;
+          background-color: var(--active-orange);
+          color: #fff;
+          border: none;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          z-index: 1001; 
+          cursor: pointer;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+        }
+
         @media (max-width: 1024px) {
-          .sidebar-container { width: 100% !important; height: 75px !important; bottom: 0 !important; top: auto !important; flex-direction: row !important; background: rgba(2, 6, 23, 0.98) !important; backdrop-filter: blur(10px); }
-          .sidebar-logo, .sidebar-footer { display: none !important; }
-          .sidebar-nav { flex-direction: row !important; justify-content: space-around !important; padding: 0 4px !important; gap: 0 !important; width: 100% !important; align-items: center !important; }
-          .nav-link { flex-direction: column !important; font-size: 0.5rem !important; padding: 8px 2px !important; gap: 2px !important; color: #64748b; flex: 1 !important; text-align: center !important; }
-          .nav-icon { margin-right: 0 !important; font-size: 1rem !important; }
-          .nav-link.active { background: none !important; border-left: none !important; border-top: 3px solid var(--primary-color) !important; border-radius: 0 !important; color: var(--primary-color) !important; }
-          .nav-live { background: none !important; color: #ef4444 !important; border-top: 3px solid #ef4444 !important; animation: none !important; box-shadow: none !important; }
+          .mobile-overlay { display: block; pointer-events: none; }
+          .mobile-overlay.show { pointer-events: auto; }
+          .mobile-toggle { display: flex; }
+          
+          .sidebar-container { 
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+          }
+          .sidebar-container.open {
+            transform: translateX(0);
+          }
         }
       `}</style>
 
-      <aside className="sidebar-container">
+      {/* COMPONENTES MOBILE */}
+      <div
+        className={`mobile-overlay ${isMobileOpen ? 'show' : ''}`}
+        onClick={() => setIsMobileOpen(false)}
+      />
+      <button
+        className="mobile-toggle"
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+      >
+        {isMobileOpen ? '✕' : '☰'}
+      </button>
+
+      <aside className={`sidebar-container ${isMobileOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <Link to="/dashboard" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <Link to="/dashboard" onClick={handleLinkClick} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
             <img src={sidebarLogo} alt="KA Tech" className="logo-img" />
           </Link>
         </div>
 
         <nav className="sidebar-nav">
-          {/* BOTÃO LIVE DINÂMICO */}
+
+          {/* BOTÃO LIVE */}
           {isLiveActive && (
-            <Link to="/live" className={`nav-link nav-live ${location.pathname === '/live' ? 'active' : ''}`}>
-              <span className="nav-icon">((•))</span> <span>LIVE!</span>
+            <Link to="/live" onClick={handleLinkClick} className={`nav-button nav-live ${location.pathname === '/live' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">((•))</span>
+                <span className="nav-text">LIVE!</span>
+              </div>
             </Link>
           )}
 
-          <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-            <span className="nav-icon">📚</span> <span>Cursos</span>
-          </Link>
+          {/* CURSOS */}
+          <div className="nav-group">
+            <button onClick={() => toggleMenu('cursos')} className={`nav-button ${expandedMenu === 'cursos' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">📚</span>
+                <span className="nav-text">Cursos</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'cursos' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'cursos' && (
+              <div className="sub-menu">
+                <Link to="/dashboard" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>Visão Geral</Link>
+              </div>
+            )}
+          </div>
 
-          <Link to="/cursos" className={`nav-link ${location.pathname === '/cursos' ? 'active' : ''}`}>
-            <span className="nav-icon">🔍</span> <span>Trilhas</span>
-          </Link>
+          {/* TRILHAS */}
+          <div className="nav-group">
+            <button onClick={() => toggleMenu('trilhas')} className={`nav-button ${expandedMenu === 'trilhas' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">🔍</span>
+                <span className="nav-text">Trilhas</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'trilhas' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'trilhas' && (
+              <div className="sub-menu">
+                <Link to="/cursos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/cursos' ? 'active' : ''}`}>Trilhas de Conhecimento</Link>
+              </div>
+            )}
+          </div>
 
-          <Link to="/lives-hub" className={`nav-link ${location.pathname === '/lives-hub' ? 'active' : ''}`}>
-            <span className="nav-icon">🎥</span> <span>Live Center</span>
-          </Link>
+          {/* LIVE CENTER */}
+          <div className="nav-group" style={{ display: 'none' }}> // INVISIVEL, V 2.0
+            <button onClick={() => toggleMenu('lives')} className={`nav-button ${expandedMenu === 'lives' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">🎥</span>
+                <span className="nav-text">Live Center</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'lives' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'lives' && (
+              <div className="sub-menu">
+                <Link to="/lives-hub" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/lives-hub' ? 'active' : ''}`}>Visão Geral</Link>
+              </div>
+            )}
+          </div>
 
-          <Link to="/reunioes" className={`nav-link ${location.pathname === '/reunioes' ? 'active' : ''}`}>
-            <span className="nav-icon">🤝</span> <span>Reuniões</span>
-          </Link>
+          {/* REUNIÕES */}
+          <div className="nav-group" style={{ display: 'none' }}> // INVISIVEL, VERSAO V2.0
+            <button onClick={() => toggleMenu('reunioes')} className={`nav-button ${expandedMenu === 'reunioes' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">🤝</span>
+                <span className="nav-text">Reuniões</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'reunioes' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'reunioes' && (
+              <div className="sub-menu">
+                <Link to="/reunioes" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/reunioes' ? 'active' : ''}`}>Visão Geral</Link>
+                <Link to="#" className="sub-link" style={{ opacity: 0.5 }}>Standby...</Link>
+              </div>
+            )}
+          </div>
 
-          <Link to="/rankings" className={`nav-link ${location.pathname === '/rankings' ? 'active' : ''}`}>
-            <span className="nav-icon">🏅</span> <span>Ranking</span>
-          </Link>
+          {/* RANKING */}
+          <div className="nav-group">
+            <button onClick={() => toggleMenu('ranking')} className={`nav-button ${expandedMenu === 'ranking' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">🏅</span>
+                <span className="nav-text">Ranking</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'ranking' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'ranking' && (
+              <div className="sub-menu">
+                <Link to="/rankings" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/rankings' ? 'active' : ''}`}>Hall da Fama</Link>
+              </div>
+            )}
+          </div>
 
-          <Link to="/conquistas" className={`nav-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>
-            <span className="nav-icon">🏆</span> <span>Conquistas</span>
-          </Link>
+          {/* CONQUISTAS */}
+          <div className="nav-group">
+            <button onClick={() => toggleMenu('conquistas')} className={`nav-button ${expandedMenu === 'conquistas' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">🏆</span>
+                <span className="nav-text">Conquistas</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'conquistas' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'conquistas' && (
+              <div className="sub-menu">
+                <Link to="/conquistas" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>Salão de Troféus</Link>
+              </div>
+            )}
+          </div>
 
+          {/* ÁREA ADMIN / TEACHER */}
           {(userRole === 'admin' || userRole === 'teacher') && (
             <>
-              <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`}><span className="nav-icon">🛠️</span> <span>Gestão</span></Link>
-              <Link to="/relatorios" className={`nav-link ${location.pathname === '/relatorios' ? 'active' : ''}`}><span className="nav-icon">📊</span> <span>Relatórios</span></Link>
+              <div className="divider"></div>
+
+              {/* GESTÃO */}
+              <div className="nav-group">
+                <button onClick={() => toggleMenu('gestao')} className={`nav-button ${expandedMenu === 'gestao' ? 'active' : ''}`}>
+                  <div className="nav-item-content">
+                    <span className="nav-icon">🛠️</span>
+                    <span className="nav-text">Gestão</span>
+                    <span className="nav-arrow" style={{ transform: expandedMenu === 'gestao' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+                  </div>
+                </button>
+                {expandedMenu === 'gestao' && (
+                  <div className="sub-menu">
+                    <Link to="/admin" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin' ? 'active' : ''}`}>Visão Geral</Link>
+                    <Link to="/admin/usuarios" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/usuarios' ? 'active' : ''}`}>Usuários</Link>
+                    <Link to="/admin/cursos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/cursos' ? 'active' : ''}`}>Cursos e Trilhas</Link>
+                    <Link to="/admin/lives" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/lives' ? 'active' : ''}`}>Gerir Lives</Link>
+                    <Link to="/admin/gamificacao" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/gamificacao' ? 'active' : ''}`}>Gamificação</Link>
+                  </div>
+                )}
+              </div>
+
+              {/* RELATÓRIOS */}
+              <div className="nav-group">
+                <button onClick={() => toggleMenu('relatorios')} className={`nav-button ${expandedMenu === 'relatorios' ? 'active' : ''}`}>
+                  <div className="nav-item-content">
+                    <span className="nav-icon">📊</span>
+                    <span className="nav-text">Relatórios</span>
+                    <span className="nav-arrow" style={{ transform: expandedMenu === 'relatorios' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+                  </div>
+                </button>
+                {expandedMenu === 'relatorios' && (
+                  <div className="sub-menu">
+                    <Link to="/relatorios/x" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/relatorios/x' ? 'active' : ''}`}>Relatório X</Link>
+                    <Link to="/relatorios/y" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/relatorios/y' ? 'active' : ''}`}>Relatório Y</Link>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
-          <Link to="/configuracoes" className={`nav-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>
-            <span className="nav-icon">⚙️</span> <span>Ajustes</span>
-          </Link>
+          <div className="divider"></div>
+
+          {/* AJUSTES */}
+          <div className="nav-group">
+            <button onClick={() => toggleMenu('ajustes')} className={`nav-button ${expandedMenu === 'ajustes' ? 'active' : ''}`}>
+              <div className="nav-item-content">
+                <span className="nav-icon">⚙️</span>
+                <span className="nav-text">Ajustes</span>
+                <span className="nav-arrow" style={{ transform: expandedMenu === 'ajustes' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            {expandedMenu === 'ajustes' && (
+              <div className="sub-menu">
+                <Link to="/configuracoes" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>Perfil</Link>
+              </div>
+            )}
+          </div>
+
         </nav>
 
         <div className="sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Avatar src={avatarUrl} name={userName} />
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <span style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{userName}</span>
-              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Sair</button>
+              <span style={{ color: '#E2E8F0', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{userName}</span>
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Sair</button>
             </div>
           </div>
         </div>

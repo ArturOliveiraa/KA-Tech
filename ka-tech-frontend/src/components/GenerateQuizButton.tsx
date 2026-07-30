@@ -7,7 +7,6 @@ interface GenerateQuizButtonProps {
   lessonId?: number;
   title: string;
   description: string;
-  // Ajustado para aceitar o parâmetro data e evitar erro TS2322
   onQuizGenerated?: (data: any) => void; 
 }
 
