@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
 import { useUser } from "./UserContext";
+import { MessageSquare, X, Send } from "lucide-react";
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -10,9 +11,16 @@ const Sidebar: React.FC = () => {
 
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-
-  // Estado para controlar a abertura do menu lateral no Mobile
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // === ESTADOS PARA O FEEDBACK WIDGET ===
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState('melhoria');
+  const [feedbackName, setFeedbackName] = useState(userName || ''); 
+  const [feedbackContact, setFeedbackContact] = useState(''); 
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
 
   useEffect(() => {
     const checkLiveStatus = async () => {
@@ -32,6 +40,11 @@ const Sidebar: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Preenche o nome caso demore a carregar do contexto
+  useEffect(() => {
+    if (userName && !feedbackName) setFeedbackName(userName);
+  }, [userName, feedbackName]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -45,6 +58,48 @@ const Sidebar: React.FC = () => {
     setIsMobileOpen(false);
   };
 
+  // === LÓGICA DE ENVIO DO FEEDBACK ===
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackMessage.trim() || !feedbackName.trim() || !feedbackContact.trim()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Você precisa estar logado para enviar feedback.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('feedbacks')
+        .insert([{ 
+          user_id: user.id, 
+          type: feedbackType, 
+          message: feedbackMessage,
+          user_name: feedbackName,
+          contact_info: feedbackContact
+        }]);
+
+      if (error) throw error;
+
+      setFeedbackSuccess(true);
+      setFeedbackMessage('');
+      setFeedbackContact('');
+      setTimeout(() => {
+        setIsFeedbackOpen(false);
+        setFeedbackSuccess(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error("Erro ao enviar feedback:", error);
+      alert("Ocorreu um erro ao enviar seu feedback. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const LARGURA_SIDEBAR = "270px";
 
   if (loading) return <aside className="sidebar-container" style={{ width: LARGURA_SIDEBAR, backgroundColor: '#060913' }} />;
@@ -54,15 +109,14 @@ const Sidebar: React.FC = () => {
       <style>{`
         /* PALETA DE CORES PREMIUM INSPIRADA NO DASHBOARD (DARK) */
         :root { 
-          --bg-sidebar: linear-gradient(180deg, #111625 0%, #050810 100%); /* Fundo com profundidade */
+          --bg-sidebar: linear-gradient(180deg, #111625 0%, #050810 100%);
           --bg-hover: rgba(255, 255, 255, 0.06);   
           --active-orange: #FF9800; 
           --text-main: #E2E8F0;  
           --text-muted: #8BA0B8; 
-          --border-color: rgba(255, 255, 255, 0.05); /* Borda bem sutil */
+          --border-color: rgba(255, 255, 255, 0.05);
         }
         
-        /* CONTAINER PRINCIPAL */
         .sidebar-container { 
           width: ${LARGURA_SIDEBAR}; 
           height: 100vh; 
@@ -74,10 +128,9 @@ const Sidebar: React.FC = () => {
           top: 0; 
           z-index: 1000; 
           font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-          box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3); /* Sombra para descolar do fundo do dashboard */
+          box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3);
         }
 
-        /* LOGO */
         .sidebar-logo { 
           height: 80px; 
           padding: 15px 20px; 
@@ -89,7 +142,6 @@ const Sidebar: React.FC = () => {
         }
         .logo-img { max-width: 180px; max-height: 45px; object-fit: contain; }
         
-        /* SCROLL E NAVEGAÇÃO */
         .sidebar-nav { 
           flex: 1; 
           display: flex; 
@@ -106,7 +158,6 @@ const Sidebar: React.FC = () => {
         
         .nav-group { display: flex; flex-direction: column; width: 100%; }
         
-        /* BOTÕES PRINCIPAIS E LINKS */
         .nav-button { 
           background: transparent; 
           border: none; 
@@ -115,7 +166,7 @@ const Sidebar: React.FC = () => {
           text-align: left; 
           padding: 12px 14px; 
           color: var(--text-main); 
-          border-radius: 8px; /* Cantos um pouco mais arredondados */
+          border-radius: 8px;
           font-size: 0.95rem; 
           font-weight: 500;
           transition: background-color 0.2s ease, color 0.2s ease;
@@ -125,11 +176,7 @@ const Sidebar: React.FC = () => {
         }
         
         .nav-button:hover:not(.active) { background-color: var(--bg-hover); }
-        
-        .nav-button.active { 
-          background-color: var(--active-orange); 
-          color: #FFFFFF; 
-        }
+        .nav-button.active { background-color: var(--active-orange); color: #FFFFFF; }
 
         .nav-item-content { display: flex; align-items: center; width: 100%; }
         
@@ -152,7 +199,6 @@ const Sidebar: React.FC = () => {
         }
         .nav-button.active .nav-arrow { color: #FFFFFF; }
 
-        /* AREA DOS SUBMENUS */
         .sub-menu { display: flex; flex-direction: column; padding: 4px 0 10px 0; gap: 2px; }
 
         .sub-link { 
@@ -171,7 +217,6 @@ const Sidebar: React.FC = () => {
 
         .divider { height: 1px; background-color: var(--border-color); margin: 10px 0; width: 100%; }
 
-        /* BOTÃO LIVE */
         .nav-live {
           background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
           color: white !important;
@@ -184,69 +229,90 @@ const Sidebar: React.FC = () => {
           100% { transform: scale(1); box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
         }
 
-        /* RODAPÉ DO USUÁRIO */
         .sidebar-footer { 
           padding: 15px 20px; 
           border-top: 1px solid var(--border-color); 
-          background: rgba(0, 0, 0, 0.15); /* Fundo sutil para separar o rodapé */
+          background: rgba(0, 0, 0, 0.15); 
         }
 
-        /* ESTILOS ESPECÍFICOS PARA O MOBILE (MENU LATERAL VERDADEIRO) */
+        /* MODAL DE FEEDBACK DENTRO DA SIDEBAR (CORRIGIDO) */
+        .feedback-popover {
+          background: rgba(15, 23, 42, 0.95);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          padding: 16px;
+          margin: 4px 10px 10px 10px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+          animation: fadeUp 0.2s ease;
+          box-sizing: border-box; 
+        }
+        
+        .feedback-input {
+          width: 100%; 
+          padding: 10px 12px; 
+          border-radius: 6px;
+          background: rgba(255,255,255,0.05); 
+          border: 1px solid rgba(255,255,255,0.1);
+          color: #fff; 
+          outline: none; 
+          margin-bottom: 10px; 
+          font-size: 0.85rem;
+          box-sizing: border-box; 
+          font-family: inherit;
+        }
+        
+        .feedback-input:focus {
+          border-color: var(--active-orange);
+          background: rgba(255,255,255,0.08);
+        }
+
+        .feedback-btn {
+          width: 100%; 
+          padding: 12px; 
+          border-radius: 6px;
+          background: var(--active-orange); 
+          color: #fff; 
+          border: none;
+          font-weight: 600; 
+          cursor: pointer; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          gap: 6px; 
+          font-size: 0.9rem;
+          box-sizing: border-box;
+          transition: filter 0.2s;
+        }
+        
+        .feedback-btn:hover {
+          filter: brightness(1.1);
+        }
+
         .mobile-overlay {
-          display: none;
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.6);
-          backdrop-filter: blur(3px); /* Efeito de desfoque elegante */
-          z-index: 998;
-          opacity: 0;
-          transition: opacity 0.3s ease;
+          display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 998;
+          opacity: 0; transition: opacity 0.3s ease;
         }
         .mobile-overlay.show { opacity: 1; }
         
         .mobile-toggle {
-          display: none;
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          width: 55px;
-          height: 55px;
-          border-radius: 50%;
-          background-color: var(--active-orange);
-          color: #fff;
-          border: none;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-          z-index: 1001; 
-          cursor: pointer;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.5rem;
+          display: none; position: fixed; bottom: 20px; right: 20px; width: 55px; height: 55px;
+          border-radius: 50%; background-color: var(--active-orange); color: #fff; border: none;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1001; cursor: pointer;
+          align-items: center; justify-content: center; font-size: 1.5rem;
         }
 
         @media (max-width: 1024px) {
           .mobile-overlay { display: block; pointer-events: none; }
           .mobile-overlay.show { pointer-events: auto; }
           .mobile-toggle { display: flex; }
-          
-          .sidebar-container { 
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-          }
-          .sidebar-container.open {
-            transform: translateX(0);
-          }
+          .sidebar-container { transform: translateX(-100%); transition: transform 0.3s ease; }
+          .sidebar-container.open { transform: translateX(0); }
         }
       `}</style>
 
-      {/* COMPONENTES MOBILE */}
-      <div
-        className={`mobile-overlay ${isMobileOpen ? 'show' : ''}`}
-        onClick={() => setIsMobileOpen(false)}
-      />
-      <button
-        className="mobile-toggle"
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-      >
+      <div className={`mobile-overlay ${isMobileOpen ? 'show' : ''}`} onClick={() => setIsMobileOpen(false)} />
+      <button className="mobile-toggle" onClick={() => setIsMobileOpen(!isMobileOpen)}>
         {isMobileOpen ? '✕' : '☰'}
       </button>
 
@@ -258,8 +324,6 @@ const Sidebar: React.FC = () => {
         </div>
 
         <nav className="sidebar-nav">
-
-          {/* BOTÃO LIVE */}
           {isLiveActive && (
             <Link to="/live" onClick={handleLinkClick} className={`nav-button nav-live ${location.pathname === '/live' ? 'active' : ''}`}>
               <div className="nav-item-content">
@@ -269,7 +333,6 @@ const Sidebar: React.FC = () => {
             </Link>
           )}
 
-          {/* CURSOS */}
           <div className="nav-group">
             <button onClick={() => toggleMenu('cursos')} className={`nav-button ${expandedMenu === 'cursos' ? 'active' : ''}`}>
               <div className="nav-item-content">
@@ -285,7 +348,6 @@ const Sidebar: React.FC = () => {
             )}
           </div>
 
-          {/* TRILHAS */}
           <div className="nav-group">
             <button onClick={() => toggleMenu('trilhas')} className={`nav-button ${expandedMenu === 'trilhas' ? 'active' : ''}`}>
               <div className="nav-item-content">
@@ -301,40 +363,6 @@ const Sidebar: React.FC = () => {
             )}
           </div>
 
-          {/* LIVE CENTER */}
-          <div className="nav-group" style={{ display: 'none' }}> // INVISIVEL, V 2.0
-            <button onClick={() => toggleMenu('lives')} className={`nav-button ${expandedMenu === 'lives' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">🎥</span>
-                <span className="nav-text">Live Center</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'lives' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'lives' && (
-              <div className="sub-menu">
-                <Link to="/lives-hub" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/lives-hub' ? 'active' : ''}`}>Visão Geral</Link>
-              </div>
-            )}
-          </div>
-
-          {/* REUNIÕES */}
-          <div className="nav-group" style={{ display: 'none' }}> // INVISIVEL, VERSAO V2.0
-            <button onClick={() => toggleMenu('reunioes')} className={`nav-button ${expandedMenu === 'reunioes' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">🤝</span>
-                <span className="nav-text">Reuniões</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'reunioes' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'reunioes' && (
-              <div className="sub-menu">
-                <Link to="/reunioes" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/reunioes' ? 'active' : ''}`}>Visão Geral</Link>
-                <Link to="#" className="sub-link" style={{ opacity: 0.5 }}>Standby...</Link>
-              </div>
-            )}
-          </div>
-
-          {/* RANKING */}
           <div className="nav-group">
             <button onClick={() => toggleMenu('ranking')} className={`nav-button ${expandedMenu === 'ranking' ? 'active' : ''}`}>
               <div className="nav-item-content">
@@ -350,7 +378,6 @@ const Sidebar: React.FC = () => {
             )}
           </div>
 
-          {/* CONQUISTAS */}
           <div className="nav-group">
             <button onClick={() => toggleMenu('conquistas')} className={`nav-button ${expandedMenu === 'conquistas' ? 'active' : ''}`}>
               <div className="nav-item-content">
@@ -371,7 +398,6 @@ const Sidebar: React.FC = () => {
             <>
               <div className="divider"></div>
 
-              {/* GESTÃO */}
               <div className="nav-group">
                 <button onClick={() => toggleMenu('gestao')} className={`nav-button ${expandedMenu === 'gestao' ? 'active' : ''}`}>
                   <div className="nav-item-content">
@@ -387,23 +413,7 @@ const Sidebar: React.FC = () => {
                     <Link to="/admin/cursos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/cursos' ? 'active' : ''}`}>Cursos e Trilhas</Link>
                     <Link to="/admin/lives" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/lives' ? 'active' : ''}`}>Gerir Lives</Link>
                     <Link to="/admin/gamificacao" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/gamificacao' ? 'active' : ''}`}>Gamificação</Link>
-                  </div>
-                )}
-              </div>
-
-              {/* RELATÓRIOS */}
-              <div className="nav-group">
-                <button onClick={() => toggleMenu('relatorios')} className={`nav-button ${expandedMenu === 'relatorios' ? 'active' : ''}`}>
-                  <div className="nav-item-content">
-                    <span className="nav-icon">📊</span>
-                    <span className="nav-text">Relatórios</span>
-                    <span className="nav-arrow" style={{ transform: expandedMenu === 'relatorios' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-                  </div>
-                </button>
-                {expandedMenu === 'relatorios' && (
-                  <div className="sub-menu">
-                    <Link to="/relatorios/x" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/relatorios/x' ? 'active' : ''}`}>Relatório X</Link>
-                    <Link to="/relatorios/y" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/relatorios/y' ? 'active' : ''}`}>Relatório Y</Link>
+                    <Link to="/admin/feedbacks" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/feedbacks' ? 'active' : ''}`}>Feedbacks (Bugs)</Link>
                   </div>
                 )}
               </div>
@@ -412,7 +422,75 @@ const Sidebar: React.FC = () => {
 
           <div className="divider"></div>
 
-          {/* AJUSTES */}
+          {/* FEEDBACK BUTTON INLINE */}
+          <div className="nav-group">
+            <button 
+              onClick={() => setIsFeedbackOpen(!isFeedbackOpen)} 
+              className={`nav-button ${isFeedbackOpen ? 'active' : ''}`}
+            >
+              <div className="nav-item-content">
+                <MessageSquare className="nav-icon" size={18} style={{ width: '22px' }} />
+                <span className="nav-text" style={{ fontSize: '0.9rem' }}>Deixar Feedback</span>
+                <span className="nav-arrow" style={{ transform: isFeedbackOpen ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+              </div>
+            </button>
+            
+            {isFeedbackOpen && (
+              <div className="feedback-popover">
+                {feedbackSuccess ? (
+                  <div style={{ textAlign: 'center', padding: '10px 0', color: '#10b981', fontSize: '0.9rem' }}>
+                    Obrigado pelo seu feedback! 🚀
+                  </div>
+                ) : (
+                  <form onSubmit={handleFeedbackSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <input 
+                      type="text"
+                      value={feedbackName}
+                      onChange={(e) => setFeedbackName(e.target.value)}
+                      placeholder="Seu Nome"
+                      required
+                      className="feedback-input"
+                    />
+
+                    <input 
+                      type="text"
+                      value={feedbackContact}
+                      onChange={(e) => setFeedbackContact(e.target.value)}
+                      placeholder="Discord ou WhatsApp"
+                      required
+                      className="feedback-input"
+                    />
+
+                    <select 
+                      value={feedbackType} 
+                      onChange={(e) => setFeedbackType(e.target.value)}
+                      className="feedback-input"
+                    >
+                      <option value="melhoria" style={{ color: '#000' }}>💡 Sugestão</option>
+                      <option value="bug" style={{ color: '#000' }}>🐛 Reportar Bug</option>
+                      <option value="elogio" style={{ color: '#000' }}>⭐ Elogio</option>
+                      <option value="outro" style={{ color: '#000' }}>🤔 Outro</option>
+                    </select>
+
+                    <textarea 
+                      value={feedbackMessage}
+                      onChange={(e) => setFeedbackMessage(e.target.value)}
+                      placeholder="Descreva detalhadamente..."
+                      rows={3}
+                      required
+                      className="feedback-input"
+                      style={{ resize: 'none' }}
+                    />
+
+                    <button type="submit" disabled={isSubmitting} className="feedback-btn">
+                      {isSubmitting ? 'Enviando...' : <><Send size={14} /> Enviar</>}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="nav-group">
             <button onClick={() => toggleMenu('ajustes')} className={`nav-button ${expandedMenu === 'ajustes' ? 'active' : ''}`}>
               <div className="nav-item-content">

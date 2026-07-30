@@ -35,6 +35,7 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
 const AdminLives = lazy(() => import('./pages/AdminLives'));
 const AdminGamification = lazy(() => import('./pages/AdminGamification'));
+const AdminFeedbacks = lazy(() => import('./pages/AdminFeedbacks'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +112,7 @@ root.render(
                 <Route path="/admin/cursos" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
                 <Route path="/admin/lives" element={<ProtectedRoute><AdminLives /></ProtectedRoute>} />
                 <Route path="/admin/gamificacao" element={<ProtectedRoute><AdminGamification /></ProtectedRoute>} />
+                <Route path="/admin/feedbacks" element={<ProtectedRoute><AdminFeedbacks /></ProtectedRoute>} />
                 
               </Routes>
             </Suspense>
