@@ -7,14 +7,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from './components/UserContext';
 import MeetPage from './pages/MeetPage';
 import ProtectedRoute from './components/ProtectedRoute';
-const QuizList = lazy(() => import('./pages/QuizList'));
 
 // --- LAZY LOADING ---
+const QuizList = lazy(() => import('./pages/QuizList'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
+const CompleteProfile = lazy(() => import('./pages/CompleteProfile'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const UpdatePassword = lazy(() => import('./pages/UpdatePassword'));
-const Planos = lazy(() => import('./pages/Plans'));
 const Dashboard = lazy(() => import('./pages/dashboard'));
 const Cursos = lazy(() => import('./pages/cursos'));
 const CategoryCourses = lazy(() => import('./pages/CategoryCourses'));
@@ -26,7 +26,6 @@ const Settings = lazy(() => import('./pages/Settings'));
 const LivePage = lazy(() => import('./pages/LivePage'));
 const LiveSetup = lazy(() => import('./pages/LiveSetup'));
 const LiveHub = lazy(() => import('./pages/LiveHub'));
-const Admin = lazy(() => import('./pages/admin'));
 const ContentManagement = lazy(() => import('./pages/ContentManagement'));
 const Reports = lazy(() => import('./pages/Reports'));
 const MeetingHub = lazy(() => import('./pages/MeetingHub'));
@@ -36,6 +35,7 @@ const AdminCourses = lazy(() => import('./pages/AdminCourses'));
 const AdminLives = lazy(() => import('./pages/AdminLives'));
 const AdminGamification = lazy(() => import('./pages/AdminGamification'));
 const AdminFeedbacks = lazy(() => import('./pages/AdminFeedbacks'));
+const AdminUserReports = lazy(() => import('./pages/AdminUserReports'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,44 +75,40 @@ root.render(
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/update-password" element={<UpdatePassword />} />
-                <Route path="/planos" element={<Planos />} />
                 <Route path="/privacidade" element={<Privacy />} />
-                <Route path="/admin/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
+                <Route path="/completar-perfil" element={<CompleteProfile />} />
 
-                {/* --- ROTAS DE USUÁRIO (ALUNO) --- */}
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/cursos" element={<Cursos />} />
-                <Route path="/categoria/:slug" element={<CategoryCourses />} />
-                <Route path="/conquistas" element={<Achievements />} />
-                <Route path="/curso/:slug" element={<Player />} />
-                <Route path="/rankings" element={<Rankings />} />
+                {/* --- ROTAS DE USUÁRIO (ALUNO) PROTEGIDAS --- */}
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/cursos" element={<ProtectedRoute><Cursos /></ProtectedRoute>} />
+                <Route path="/categoria/:slug" element={<ProtectedRoute><CategoryCourses /></ProtectedRoute>} />
+                <Route path="/conquistas" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+                <Route path="/curso/:slug" element={<ProtectedRoute><Player /></ProtectedRoute>} />
+                <Route path="/rankings" element={<ProtectedRoute><Rankings /></ProtectedRoute>} />
                 <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 
                 {/* ROTA DO QUIZ PELO SLUG */}
-                <Route path="/quizzes/:slug" element={<QuizView />} />
+                <Route path="/quizzes/:slug" element={<ProtectedRoute><QuizView /></ProtectedRoute>} />
 
                 {/* --- ROTAS DE LIVES E REUNIÕES --- */}
-                <Route path="/live" element={<LivePage />} />
-                <Route path="/lives-hub" element={<LiveHub />} />
-                
-                {/* NOVA ROTA DO HUB DE REUNIÕES */}
-                <Route path="/reunioes" element={<MeetingHub />} />
-                
-                {/* PLAYER DA REUNIÃO (ID Opcional para não quebrar) */}
-                <Route path="/meet/:roomId?" element={<MeetPage />} />
+                <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
+                <Route path="/lives-hub" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
+                <Route path="/reunioes" element={<ProtectedRoute><MeetingHub /></ProtectedRoute>} />
+                <Route path="/meet/:roomId?" element={<ProtectedRoute><MeetPage /></ProtectedRoute>} />
 
                 {/* --- ROTAS ADMINISTRATIVAS --- */}
-                <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
                 <Route path="/admin/gestao-conteudo" element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} />
                 <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                <Route path="/live-setup" element={<LiveSetup />} />
-
-                {/* NOVAS ROTAS DIVIDIDAS (GESTÃO) */}
+                <Route path="/live-setup" element={<ProtectedRoute><LiveSetup /></ProtectedRoute>} />
+                <Route path="/admin/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
                 <Route path="/admin/usuarios" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
                 <Route path="/admin/cursos" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
                 <Route path="/admin/lives" element={<ProtectedRoute><AdminLives /></ProtectedRoute>} />
                 <Route path="/admin/gamificacao" element={<ProtectedRoute><AdminGamification /></ProtectedRoute>} />
                 <Route path="/admin/feedbacks" element={<ProtectedRoute><AdminFeedbacks /></ProtectedRoute>} />
+
+                {/* --- ROTA DOS RELATÓRIOS --- */}
+                <Route path="/admin/relatorio-alunos" element={<ProtectedRoute><AdminUserReports /></ProtectedRoute>} />
                 
               </Routes>
             </Suspense>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Sidebar from '../components/Sidebar';
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -15,12 +14,7 @@ interface Profile {
   total_xp: number;
   level: number;
   patent: string;
-  profile_tags?: { tags: { id: string, name: string } }[]; 
-}
-
-interface Tag {
-  id: string;
-  name: string;
+  profile_tags?: { tags: { id: string, name: string, type: string } }[]; 
 }
 
 interface StudentHistory {
@@ -35,12 +29,8 @@ interface StudentHistory {
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
-  
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [tagFilter, setTagFilter] = useState('all');
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
@@ -69,14 +59,7 @@ const AdminUsers: React.FC = () => {
 
       const { data: profileTagsData } = await supabase
         .from('profile_tags')
-        .select('profile_id, tags(id, name)');
-
-      const { data: tagsData } = await supabase
-        .from('tags')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (tagsData) setAvailableTags(tagsData);
+        .select('profile_id, tags(id, name, type)');
 
       if (profilesData) {
         const usersWithTags = profilesData.map(user => {
@@ -126,7 +109,6 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  // BUSCA COM TEMPO EM MINUTOS E CONCLUSÃO REAL POR 100% DAS AULAS
   const handleOpenHistory = async (user: Profile) => {
     setSelectedUserForHistory(user);
     setIsHistoryModalOpen(true);
@@ -279,96 +261,18 @@ const AdminUsers: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
+    return (
       (user.full_name && user.full_name.toLowerCase().includes(searchLower)) ||
-      (user.email && user.email.toLowerCase().includes(searchLower));
-
-    const userRole = (user.role || '').toLowerCase().trim();
-    let matchesRole = true;
-    if (roleFilter !== 'all') {
-      const filterLower = roleFilter.toLowerCase();
-      if (filterLower === 'student') {
-        matchesRole = userRole === 'student' || userRole === 'aluno';
-      } else if (filterLower === 'teacher') {
-        matchesRole = userRole === 'teacher' || userRole === 'professor';
-      } else if (filterLower === 'admin') {
-        matchesRole = userRole === 'admin';
-      }
-    }
-
-    const hasTag = user.profile_tags?.some(pt => pt.tags?.id === tagFilter);
-    const matchesTag = tagFilter === 'all' || hasTag;
-
-    return matchesSearch && matchesRole && matchesTag;
+      (user.email && user.email.toLowerCase().includes(searchLower))
+    );
   });
 
-  const exportToExcel = () => {
-    const dataToExport = filteredUsers.map(user => ({
-      Nome: user.full_name || 'Sem nome',
-      Email: user.email || 'Sem e-mail',
-      Cargo: user.role === 'admin' ? 'Administrador' : user.role === 'teacher' ? 'Professor' : 'Aluno',
-      Patente: user.patent || 'Sem Patente',
-      Nível: user.level || 1,
-      'XP Total': user.total_xp || 0,
-      'Data de Cadastro': formatDate(user.created_at)
-    }));
-
-    dataToExport.push({
-      Nome: `TOTAL DE REGISTROS: ${filteredUsers.length}`,
-      Email: '', Cargo: '', Patente: '', Nível: '' as any,
-      'XP Total': filteredUsers.reduce((acc, curr) => acc + (curr.total_xp || 0), 0),
-      'Data de Cadastro': ''
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Usuários");
-    XLSX.writeFile(workbook, "Relatorio_Usuarios_KATech.xlsx");
-  };
-
-  const exportToPDF = () => {
-    const doc = new jsPDF('landscape');
-    doc.setFontSize(16);
-    doc.text("Relatório de Usuários - KA Tech", 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 22);
-
-    const tableColumn = ["Nome", "E-mail", "Cargo", "Patente", "Nível", "XP Total", "Cadastro"];
-    const tableRows = filteredUsers.map(user => [
-      user.full_name || 'Sem nome',
-      user.email || 'Sem e-mail',
-      user.role === 'admin' ? 'Admin' : user.role === 'teacher' ? 'Professor' : 'Aluno',
-      user.patent || 'Sem Patente',
-      (user.level || 1).toString(),
-      (user.total_xp || 0).toLocaleString('pt-BR'),
-      formatDate(user.created_at)
-    ]);
-
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 28,
-      theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [255, 152, 0], textColor: [255, 255, 255] },
-      foot: [[
-        `Total de Usuários Listados: ${filteredUsers.length}`, 
-        '', '', '', '', 
-        `XP Total: ${filteredUsers.reduce((acc, curr) => acc + (curr.total_xp || 0), 0).toLocaleString('pt-BR')}`, 
-        ''
-      ]],
-      footStyles: { fillColor: [17, 22, 37], textColor: [255, 255, 255], fontStyle: 'bold' }
-    });
-
-    doc.save("Relatorio_Usuarios_KATech.pdf");
-  };
-
-  const totalUsers = filteredUsers.length;
-  const totalStudents = filteredUsers.filter(u => {
+  const totalUsers = users.length;
+  const totalStudents = users.filter(u => {
     const r = (u.role || '').toLowerCase().trim();
     return r === 'aluno' || r === 'student';
   }).length;
-  const totalTeachers = filteredUsers.filter(u => {
+  const totalTeachers = users.filter(u => {
     const r = (u.role || '').toLowerCase().trim();
     return r === 'teacher' || r === 'admin' || r === 'professor';
   }).length;
@@ -386,16 +290,9 @@ const AdminUsers: React.FC = () => {
         .admin-layout { display: flex; min-height: 100vh; background-color: #060913; font-family: 'Segoe UI', Roboto, sans-serif; }
         .admin-main-content { flex: 1; margin-left: 270px; padding: 40px; color: #E2E8F0; width: calc(100% - 270px); box-sizing: border-box; }
         
-        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
+        .admin-header { margin-bottom: 30px; }
         .header-text h1 { font-size: 2.2rem; font-weight: 800; margin: 0 0 8px 0; color: #FFFFFF; }
         .header-text p { color: #8BA0B8; margin: 0; font-size: 1rem; }
-
-        .action-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-        .btn-export { background: transparent; padding: 0 16px; height: 46px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
-        .btn-pdf { color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.4); }
-        .btn-pdf:hover { color: #FFF; border-color: #EF4444; background: rgba(239, 68, 68, 0.2); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2); }
-        .btn-excel { color: #4ADE80; border: 1px solid rgba(74, 222, 128, 0.4); }
-        .btn-excel:hover { color: #FFF; border-color: #4ADE80; background: rgba(74, 222, 128, 0.2); box-shadow: 0 4px 15px rgba(74, 222, 128, 0.2); }
 
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .metric-card { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; display: flex; align-items: center; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease; }
@@ -407,9 +304,8 @@ const AdminUsers: React.FC = () => {
         .metric-value { font-size: 1.8rem; font-weight: 800; color: #FFFFFF; line-height: 1; }
         .metric-card.orange .metric-value { color: #FF9800; }
 
-        .toolbar { display: flex; align-items: center; background: rgba(255, 255, 255, 0.02); padding: 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px; gap: 16px; flex-wrap: wrap; backdrop-filter: blur(10px); }
-        .search-filters { display: flex; gap: 16px; flex: 1; align-items: center; flex-wrap: wrap; width: 100%; }
-        .search-input-wrapper { position: relative; flex: 1; min-width: 220px; width: 100%; }
+        .toolbar { display: flex; background: rgba(255, 255, 255, 0.02); padding: 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px; backdrop-filter: blur(10px); }
+        .search-input-wrapper { position: relative; width: 100%; }
         .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8BA0B8; width: 18px; height: 18px; }
         .admin-input, .admin-select { box-sizing: border-box; height: 46px; background: #0B0E17; border: 1px solid rgba(255,255,255,0.1); color: #E2E8F0; border-radius: 10px; font-size: 0.95rem; outline: none; transition: all 0.3s; width: 100%; }
         .admin-input { padding: 12px 15px 12px 40px; }
@@ -470,14 +366,10 @@ const AdminUsers: React.FC = () => {
 
         @media (max-width: 1024px) { 
           .admin-main-content { margin-left: 0; padding: 16px; padding-bottom: 90px; width: 100%; } 
-          .admin-header { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
+          .admin-header { margin-bottom: 24px; }
           .header-text h1 { font-size: 1.7rem; }
-          .action-buttons { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-          .btn-export { width: 100%; justify-content: center; }
           .metrics-grid { grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; } 
-          .toolbar { padding: 12px; gap: 10px; }
-          .search-filters { flex-direction: column; gap: 10px; }
-          .search-input-wrapper, .admin-select { width: 100%; min-width: 100%; }
+          .toolbar { padding: 12px; }
           .history-grid { grid-template-columns: 1fr; }
         }
       `}</style>
@@ -488,26 +380,16 @@ const AdminUsers: React.FC = () => {
             <h1>Gestão de Usuários</h1>
             <p>Gerencie alunos, professores e administradores da plataforma.</p>
           </div>
-          <div className="action-buttons">
-            <button className="btn-export btn-pdf" onClick={exportToPDF} title="Exportar para PDF">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-              PDF
-            </button>
-            <button className="btn-export btn-excel" onClick={exportToExcel} title="Exportar para Excel">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2v4H8z"></path><path d="M14 13h2v4h-2z"></path></svg>
-              Excel
-            </button>
-          </div>
         </div>
 
-        {/* CARDS DE RESUMO */}
+        {/* CARDS DE RESUMO GERAL */}
         <div className="metrics-grid">
           <div className="metric-card">
             <div className="metric-icon-wrapper">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8BA0B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
             <div className="metric-info">
-              <span className="metric-title">Total Filtrado</span>
+              <span className="metric-title">Total de Usuários</span>
               <span className="metric-value">{totalUsers}</span>
             </div>
           </div>
@@ -517,7 +399,7 @@ const AdminUsers: React.FC = () => {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF9800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
             </div>
             <div className="metric-info">
-              <span className="metric-title">Alunos Filtrados</span>
+              <span className="metric-title">Total de Alunos</span>
               <span className="metric-value">{totalStudents}</span>
             </div>
           </div>
@@ -533,41 +415,17 @@ const AdminUsers: React.FC = () => {
           </div>
         </div>
 
-        {/* BARRA DE FERRAMENTAS */}
+        {/* BARRA DE PESQUISA SIMPLES */}
         <div className="toolbar">
-          <div className="search-filters">
-            <div className="search-input-wrapper">
-              <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <input 
-                type="text" 
-                placeholder="Buscar por nome ou e-mail..." 
-                className="admin-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <select 
-              className="admin-select"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all">Todos os Cargos</option>
-              <option value="student">Alunos</option>
-              <option value="teacher">Professores</option>
-              <option value="admin">Administradores</option>
-            </select>
-
-            <select 
-              className="admin-select"
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-            >
-              <option value="all">Todas as Tags/Franquias</option>
-              {availableTags.map(tag => (
-                <option key={tag.id} value={tag.id}>{tag.name}</option>
-              ))}
-            </select>
+          <div className="search-input-wrapper">
+            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input 
+              type="text" 
+              placeholder="Buscar usuário por nome ou e-mail..." 
+              className="admin-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
@@ -616,7 +474,9 @@ const AdminUsers: React.FC = () => {
                       <td>
                         {user.profile_tags && user.profile_tags.length > 0 ? (
                           user.profile_tags.map((pt, idx) => (
-                            <span key={idx} className="tag-badge">{pt.tags?.name}</span>
+                            <span key={idx} className="tag-badge">
+                              {pt.tags?.name} {pt.tags?.type ? `(${pt.tags.type})` : ''}
+                            </span>
                           ))
                         ) : (
                           <span style={{ color: '#8BA0B8', fontSize: '0.85rem' }}>-</span>

@@ -40,7 +40,6 @@ const Sidebar: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Preenche o nome caso demore a carregar do contexto
   useEffect(() => {
     if (userName && !feedbackName) setFeedbackName(userName);
   }, [userName, feedbackName]);
@@ -58,7 +57,6 @@ const Sidebar: React.FC = () => {
     setIsMobileOpen(false);
   };
 
-  // === LÓGICA DE ENVIO DO FEEDBACK ===
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackMessage.trim() || !feedbackName.trim() || !feedbackContact.trim()) return;
@@ -107,7 +105,6 @@ const Sidebar: React.FC = () => {
   return (
     <>
       <style>{`
-        /* PALETA DE CORES PREMIUM INSPIRADA NO DASHBOARD (DARK) */
         :root { 
           --bg-sidebar: linear-gradient(180deg, #111625 0%, #050810 100%);
           --bg-hover: rgba(255, 255, 255, 0.06);   
@@ -235,7 +232,6 @@ const Sidebar: React.FC = () => {
           background: rgba(0, 0, 0, 0.15); 
         }
 
-        /* MODAL DE FEEDBACK DENTRO DA SIDEBAR (CORRIGIDO) */
         .feedback-popover {
           background: rgba(15, 23, 42, 0.95);
           border: 1px solid var(--border-color);
@@ -284,9 +280,7 @@ const Sidebar: React.FC = () => {
           transition: filter 0.2s;
         }
         
-        .feedback-btn:hover {
-          filter: brightness(1.1);
-        }
+        .feedback-btn:hover { filter: brightness(1.1); }
 
         .mobile-overlay {
           display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -408,12 +402,28 @@ const Sidebar: React.FC = () => {
                 </button>
                 {expandedMenu === 'gestao' && (
                   <div className="sub-menu">
-                    <Link to="/admin" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin' ? 'active' : ''}`}>Visão Geral</Link>
                     <Link to="/admin/usuarios" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/usuarios' ? 'active' : ''}`}>Usuários</Link>
                     <Link to="/admin/cursos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/cursos' ? 'active' : ''}`}>Cursos e Trilhas</Link>
                     <Link to="/admin/lives" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/lives' ? 'active' : ''}`}>Gerir Lives</Link>
                     <Link to="/admin/gamificacao" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/gamificacao' ? 'active' : ''}`}>Gamificação</Link>
                     <Link to="/admin/feedbacks" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/feedbacks' ? 'active' : ''}`}>Feedbacks (Bugs)</Link>
+                  </div>
+                )}
+              </div>
+
+              {/* MENU EXPANSÍVEL DE RELATÓRIOS */}
+              <div className="nav-group">
+                <button onClick={() => toggleMenu('relatorios')} className={`nav-button ${expandedMenu === 'relatorios' ? 'active' : ''}`}>
+                  <div className="nav-item-content">
+                    <span className="nav-icon">📊</span>
+                    <span className="nav-text">Relatórios</span>
+                    <span className="nav-arrow" style={{ transform: expandedMenu === 'relatorios' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
+                  </div>
+                </button>
+                {expandedMenu === 'relatorios' && (
+                  <div className="sub-menu">
+                    <Link to="/admin/relatorio-alunos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/relatorio-alunos' ? 'active' : ''}`}>Alunos</Link>
+                    <Link to="/admin/relatorio-y" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/relatorio-y' ? 'active' : ''}`}>Relatório Y</Link>
                   </div>
                 )}
               </div>

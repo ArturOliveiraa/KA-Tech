@@ -52,6 +52,7 @@ const AdminCourses: React.FC = () => {
   const [newTagName, setNewTagName] = useState('');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [tagSearchFilter, setTagSearchFilter] = useState(''); // Filtro para o card de tags
 
   // Modal de Curso
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
@@ -152,7 +153,7 @@ const AdminCourses: React.FC = () => {
         setNewTagName('');
       }
     } catch (error: any) {
-      alert('Erro ao adicionar setor: ' + error.message);
+      alert('Erro ao adicionar tag: ' + error.message);
     } finally {
       setIsAddingTag(false);
     }
@@ -255,7 +256,6 @@ const AdminCourses: React.FC = () => {
     }
   };
 
-  // --- GESTÃO DE AULAS NO MODAL ---
   const handleOpenLessonsModal = async (course: Course) => {
     setSelectedCourseForLessons(course);
     setIsLessonsModalOpen(true);
@@ -385,7 +385,6 @@ const AdminCourses: React.FC = () => {
     }
   };
 
-  // Filtragem por termo de busca e por Categoria
   const filteredCourses = courses.filter(c => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = c.title?.toLowerCase().includes(term) || c.description?.toLowerCase().includes(term);
@@ -397,6 +396,8 @@ const AdminCourses: React.FC = () => {
 
     return matchesSearch && matchesCategory;
   });
+
+  const filteredTagsList = tags.filter(tag => tag.name.toLowerCase().includes(tagSearchFilter.toLowerCase()));
 
   return (
     <div className="admin-layout">
@@ -413,21 +414,25 @@ const AdminCourses: React.FC = () => {
         .btn-primary { background: #FF9800; border: none; color: #FFF; padding: 12px 24px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
         .btn-primary:hover { background: #F57C00; box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3); }
 
-        .management-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 40px; }
-        .manage-card { background: #0B0E17; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+        .management-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 40px; }
+        .manage-card { background: #0B0E17; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
         .manage-card-header h2 { font-size: 1.2rem; font-weight: 800; color: #FFF; margin: 0; }
 
-        .manage-input { width: 100%; box-sizing: border-box; height: 48px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.05); color: #FFF; border-radius: 12px; padding: 0 16px; font-size: 0.95rem; outline: none; transition: 0.3s; }
-        .manage-input:focus { border-color: rgba(255, 255, 255, 0.15); }
+        .manage-input { width: 100%; box-sizing: border-box; height: 44px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.08); color: #FFF; border-radius: 10px; padding: 0 14px; font-size: 0.9rem; outline: none; transition: 0.3s; }
+        .manage-input:focus { border-color: #FF9800; }
         .manage-input::placeholder { color: #475569; }
 
-        .btn-manage { width: 100%; height: 48px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); color: #FFF; border-radius: 12px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-manage { width: 100%; height: 44px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); color: #FFF; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-manage:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
         .btn-manage:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .badges-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
-        .badge-item { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); color: #E2E8F0; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; }
-        .badge-empty { color: #475569; font-size: 0.9rem; font-weight: 500; }
+        /* CONTAINER DE TAGS CONTROLADO E COMPACTO */
+        .badges-scroll-box { max-height: 140px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.04); border-radius: 10px; padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .badges-scroll-box::-webkit-scrollbar { width: 5px; }
+        .badges-scroll-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+        .badge-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); color: #E2E8F0; padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .badge-empty { color: #475569; font-size: 0.85rem; padding: 10px; text-align: center; width: 100%; }
 
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
         .section-header h2 { font-size: 1.5rem; font-weight: 800; color: #FFF; margin: 0; }
@@ -455,13 +460,13 @@ const AdminCourses: React.FC = () => {
         .modal-content { background: #111625; width: 100%; max-width: 600px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding: 24px; display: flex; flex-direction: column; gap: 16px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         .modal-title { font-size: 1.3rem; font-weight: 700; color: #FFF; margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
         
-        .modal-group { display: flex; flex-direction: column; gap: 6px; }
+        .modal-group { display: flex; flexDirection: column; gap: 6px; }
         .modal-label { color: #8BA0B8; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
         .modal-input, .modal-select, .modal-textarea { box-sizing: border-box; width: 100%; background: #0B0E17; border: 1px solid rgba(255,255,255,0.1); color: #E2E8F0; border-radius: 10px; font-size: 0.95rem; outline: none; padding: 12px 15px; }
         .modal-textarea { resize: vertical; min-height: 80px; }
         .modal-input:focus, .modal-select:focus, .modal-textarea:focus { border-color: #FF9800; box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.15); }
 
-        .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; background: #0B0E17; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; max-height: 140px; overflow-y: auto; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; background: #0B0E17; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; max-height: 160px; overflow-y: auto; }
         .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #E2E8F0; cursor: pointer; }
 
         .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
@@ -471,7 +476,6 @@ const AdminCourses: React.FC = () => {
 
         .lesson-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 10px; margin-bottom: 8px; gap: 10px; flex-wrap: wrap; }
 
-        /* RESPONSIVIDADE MOBILE BLINDADA */
         @media (max-width: 1024px) { 
           .admin-main-content { margin-left: 0; padding: 16px; padding-bottom: 160px; width: 100%; box-sizing: border-box; } 
           .admin-header { flex-direction: column; align-items: flex-start; gap: 15px; }
@@ -495,32 +499,45 @@ const AdminCourses: React.FC = () => {
           </button>
         </div>
 
-        {/* GESTÃO DE CATEGORIAS E SETORES */}
+        {/* GESTÃO DE CATEGORIAS E SETORES (COM ROLAGEM E FILTRO DE TAGS) */}
         <div className="management-grid">
           <div className="manage-card">
             <div className="manage-card-header"><h2>Categorias</h2></div>
-            <div className="input-wrapper">
-              <input type="text" className="manage-input" placeholder="Nova Categoria (Ex: Vendas)" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()} />
-            </div>
+            <input type="text" className="manage-input" placeholder="Nova Categoria (Ex: Vendas)" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()} />
             <button className="btn-manage" onClick={handleAddCategory} disabled={isAddingCategory || !newCategoryName.trim()}>+ Adicionar Categoria</button>
-            <div className="badges-container">
+            <div className="badges-scroll-box">
               {loading ? <span className="badge-empty">Carregando...</span> : categories.map(cat => <div key={cat.id} className="badge-item">{cat.name}</div>)}
             </div>
           </div>
 
           <div className="manage-card">
             <div className="manage-card-header"><h2>Setores (Tags)</h2></div>
-            <div className="input-wrapper">
-              <input type="text" className="manage-input" placeholder="Novo Setor (Ex: COMERCIAL)" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTag()} />
-            </div>
-            <button className="btn-manage" onClick={handleAddTag} disabled={isAddingTag || !newTagName.trim()}>+ Adicionar Setor</button>
-            <div className="badges-container">
-              {loading ? <span className="badge-empty">Carregando...</span> : tags.map(tag => <div key={tag.id} className="badge-item">{tag.name}</div>)}
+            <input type="text" className="manage-input" placeholder="Novo Setor (Ex: COMERCIAL)" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTag()} />
+            <button className="btn-manage" onClick={handleAddTag} disabled={isAddingTag || !newTagName.trim()}>+ Adicionar Tag</button>
+            
+            {/* BUSCA RÁPIDA DENTRO DAS TAGS */}
+            <input 
+              type="text" 
+              className="manage-input" 
+              placeholder="Filtrar setores cadastrados..." 
+              value={tagSearchFilter} 
+              onChange={(e) => setTagSearchFilter(e.target.value)} 
+              style={{ fontSize: '0.85rem', height: '38px' }}
+            />
+
+            <div className="badges-scroll-box">
+              {loading ? (
+                <span className="badge-empty">Carregando...</span>
+              ) : filteredTagsList.length > 0 ? (
+                filteredTagsList.map(tag => <div key={tag.id} className="badge-item">{tag.name}</div>)
+              ) : (
+                <span className="badge-empty">Nenhum setor encontrado.</span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* LISTAGEM DE CURSOS COM FILTRO POR CATEGORIA */}
+        {/* LISTAGEM DE CURSOS */}
         <div className="section-header">
           <h2>Cursos Cadastrados</h2>
           <div className="filters-toolbar">
@@ -572,7 +589,7 @@ const AdminCourses: React.FC = () => {
                     </td>
                     <td><span style={{ color: '#E2E8F0', fontWeight: 500 }}>{course.categories?.name || '-'}</span></td>
                     <td>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '50px', overflowY: 'auto' }}>
                         {course.course_tags?.map((ct, idx) => (
                           <span key={idx} className="badge-item" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>{ct.tags?.name}</span>
                         )) || '-'}
@@ -661,7 +678,7 @@ const AdminCourses: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE GESTÃO E EDIÇÃO DE AULAS */}
+      {/* MODAL DE GESTÃO DE AULAS */}
       {isLessonsModalOpen && selectedCourseForLessons && (
         <div className="modal-overlay" onClick={handleCloseLessonsModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
@@ -683,7 +700,7 @@ const AdminCourses: React.FC = () => {
               </div>
               
               <input type="text" className="modal-input" placeholder="Título da Aula *" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} required />
-              <input type="url" className="modal-input" placeholder="URL do Vídeo do YouTube (Ex: https://youtube.com/watch?v=...)" value={lessonVideoUrl} onChange={(e) => setLessonVideoUrl(e.target.value)} required />
+              <input type="url" className="modal-input" placeholder="URL do Vídeo do YouTube..." value={lessonVideoUrl} onChange={(e) => setLessonVideoUrl(e.target.value)} required />
               <textarea className="modal-textarea" placeholder="Transcrição ou base de conteúdo para IA..." value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
 
               <button type="submit" className="btn-save" style={{ alignSelf: 'flex-end', padding: '8px 16px' }} disabled={isSavingLesson || !lessonTitle.trim()}>
