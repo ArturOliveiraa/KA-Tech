@@ -23,6 +23,16 @@ interface Tag {
   name: string;
 }
 
+interface StudentHistory {
+  enrolledCoursesCount: number;
+  completedCoursesCount: number;
+  lessonsWatchedCount: number;
+  totalMinutesWatched: string;
+  livesAttendedCount: number;
+  enrolledList: string[];
+  completedList: string[];
+}
+
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -37,6 +47,11 @@ const AdminUsers: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedUserForHistory, setSelectedUserForHistory] = useState<Profile | null>(null);
+  const [studentHistory, setStudentHistory] = useState<StudentHistory | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -96,20 +111,12 @@ const AdminUsers: React.FC = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          full_name: editName, 
-          role: editRole
-        })
+        .update({ full_name: editName, role: editRole })
         .eq('id', editingUser.id);
 
       if (error) throw error;
 
-      setUsers(users.map(u => u.id === editingUser.id ? { 
-        ...u, 
-        full_name: editName, 
-        role: editRole
-      } : u));
-
+      setUsers(users.map(u => u.id === editingUser.id ? { ...u, full_name: editName, role: editRole } : u));
       handleCloseModal();
     } catch (error: any) {
       console.error('Erro ao salvar usuário:', error);
@@ -117,6 +124,157 @@ const AdminUsers: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // BUSCA COM TEMPO EM MINUTOS E CONCLUSÃO REAL POR 100% DAS AULAS
+  const handleOpenHistory = async (user: Profile) => {
+    setSelectedUserForHistory(user);
+    setIsHistoryModalOpen(true);
+    setLoadingHistory(true);
+
+    try {
+      const { data: enrollments } = await supabase
+        .from('course_enrollments')
+        .select('courseId')
+        .eq('userId', user.id);
+
+      const courseIds = enrollments?.map((e: any) => e.courseId).filter(Boolean) || [];
+
+      const { data: progressList } = await supabase
+        .from('user_progress')
+        .select('course_id, lesson_id, last_time')
+        .eq('user_id', user.id);
+
+      let completedCourseIds: number[] = [];
+      
+      if (courseIds.length > 0) {
+        const { data: lessonsData } = await supabase
+          .from('lessons')
+          .select('id, course_id')
+          .in('course_id', courseIds);
+
+        const totalLessonsPerCourse: { [key: number]: number } = {};
+        lessonsData?.forEach((l: any) => {
+          totalLessonsPerCourse[l.course_id] = (totalLessonsPerCourse[l.course_id] || 0) + 1;
+        });
+
+        const watchedLessonsPerCourse: { [key: number]: Set<number> } = {};
+        progressList?.forEach((p: any) => {
+          if (p.course_id && p.lesson_id) {
+            if (!watchedLessonsPerCourse[p.course_id]) {
+              watchedLessonsPerCourse[p.course_id] = new Set();
+            }
+            watchedLessonsPerCourse[p.course_id].add(p.lesson_id);
+          }
+        });
+
+        courseIds.forEach((courseId: number) => {
+          const total = totalLessonsPerCourse[courseId] || 0;
+          const watched = watchedLessonsPerCourse[courseId]?.size || 0;
+          if (total > 0 && watched >= total) {
+            completedCourseIds.push(courseId);
+          }
+        });
+      }
+
+      const activeCourseIds = courseIds.filter((id: number) => !completedCourseIds.includes(id));
+
+      let enrolledList: string[] = [];
+      if (activeCourseIds.length > 0) {
+        const { data: coursesData } = await supabase
+          .from('courses')
+          .select('title')
+          .in('id', activeCourseIds);
+        enrolledList = coursesData?.map((c: any) => c.title) || [];
+      }
+
+      let completedList: string[] = [];
+      if (completedCourseIds.length > 0) {
+        const { data: completedCoursesData } = await supabase
+          .from('courses')
+          .select('title')
+          .in('id', completedCourseIds);
+        completedList = completedCoursesData?.map((c: any) => c.title) || [];
+      }
+
+      const lessonsProgress = progressList?.filter((p: any) => p.lesson_id !== null && p.lesson_id !== undefined) || [];
+      const lessonsWatchedCount = lessonsProgress.length;
+      
+      const totalSeconds = lessonsProgress.reduce((acc: number, curr: any) => {
+        return acc + (curr.last_time || 0);
+      }, 0);
+
+      const totalMinutes = (totalSeconds / 60).toFixed(1);
+
+      const { data: livesData } = await supabase
+        .from('live_attendance')
+        .select('id')
+        .eq('user_id', user.id);
+
+      const livesAttendedCount = livesData?.length || 0;
+
+      setStudentHistory({
+        enrolledCoursesCount: enrolledList.length,
+        completedCoursesCount: completedList.length,
+        lessonsWatchedCount,
+        totalMinutesWatched: totalMinutes,
+        livesAttendedCount,
+        enrolledList,
+        completedList
+      });
+
+    } catch (error) {
+      console.error('Erro ao buscar histórico do aluno:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleCloseHistory = () => {
+    setIsHistoryModalOpen(false);
+    setSelectedUserForHistory(null);
+    setStudentHistory(null);
+  };
+
+  const exportStudentPDF = () => {
+    if (!selectedUserForHistory || !studentHistory) return;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text(`Ficha Acadêmica - ${selectedUserForHistory.full_name || 'Aluno'}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`E-mail: ${selectedUserForHistory.email || 'Não informado'}`, 14, 22);
+    doc.text(`Patente: ${selectedUserForHistory.patent || 'N/A'} | Nível: ${selectedUserForHistory.level || 1} | XP Total: ${(selectedUserForHistory.total_xp || 0).toLocaleString('pt-BR')}`, 14, 28);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
+
+    doc.setFontSize(12);
+    doc.text("Resumo de Atividades:", 14, 44);
+
+    autoTable(doc, {
+      startY: 48,
+      head: [["Métrica", "Resultado"]],
+      body: [
+        ["Cursos Matriculados", studentHistory.enrolledCoursesCount.toString()],
+        ["Cursos Concluídos", studentHistory.completedCoursesCount.toString()],
+        ["Aulas Assistidas", studentHistory.lessonsWatchedCount.toString()],
+        ["Tempo Total Assistido", `${studentHistory.totalMinutesWatched} min`],
+        ["Lives Assistidas", studentHistory.livesAttendedCount.toString()]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [255, 152, 0] }
+    });
+
+    let finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.text("Cursos Matriculados:", 14, finalY);
+    autoTable(doc, {
+      startY: finalY + 4,
+      head: [["Título do Curso"]],
+      body: studentHistory.enrolledList.length > 0 ? studentHistory.enrolledList.map(c => [c]) : [["Nenhum curso matriculado"]],
+      theme: 'grid',
+      headStyles: { fillColor: [56, 189, 248] }
+    });
+
+    doc.save(`Ficha_${selectedUserForHistory.full_name || 'Aluno'}.pdf`);
   };
 
   const filteredUsers = users.filter(user => {
@@ -144,7 +302,6 @@ const AdminUsers: React.FC = () => {
     return matchesSearch && matchesRole && matchesTag;
   });
 
-  // EXPORTAÇÃO EXCEL COM TOTAL NO FINAL
   const exportToExcel = () => {
     const dataToExport = filteredUsers.map(user => ({
       Nome: user.full_name || 'Sem nome',
@@ -156,13 +313,9 @@ const AdminUsers: React.FC = () => {
       'Data de Cadastro': formatDate(user.created_at)
     }));
 
-    // Adiciona linha de total no final do array de dados
     dataToExport.push({
       Nome: `TOTAL DE REGISTROS: ${filteredUsers.length}`,
-      Email: '',
-      Cargo: '',
-      Patente: '',
-      Nível: '' as any,
+      Email: '', Cargo: '', Patente: '', Nível: '' as any,
       'XP Total': filteredUsers.reduce((acc, curr) => acc + (curr.total_xp || 0), 0),
       'Data de Cadastro': ''
     });
@@ -173,10 +326,8 @@ const AdminUsers: React.FC = () => {
     XLSX.writeFile(workbook, "Relatorio_Usuarios_KATech.xlsx");
   };
 
-  // EXPORTAÇÃO PDF COM TOTAL NO RODAPÉ DA TABELA
   const exportToPDF = () => {
     const doc = new jsPDF('landscape');
-    
     doc.setFontSize(16);
     doc.text("Relatório de Usuários - KA Tech", 14, 15);
     doc.setFontSize(10);
@@ -200,13 +351,9 @@ const AdminUsers: React.FC = () => {
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [255, 152, 0], textColor: [255, 255, 255] },
-      // Adiciona a linha de totalizador ao final da tabela no PDF
       foot: [[
         `Total de Usuários Listados: ${filteredUsers.length}`, 
-        '', 
-        '', 
-        '', 
-        '', 
+        '', '', '', '', 
         `XP Total: ${filteredUsers.reduce((acc, curr) => acc + (curr.total_xp || 0), 0).toLocaleString('pt-BR')}`, 
         ''
       ]],
@@ -239,40 +386,17 @@ const AdminUsers: React.FC = () => {
         .admin-layout { display: flex; min-height: 100vh; background-color: #060913; font-family: 'Segoe UI', Roboto, sans-serif; }
         .admin-main-content { flex: 1; margin-left: 270px; padding: 40px; color: #E2E8F0; width: calc(100% - 270px); box-sizing: border-box; }
         
-        .admin-header { 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          margin-bottom: 30px; 
-          flex-wrap: wrap;
-          gap: 20px;
-        }
+        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
         .header-text h1 { font-size: 2.2rem; font-weight: 800; margin: 0 0 8px 0; color: #FFFFFF; }
         .header-text p { color: #8BA0B8; margin: 0; font-size: 1rem; }
 
         .action-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-        
-        .btn-export {
-          background: transparent;
-          padding: 0 16px;
-          height: 46px;
-          border-radius: 10px;
-          font-weight: 600;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition: all 0.3s;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
+        .btn-export { background: transparent; padding: 0 16px; height: 46px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
         .btn-pdf { color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.4); }
         .btn-pdf:hover { color: #FFF; border-color: #EF4444; background: rgba(239, 68, 68, 0.2); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2); }
-
         .btn-excel { color: #4ADE80; border: 1px solid rgba(74, 222, 128, 0.4); }
         .btn-excel:hover { color: #FFF; border-color: #4ADE80; background: rgba(74, 222, 128, 0.2); box-shadow: 0 4px 15px rgba(74, 222, 128, 0.2); }
 
-        /* CARDS */
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .metric-card { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; display: flex; align-items: center; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease; }
         .metric-card:hover { transform: translateY(-3px); }
@@ -283,7 +407,6 @@ const AdminUsers: React.FC = () => {
         .metric-value { font-size: 1.8rem; font-weight: 800; color: #FFFFFF; line-height: 1; }
         .metric-card.orange .metric-value { color: #FF9800; }
 
-        /* TOOLBAR */
         .toolbar { display: flex; align-items: center; background: rgba(255, 255, 255, 0.02); padding: 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px; gap: 16px; flex-wrap: wrap; backdrop-filter: blur(10px); }
         .search-filters { display: flex; gap: 16px; flex: 1; align-items: center; flex-wrap: wrap; width: 100%; }
         .search-input-wrapper { position: relative; flex: 1; min-width: 220px; width: 100%; }
@@ -293,7 +416,6 @@ const AdminUsers: React.FC = () => {
         .admin-select { padding: 0 15px; cursor: pointer; }
         .admin-input:focus, .admin-select:focus { border-color: #FF9800; box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.15); }
 
-        /* TABELA RESPONSIVA */
         .table-container { background: rgba(255, 255, 255, 0.02); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); overflow-x: auto; width: 100%; }
         .admin-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 750px; }
         .admin-table th { padding: 16px 20px; color: #8BA0B8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); background: rgba(0, 0, 0, 0.2); }
@@ -310,21 +432,41 @@ const AdminUsers: React.FC = () => {
 
         .tag-badge { background: rgba(255, 255, 255, 0.1); color: #E2E8F0; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; margin-right: 4px; display: inline-block; margin-bottom: 2px; }
 
+        .action-actions-cell { display: flex; gap: 6px; justify-content: center; }
         .action-btn { background: none; border: none; color: #8BA0B8; cursor: pointer; font-size: 1rem; padding: 6px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .action-btn:hover { color: #FF9800; background: rgba(255, 152, 0, 0.1); }
+        .action-btn.history:hover { color: #38BDF8; background: rgba(56, 189, 248, 0.1); }
 
-        /* MODAL DE EDIÇÃO */
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 15px; }
-        .modal-content { background: #111625; width: 100%; max-width: 420px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-        .modal-title { font-size: 1.3rem; font-weight: 700; color: #FFF; margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
+        /* MODAIS */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 15px; }
+        .modal-content { background: #111625; width: 100%; max-width: 450px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+        
+        .modal-content.history-modal { max-width: 650px; max-height: 90vh; overflow-y: auto; }
+        .modal-title { font-size: 1.3rem; font-weight: 700; color: #FFF; margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .history-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 10px; }
+        .history-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+        .history-card-title { color: #8BA0B8; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
+        .history-card-value { color: #FFF; font-size: 1.4rem; font-weight: 800; }
+        .history-card-value.accent { color: #38BDF8; }
+
+        .history-section-title { font-size: 0.9rem; font-weight: 700; color: #E2E8F0; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .history-list { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 14px; max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .history-list-item { font-size: 0.85rem; color: #8BA0B8; display: flex; align-items: center; gap: 8px; }
+        .history-list-item::before { content: "•"; color: #FF9800; font-weight: bold; }
+
         .modal-group { display: flex; flex-direction: column; gap: 6px; }
         .modal-label { color: #8BA0B8; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+        .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+        
         .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #8BA0B8; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .btn-cancel:hover { background: rgba(255,255,255,0.05); color: #FFF; }
         .btn-save { background: #FF9800; border: none; color: #FFF; padding: 8px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; }
         .btn-save:hover { background: #F57C00; }
         .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-pdf-modal { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #EF4444; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px; }
+        .btn-pdf-modal:hover { background: rgba(239, 68, 68, 0.2); color: #FFF; }
 
         @media (max-width: 1024px) { 
           .admin-main-content { margin-left: 0; padding: 16px; padding-bottom: 90px; width: 100%; } 
@@ -336,6 +478,7 @@ const AdminUsers: React.FC = () => {
           .toolbar { padding: 12px; gap: 10px; }
           .search-filters { flex-direction: column; gap: 10px; }
           .search-input-wrapper, .admin-select { width: 100%; min-width: 100%; }
+          .history-grid { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -374,7 +517,7 @@ const AdminUsers: React.FC = () => {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF9800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
             </div>
             <div className="metric-info">
-              <span className="metric-title">Alunos Matriculados</span>
+              <span className="metric-title">Alunos Filtrados</span>
               <span className="metric-value">{totalStudents}</span>
             </div>
           </div>
@@ -390,7 +533,7 @@ const AdminUsers: React.FC = () => {
           </div>
         </div>
 
-        {/* BARRA DE FERRAMENTAS COM FILTROS */}
+        {/* BARRA DE FERRAMENTAS */}
         <div className="toolbar">
           <div className="search-filters">
             <div className="search-input-wrapper">
@@ -490,9 +633,14 @@ const AdminUsers: React.FC = () => {
                       </td>
                       <td style={{ color: '#8BA0B8' }}>{formatDate(user.created_at)}</td>
                       <td style={{ textAlign: 'center' }}>
-                        <button className="action-btn" title="Editar Usuário" onClick={() => handleEditClick(user)}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        </button>
+                        <div className="action-actions-cell">
+                          <button className="action-btn history" title="Ver Ficha / Histórico" onClick={() => handleOpenHistory(user)}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          </button>
+                          <button className="action-btn" title="Editar Usuário" onClick={() => handleEditClick(user)}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -505,11 +653,91 @@ const AdminUsers: React.FC = () => {
         </div>
       </main>
 
+      {/* MODAL DE HISTÓRICO / FICHA DO ALUNO */}
+      {isHistoryModalOpen && selectedUserForHistory && (
+        <div className="modal-overlay" onClick={handleCloseHistory}>
+          <div className="modal-content history-modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">
+              <span>Ficha Acadêmica: {selectedUserForHistory.full_name || 'Usuário'}</span>
+              <button onClick={handleCloseHistory} style={{ background: 'none', border: 'none', color: '#8BA0B8', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </h2>
+
+            {loadingHistory ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#8BA0B8' }}>Carregando dados acadêmicos...</div>
+            ) : studentHistory ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                <div className="history-grid">
+                  <div className="history-card">
+                    <span className="history-card-title">Cursos Matriculados</span>
+                    <span className="history-card-value">{studentHistory.enrolledCoursesCount}</span>
+                  </div>
+                  <div className="history-card">
+                    <span className="history-card-title">Cursos Concluídos</span>
+                    <span className="history-card-value" style={{ color: '#4ADE80' }}>{studentHistory.completedCoursesCount}</span>
+                  </div>
+                  <div className="history-card">
+                    <span className="history-card-title">Aulas Assistidas</span>
+                    <span className="history-card-value accent">{studentHistory.lessonsWatchedCount}</span>
+                  </div>
+                  <div className="history-card">
+                    <span className="history-card-title">Tempo Total Assistido</span>
+                    <span className="history-card-value" style={{ color: '#FF9800' }}>{studentHistory.totalMinutesWatched} min</span>
+                  </div>
+                  <div className="history-card" style={{ gridColumn: 'span 2' }}>
+                    <span className="history-card-title">Lives Assistidas</span>
+                    <span className="history-card-value" style={{ color: '#A78BFA' }}>{studentHistory.livesAttendedCount}</span>
+                  </div>
+                </div>
+
+                <div className="modal-group">
+                  <span className="history-section-title">Cursos em Andamento / Matriculados</span>
+                  <div className="history-list">
+                    {studentHistory.enrolledList.length > 0 ? (
+                      studentHistory.enrolledList.map((course, idx) => (
+                        <div key={idx} className="history-list-item">{course}</div>
+                      ))
+                    ) : (
+                      <span style={{ color: '#8BA0B8', fontSize: '0.85rem' }}>Nenhum curso matriculado no momento.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="modal-group">
+                  <span className="history-section-title">Cursos Já Concluídos</span>
+                  <div className="history-list">
+                    {studentHistory.completedList.length > 0 ? (
+                      studentHistory.completedList.map((course, idx) => (
+                        <div key={idx} className="history-list-item" style={{ color: '#4ADE80' }}>{course}</div>
+                      ))
+                    ) : (
+                      <span style={{ color: '#8BA0B8', fontSize: '0.85rem' }}>Nenhum curso concluído ainda.</span>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            ) : null}
+
+            <div className="modal-actions">
+              <button className="btn-pdf-modal" onClick={exportStudentPDF} disabled={loadingHistory}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Exportar Ficha (PDF)
+              </button>
+              <button className="btn-save" onClick={handleCloseHistory}>Fechar Ficha</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE EDIÇÃO */}
       {isEditModalOpen && editingUser && (
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Editar Usuário</h2>
+            <h2 className="modal-title">
+              <span>Editar Usuário</span>
+              <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', color: '#8BA0B8', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </h2>
             
             <div className="modal-group">
               <label className="modal-label">Nome Completo</label>
@@ -534,10 +762,8 @@ const AdminUsers: React.FC = () => {
               </select>
             </div>
 
-            <div className="modal-actions">
-              <button className="btn-cancel" onClick={handleCloseModal} disabled={isSaving}>
-                Cancelar
-              </button>
+            <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn-cancel" onClick={handleCloseModal} disabled={isSaving}>Cancelar</button>
               <button className="btn-save" onClick={handleSaveChanges} disabled={isSaving}>
                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
               </button>
