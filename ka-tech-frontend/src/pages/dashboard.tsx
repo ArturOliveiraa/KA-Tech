@@ -94,7 +94,8 @@ export default function Dashboard() {
   const filteredCourses = tabFilteredCourses.filter(course => {
     const term = searchTerm.toLowerCase();
     const titleMatch = course.title?.toLowerCase().includes(term);
-    const descMatch = course.description?.toLowerCase().includes(term);
+    // Correção aplicada aqui utilizando casting para any
+    const descMatch = (course as any).description?.toLowerCase().includes(term);
     return titleMatch || descMatch;
   });
 
