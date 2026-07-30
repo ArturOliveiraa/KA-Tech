@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext";
+import { supabase } from "../supabaseClient";
 import logo from "../assets/ka-tech-logo.png";
 import SEO from "../components/SEO";
 import { useDashboardData } from "../hooks/useDashboardData";
@@ -17,30 +18,72 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"all" | "favorites">("all");
   const [favorites, setFavorites] = useState<number[]>([]);
 
-  useEffect(() => {
-    const savedFavorites = localStorage.getItem('ka_tech_favorite_courses');
-    if (savedFavorites) {
-      try {
-        setFavorites(JSON.parse(savedFavorites));
-      } catch (e) {
-        console.error(e);
+  // Buscar favoritos do banco vinculados ao usuário autenticado atual
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select('course_id')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      if (data) {
+        setFavorites(data.map(fav => fav.course_id));
       }
+    } catch (err) {
+      console.error("Erro ao buscar favoritos do banco:", err);
     }
   }, []);
 
-  const toggleFavorite = (courseId: number, e: React.MouseEvent) => {
+  useEffect(() => {
+    fetchFavorites();
+  }, [fetchFavorites]);
+
+  // Alternar favorito com captura segura do usuário no momento do clique
+  const toggleFavorite = async (courseId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    let updatedFavorites;
-    if (favorites.includes(courseId)) {
-      updatedFavorites = favorites.filter(id => id !== courseId);
-    } else {
-      updatedFavorites = [...favorites, courseId];
+    
+    // Obtém o usuário atual de forma garantida na hora da ação
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      alert("Sessão expirada. Faça login novamente para favoritar cursos.");
+      return;
     }
+
+    const userId = user.id;
+    const isAlreadyFav = favorites.includes(courseId);
+
+    // Atualização otimista na tela
+    const updatedFavorites = isAlreadyFav
+      ? favorites.filter(id => id !== courseId)
+      : [...favorites, courseId];
+    
     setFavorites(updatedFavorites);
-    localStorage.setItem('ka_tech_favorite_courses', JSON.stringify(updatedFavorites));
+
+    try {
+      if (isAlreadyFav) {
+        const { error } = await supabase
+          .from('user_favorites')
+          .delete()
+          .match({ user_id: userId, course_id: courseId });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('user_favorites')
+          .insert([{ user_id: userId, course_id: courseId }]);
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      console.error("Erro ao atualizar favorito no banco:", err);
+      // Reverte o estado visual se falhar
+      fetchFavorites();
+    }
   };
 
-  // Filtragem inicial por aba (Todos ou Favoritos) e depois por termo de busca (Título ou Descrição)
   const tabFilteredCourses = enrolledCourses.filter(course => {
     if (activeTab === "favorites") {
       return favorites.includes(course.id);
@@ -55,7 +98,6 @@ export default function Dashboard() {
     return titleMatch || descMatch;
   });
 
-  // Ordenações baseadas nos cursos filtrados
   const recentCourses = [...filteredCourses].sort((a, b) => new Date(b.enrolledAt).getTime() - new Date(a.enrolledAt).getTime());
   const featuredCourse = recentCourses[0]; 
   const otherRecent = recentCourses.slice(1, 4); 
@@ -82,7 +124,6 @@ export default function Dashboard() {
       <SEO title="Minha Jornada" description="Acompanhe seu progresso na KA Tech." />
       <Sidebar />
 
-      {/* Fundo Decorativo */}
       <div className="ambient-bg">
         <div className="ambient-blob blob-1"></div>
         <div className="ambient-blob blob-2"></div>
@@ -93,7 +134,6 @@ export default function Dashboard() {
           <img src={logo} alt="KA Tech Logo" />
         </div>
         
-        {/* HEADER */}
         <header className="hero-header">
           <div>
             <h1 className="page-title">Minha <span className="text-gradient">Jornada</span></h1>
@@ -112,7 +152,6 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* ABAS DE NAVEGAÇÃO (TODOS / FAVORITOS) */}
         <div className="dashboard-tabs">
           <button 
             className={`tab-btn ${activeTab === "all" ? "active" : ""}`} 
@@ -138,7 +177,6 @@ export default function Dashboard() {
           <>
             {filteredCourses.length > 0 ? (
               <>
-                {/* 1. DESTAQUE PRINCIPAL (HERO BANNER) - Apenas na aba "Todos" sem busca */}
                 {featuredCourse && !searchTerm && activeTab === "all" && (
                   <div className="featured-banner glass-panel" onClick={() => navigate(`/curso/${featuredCourse.slug}`)}>
                       <div 
@@ -173,7 +211,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* 2. RECENTES - Apenas na aba "Todos" sem busca */}
                 {otherRecent.length > 0 && !searchTerm && activeTab === "all" && (
                   <div className="section-block">
                     <h3 className="section-title"><Target size={20} className="text-primary"/> Assistidos Recentemente</h3>
@@ -213,7 +250,6 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                {/* 3. ACERVO / LISTA DE CURSOS (Exibido completo na aba de Favoritos ou com Busca ativa) */}
                 <div className="section-block" style={{ marginTop: (activeTab === "favorites" || searchTerm) ? '0' : '50px' }}>
                     <h3 className="section-title">
                       <BookOpen size={20} className="text-primary"/> 
@@ -331,7 +367,6 @@ export default function Dashboard() {
             border: 1px solid var(--border-color); border-top-color: rgba(255,255,255,0.12);
         }
 
-        /* HEADER & SEARCH BAR */
         .hero-header { margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; }
         .page-title { font-size: 2.5rem; font-weight: 900; margin: 0 0 5px 0; letter-spacing: -1px; color: #fff;}
         .hero-subtitle { color: var(--text-dim); font-size: 1.1rem; margin: 0; font-weight: 400; }
@@ -344,7 +379,6 @@ export default function Dashboard() {
         .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15); }
         .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim); pointer-events: none; }
 
-        /* TABS (MEUS CURSOS / FAVORITOS) */
         .dashboard-tabs { display: flex; gap: 12px; margin-bottom: 35px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
         .tab-btn {
             background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color); color: var(--text-dim);
@@ -354,7 +388,6 @@ export default function Dashboard() {
         .tab-btn:hover { background: rgba(30, 41, 59, 0.6); color: #fff; }
         .tab-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
 
-        /* FAVORITE BUTTONS */
         .favorite-badge-btn {
             position: absolute; top: 25px; right: 25px; z-index: 3; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
             border: 1px solid rgba(255,255,255,0.15); color: #fff; width: 42px; height: 42px; border-radius: 50%;
@@ -378,7 +411,6 @@ export default function Dashboard() {
         .list-fav-btn:hover { color: #fff; transform: scale(1.1); }
         .list-fav-btn.active { color: #ef4444; }
 
-        /* FEATURED BANNER */
         .featured-banner {
             position: relative; width: 100%; height: 380px; border-radius: 32px; overflow: hidden;
             margin-bottom: 40px; cursor: pointer; transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -421,7 +453,6 @@ export default function Dashboard() {
         .section-block { margin-bottom: 50px; }
         .section-title { font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px; letter-spacing: -0.3px;}
 
-        /* RECENTES GRID */
         .recent-grid { 
             display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; 
         }
@@ -449,7 +480,6 @@ export default function Dashboard() {
         .compact-track { height: 4px; margin-bottom: 8px;}
         .recent-percent { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); }
 
-        /* TODOS OS CURSOS */
         .all-courses-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px;
         }
