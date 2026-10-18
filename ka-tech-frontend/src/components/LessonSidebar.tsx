@@ -1,7 +1,17 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { Check, ChevronDown } from "lucide-react";
 import { supabase } from "../supabaseClient";
+import { ProgressBar } from "./ui";
 
 interface Lesson {
+  id: number;
+  title: string;
+  order: number;
+  module_id: number | null;
+  status?: string;
+}
+
+interface Module {
   id: number;
   title: string;
   order: number;
@@ -15,16 +25,19 @@ interface LessonSidebarProps {
 
 export default function LessonSidebar({ course_id, currentLessonId, onSelectLesson }: LessonSidebarProps) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
   const [completedLessonIds, setCompletedLessonIds] = useState<number[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<number | "none">>(new Set());
+  const activeRef = useRef<HTMLButtonElement>(null);
 
   const fetchCourseLessons = useCallback(async () => {
-    const { data } = await supabase
-      .from("lessons")
-      .select("id, title, order")
-      .eq("course_id", course_id)
-      .order("order", { ascending: true });
-
-    if (data) setLessons(data);
+    // Para alunos o banco já esconde rascunhos (RLS); a equipe vê tudo
+    const [lessonsRes, modulesRes] = await Promise.all([
+      supabase.from("lessons").select("id, title, order, module_id, status").eq("course_id", course_id).order("order", { ascending: true }),
+      supabase.from("course_modules").select("id, title, order").eq("course_id", course_id).order("order", { ascending: true }),
+    ]);
+    if (lessonsRes.data) setLessons(lessonsRes.data as Lesson[]);
+    setModules((modulesRes.data as Module[]) || []);
   }, [course_id]);
 
   const fetchUserProgress = useCallback(async () => {
@@ -38,9 +51,7 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
       .eq("course_id", course_id)
       .eq("is_completed", true);
 
-    if (data) {
-      setCompletedLessonIds(data.map((p) => p.lesson_id));
-    }
+    if (data) setCompletedLessonIds(data.map((p) => p.lesson_id));
   }, [course_id]);
 
   useEffect(() => {
@@ -51,97 +62,94 @@ export default function LessonSidebar({ course_id, currentLessonId, onSelectLess
     return () => window.removeEventListener("progressUpdated", fetchUserProgress);
   }, [fetchCourseLessons, fetchUserProgress]);
 
+  // Mantém a aula atual visível na lista
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [currentLessonId, lessons.length]);
+
+  // Grupos: aulas sem módulo primeiro, depois os módulos na ordem definida
+  const groups = useMemo(() => {
+    const result: { key: number | "none"; title: string | null; lessons: Lesson[] }[] = [];
+    const loose = lessons.filter((l) => !l.module_id);
+    if (loose.length) result.push({ key: "none", title: modules.length ? "Introdução" : null, lessons: loose });
+    modules.forEach((m) => {
+      const items = lessons.filter((l) => l.module_id === m.id);
+      if (items.length) result.push({ key: m.id, title: m.title, lessons: items });
+    });
+    return result;
+  }, [lessons, modules]);
+
+  const published = lessons.filter((l) => (l.status || "published") === "published");
+  const done = published.filter((l) => completedLessonIds.includes(l.id)).length;
+  const percent = published.length ? (done / published.length) * 100 : 0;
+
+  let counter = 0;
+
   return (
-    <div className="lesson-sidebar-inner" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <style>{`
-        .sidebar-title-lessons {
-          padding: 20px;
-          color: #fff;
-          font-size: 1rem;
-          font-weight: 600;
-          border-bottom: 1px solid #2d323e;
-          background: #1a1d23;
-          flex-shrink: 0; /* Impede que o título suma se houver muitas aulas */
-        }
-        
-        .lessons-list-container {
-          flex: 1;
-          overflow-y: auto;
-          background: #09090b;
-        }
+    <div className="ply-lessons">
+      <div className="ply-lessons__head">
+        <span>{done} de {published.length} aulas concluídas</span>
+        <ProgressBar value={percent} size="sm" label="Aulas concluídas" />
+      </div>
 
-        /* Personalização da Scrollbar */
-        .lessons-list-container::-webkit-scrollbar {
-          width: 6px;
-        }
-        .lessons-list-container::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .lessons-list-container::-webkit-scrollbar-thumb {
-          background: #2d323e;
-          border-radius: 10px;
-        }
-        .lessons-list-container::-webkit-scrollbar-thumb:hover {
-          background: #8b5cf6;
-        }
-
-        .lesson-item {
-          padding: 15px 20px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          transition: 0.2s;
-          border-bottom: 1px solid #1a1d23;
-          position: relative;
-        }
-        .lesson-item:hover { background: #1a1d23; }
-        .lesson-item.active {
-          background: rgba(139, 92, 246, 0.1);
-          border-left: 4px solid #8b5cf6;
-        }
-        .lesson-num {
-          color: #8b5cf6;
-          font-weight: bold;
-          font-size: 0.8rem;
-          min-width: 20px;
-        }
-        .lesson-txt { color: #fff; font-size: 0.85rem; flex: 1; }
-        
-        .lesson-check {
-          color: #10b981;
-          font-size: 0.9rem;
-          font-weight: bold;
-        }
-        .lesson-item.completed .lesson-num {
-          color: #10b981;
-        }
-      `}</style>
-
-      <h3 className="sidebar-title-lessons">Grade do Curso</h3>
-      
-      <nav className="lessons-list-container">
-        {lessons.map((lesson) => {
-          const isCompleted = completedLessonIds.includes(lesson.id);
-          const isActive = currentLessonId === lesson.id;
-
+      <div className="ply-lessons__list">
+        {groups.map((group) => {
+          const isCollapsed = collapsed.has(group.key);
+          const groupDone = group.lessons.filter((l) => completedLessonIds.includes(l.id)).length;
+          const hasActive = group.lessons.some((l) => l.id === currentLessonId);
           return (
-            <div
-              key={lesson.id}
-              className={`lesson-item ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""}`}
-              onClick={() => onSelectLesson(lesson.id)}
-            >
-              <span className="lesson-num">
-                {isCompleted ? "✓" : `#${lesson.order}`}
-              </span>
-              <span className="lesson-txt" style={{ opacity: isCompleted && !isActive ? 0.6 : 1 }}>
-                {lesson.title}
-              </span>
-              {isCompleted && <span className="lesson-check">✅</span>}
-            </div>
+            <section key={group.key} className="ply-module">
+              {group.title && (
+                <button
+                  type="button"
+                  className={`ply-module__head ${hasActive ? "has-active" : ""}`}
+                  onClick={() => setCollapsed((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(group.key)) next.delete(group.key); else next.add(group.key);
+                    return next;
+                  })}
+                  aria-expanded={!isCollapsed}
+                >
+                  <span className="ply-module__title">{group.title}</span>
+                  <span className="ply-module__count">{groupDone}/{group.lessons.length}</span>
+                  <ChevronDown size={15} style={{ transform: isCollapsed ? "rotate(-90deg)" : "none" }} />
+                </button>
+              )}
+
+              {!isCollapsed && (
+                <ol className="ply-module__lessons">
+                  {group.lessons.map((lesson) => {
+                    counter += 1;
+                    const isCompleted = completedLessonIds.includes(lesson.id);
+                    const isActive = currentLessonId === lesson.id;
+                    const isDraft = lesson.status === "draft";
+                    return (
+                      <li key={lesson.id}>
+                        <button
+                          ref={isActive ? activeRef : undefined}
+                          className={`ply-lesson ${isCompleted ? "is-done" : ""} ${isDraft ? "is-draft" : ""}`}
+                          aria-current={isActive ? "true" : undefined}
+                          onClick={() => onSelectLesson(lesson.id)}
+                        >
+                          <span className="ply-lesson__num" aria-hidden="true">
+                            {isCompleted ? <Check size={14} strokeWidth={3} /> : counter}
+                          </span>
+                          <span className="ply-lesson__title">
+                            {lesson.title}
+                            {isActive && <span className="ply-lesson__now">Assistindo agora</span>}
+                            {isDraft && <span className="ply-lesson__draft">Rascunho · só a equipe vê</span>}
+                          </span>
+                          {isCompleted && <span className="sr-only">(concluída)</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </section>
           );
         })}
-      </nav>
+      </div>
     </div>
   );
 }

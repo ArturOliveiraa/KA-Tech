@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { supabase } from "../supabaseClient";
-
-import "../App.css";
-import logoKaTech from "../assets/ka-tech-logo.png";
+import AuthLayout, { AuthField } from "../components/AuthLayout";
+import { Button } from "../components/ui";
 
 function UpdatePassword() {
   const [password, setPassword] = useState("");
@@ -16,7 +16,7 @@ function UpdatePassword() {
 
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       setErrorMessage("As senhas não coincidem.");
       return;
@@ -28,7 +28,6 @@ function UpdatePassword() {
     try {
       // O Supabase atualiza a senha do usuário da sessão atual (vinda do link do e-mail)
       const { error } = await supabase.auth.updateUser({ password });
-
       if (error) throw error;
 
       setSuccessMessage("Senha atualizada! Redirecionando para o login...");
@@ -41,72 +40,43 @@ function UpdatePassword() {
   }
 
   return (
-    <div className="auth-page">
-      {/* Lado esquerdo – Marca e Visual KA Tech */}
-      <div className="auth-left">
-        <div className="brand">
-          <img src={logoKaTech} alt="KA Tech" className="brand-logo" />
-        </div>
+    <AuthLayout
+      title="Crie uma nova senha"
+      subtitle="Escolha uma senha forte que você não usa em outros sites."
+      heroTitle="Sua segurança vem primeiro."
+      heroText="Depois de salvar, é só entrar novamente com a nova senha."
+    >
+      <form className="auth-form" onSubmit={handleUpdate}>
+        <AuthField
+          label="Nova senha"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Mínimo de 6 caracteres"
+          minLength={6}
+          icon={<Lock size={18} />}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <AuthField
+          label="Confirmar nova senha"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Repita a senha"
+          icon={<Lock size={18} />}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+        />
 
-        <div className="left-content">
-          <h2>Sua segurança é nossa prioridade.</h2>
-          <p>
-            Crie uma nova senha forte para proteger seus fluxos e 
-            garantir que apenas você tenha acesso à plataforma.
-          </p>
-          <div className="abstract-graphic" />
-        </div>
-      </div>
+        {errorMessage && <div className="ui-alert ui-alert--danger" role="alert">{errorMessage}</div>}
+        {successMessage && <div className="ui-alert ui-alert--success" role="status">{successMessage}</div>}
 
-      {/* Lado direito – Formulário de Nova Senha */}
-      <div className="auth-right">
-        <div className="login-card">
-          <header className="login-header">
-            <h1>Nova Senha</h1>
-            <p>Crie uma senha de acesso para sua conta.</p>
-          </header>
-
-          <form className="login-form" onSubmit={handleUpdate}>
-            <div className="field">
-              <label htmlFor="password">Nova Senha</label>
-              <div className="input-wrapper">
-                <span className="input-icon">🔒</span>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="confirm">Confirmar Nova Senha</label>
-              <div className="input-wrapper">
-                <span className="input-icon">🔒</span>
-                <input
-                  id="confirm"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {errorMessage && <div className="feedback feedback-error">{errorMessage}</div>}
-            {successMessage && <div className="feedback feedback-success">{successMessage}</div>}
-
-            <button className="primary-button" type="submit" disabled={loading}>
-              {loading ? "Salvando..." : "Confirmar Nova Senha"}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+        <Button type="submit" size="lg" block loading={loading}>
+          {loading ? "Salvando..." : "Salvar nova senha"}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
 

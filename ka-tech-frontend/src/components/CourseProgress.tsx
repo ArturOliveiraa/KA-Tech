@@ -57,16 +57,16 @@ export default function CourseProgress({ courseId }: ProgressProps) {
 
   return (
     <div style={{ 
-      background: '#121418', 
+      background: 'var(--color-surface-1)', 
       padding: '25px', 
       borderRadius: '16px', 
-      border: '1px solid #2d323e',
+      border: '1px solid var(--color-border-strong)',
       marginBottom: '30px',
-      fontFamily: 'sans-serif'
+      fontFamily: 'var(--font-sans)'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
         <div>
-          <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '1px' }}>STATUS DO ALUNO</span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', fontWeight: 'bold', letterSpacing: '1px' }}>STATUS DO ALUNO</span>
           <h2 style={{ 
             margin: '5px 0 0 0', 
             color: rank.color, 
@@ -78,13 +78,13 @@ export default function CourseProgress({ courseId }: ProgressProps) {
           </h2>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <span style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 'bold' }}>{stats.percent}%</span>
-          <span style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block' }}>{stats.completed}/{stats.total} Aulas</span>
+          <span style={{ color: 'var(--color-text)', fontSize: '1.2rem', fontWeight: 'bold' }}>{stats.percent}%</span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', display: 'block' }}>{stats.completed}/{stats.total} Aulas</span>
         </div>
       </div>
 
       {/* BARRA DE PROGRESSO NEON */}
-      <div style={{ width: '100%', height: '10px', background: '#1c1f26', borderRadius: '20px', overflow: 'hidden' }}>
+      <div style={{ width: '100%', height: '10px', background: 'var(--color-surface-3)', borderRadius: '20px', overflow: 'hidden' }}>
         <div style={{ 
           width: `${stats.percent}%`, 
           height: '100%', 

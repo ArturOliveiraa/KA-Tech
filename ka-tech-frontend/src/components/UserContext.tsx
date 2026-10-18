@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
-import logoDefault from "../assets/ka-tech-logo.png";
+import logoDefault from "../assets/ka-tech-logo-wide.png";
 
 interface UserContextType {
   userRole: string | null;
@@ -10,12 +10,14 @@ interface UserContextType {
   sidebarLogo: string; 
   loading: boolean;
   refreshBranding: () => Promise<void>;
+  /** Recarrega nome e foto (ex.: depois de editar o perfil) */
+  refreshProfile: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [profile, setProfile] = useState<Omit<UserContextType, 'refreshBranding'>>({
+  const [profile, setProfile] = useState<Omit<UserContextType, 'refreshBranding' | 'refreshProfile'>>({
     userRole: null,
     userName: "Usuário",
     avatarUrl: null,
@@ -59,7 +61,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         themeColor: data.theme_color || "#8b5cf6",
         loading: false
       }));
-      document.documentElement.style.setProperty('--primary-color', data.theme_color || "#8b5cf6");
       await loadBranding();
     } else {
       setProfile(prev => ({ ...prev, loading: false }));
@@ -115,8 +116,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [loadBranding, loadProfile]); // 3. Agora as dependências estão corretas e estáveis
 
+  const refreshProfile = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) await loadProfile(session.user.id);
+  }, [loadProfile]);
+
   return (
-    <UserContext.Provider value={{ ...profile, refreshBranding: loadBranding }}>
+    <UserContext.Provider value={{ ...profile, refreshBranding: loadBranding, refreshProfile }}>
       {children}
     </UserContext.Provider>
   );

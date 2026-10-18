@@ -58,19 +58,19 @@ export default function FeedbackWidget() {
       {isOpen && (
         <div style={{
           position: 'absolute', bottom: '70px', right: '0', width: '320px',
-          background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)',
+          background: 'var(--color-surface-1)', border: '1px solid var(--color-border)',
           borderRadius: '16px', padding: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-          color: '#fff', animation: 'fadeUp 0.3s ease'
+          color: 'var(--color-text)', animation: 'fadeUp 0.3s ease'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Enviar Feedback</h3>
-            <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+            <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
               <X size={20} />
             </button>
           </div>
 
           {success ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', color: '#10b981' }}>
+            <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--color-success-text)' }}>
               <p>Obrigado pelo seu feedback! 🚀</p>
             </div>
           ) : (
@@ -80,8 +80,8 @@ export default function FeedbackWidget() {
                 onChange={(e) => setType(e.target.value)}
                 style={{
                   width: '100%', padding: '10px', borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#fff', outline: 'none'
+                  background: 'var(--color-surface-2)', border: '1px solid var(--color-border)',
+                  color: 'var(--color-text)', outline: 'none'
                 }}
               >
                 <option value="melhoria" style={{ color: '#000' }}>💡 Sugestão de Melhoria</option>
@@ -98,8 +98,8 @@ export default function FeedbackWidget() {
                 required
                 style={{
                   width: '100%', padding: '10px', borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#fff', outline: 'none', resize: 'none'
+                  background: 'var(--color-surface-2)', border: '1px solid var(--color-border)',
+                  color: 'var(--color-text)', outline: 'none', resize: 'none'
                 }}
               />
 
@@ -108,7 +108,7 @@ export default function FeedbackWidget() {
                 disabled={isSubmitting}
                 style={{
                   width: '100%', padding: '12px', borderRadius: '8px',
-                  background: '#8b5cf6', color: '#fff', border: 'none',
+                  background: 'var(--color-primary)', color: '#fff', border: 'none',
                   fontWeight: 700, cursor: isSubmitting ? 'wait' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                 }}
@@ -125,8 +125,8 @@ export default function FeedbackWidget() {
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: '56px', height: '56px', borderRadius: '50%',
-          background: '#8b5cf6', color: '#fff', border: 'none',
-          boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)', cursor: 'pointer',
+          background: 'var(--color-primary)', color: '#fff', border: 'none',
+          boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'transform 0.2s'
         }}

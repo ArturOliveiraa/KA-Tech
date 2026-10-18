@@ -11,17 +11,17 @@ function Privacy() {
         .privacy-container {
           max-width: 800px;
           margin: 0 auto;
-          background: rgba(30, 41, 59, 0.7);
+          background: var(--color-surface-2);
           backdrop-filter: blur(10px);
           padding: 40px;
           border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: #f8fafc;
+          border: 1px solid var(--color-border);
+          color: var(--color-text);
         }
-        .privacy-container h1 { font-size: 2rem; margin-bottom: 20px; color: #fff; }
-        .privacy-container h2 { font-size: 1.25rem; margin-top: 30px; margin-bottom: 10px; color: #818cf8; }
-        .privacy-container p { line-height: 1.6; color: #94a3b8; margin-bottom: 15px; }
-        .back-link { cursor: pointer; color: #818cf8; display: flex; align-items: center; gap: 8px; margin-bottom: 30px; }
+        .privacy-container h1 { font-size: 2rem; margin-bottom: 20px; color: var(--color-text); }
+        .privacy-container h2 { font-size: 1.25rem; margin-top: 30px; margin-bottom: 10px; color: var(--color-primary-text); }
+        .privacy-container p { line-height: 1.6; color: var(--color-text-muted); margin-bottom: 15px; }
+        .back-link { cursor: pointer; color: var(--color-primary-text); display: flex; align-items: center; gap: 8px; margin-bottom: 30px; }
         .back-link:hover { text-decoration: underline; }
       `}</style>
 
@@ -64,7 +64,7 @@ function Privacy() {
           </p>
         </section>
 
-        <footer style={{ marginTop: "50px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "20px" }}>
+        <footer style={{ marginTop: "50px", textAlign: "center", borderTop: "1px solid var(--color-border)", paddingTop: "20px" }}>
           <p>© 2026 KA Tech - Todos os direitos reservados.</p>
         </footer>
       </div>

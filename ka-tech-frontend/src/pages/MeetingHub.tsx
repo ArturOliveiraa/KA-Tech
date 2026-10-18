@@ -69,9 +69,9 @@ export default function MeetingHub() {
             <style>{`
                 .hub-container { 
                     display: flex; 
-                    background-color: #020617; 
+                    background-color: var(--color-bg); 
                     min-height: 100vh; 
-                    color: #fff; 
+                    color: var(--color-text); 
                     box-sizing: border-box; 
                 }
                 
@@ -82,7 +82,7 @@ export default function MeetingHub() {
 
                 .hub-main { 
                     flex: 1; 
-                    margin-left: 260px; 
+                    margin-left: var(--sidebar-width); 
                     padding: 40px; 
                     display: flex;
                     flex-direction: column;
@@ -146,12 +146,12 @@ export default function MeetingHub() {
                 <div className="hub-content-wrapper">
                     <header style={{ marginBottom: '40px' }}>
                         <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0 }}>🤝 Central de Reuniões</h1>
-                        <p style={{ color: '#9ca3af', fontSize: '1rem', marginTop: '10px' }}>Gerencie suas salas de mentoria e encontros ao vivo.</p>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '1rem', marginTop: '10px' }}>Gerencie suas salas de mentoria e encontros ao vivo.</p>
                     </header>
 
                     {(userRole === 'admin' || userRole === 'teacher') && (
                         <section style={styles.card}>
-                            <h3 style={{ marginBottom: '25px', fontSize: '1.2rem', color: '#f8fafc' }}>🚀 Criar Nova Reunião</h3>
+                            <h3 style={{ marginBottom: '25px', fontSize: '1.2rem', color: 'var(--color-text)' }}>🚀 Criar Nova Reunião</h3>
                             
                             <div className="creation-grid">
                                 <div className="input-group">
@@ -185,7 +185,7 @@ export default function MeetingHub() {
                     )}
 
                     <section style={{ width: '100%' }}>
-                        <h3 style={{ marginBottom: '20px', color: '#f8fafc', fontSize: '1.2rem' }}>Salas Disponíveis</h3>
+                        <h3 style={{ marginBottom: '20px', color: 'var(--color-text)', fontSize: '1.2rem' }}>Salas Disponíveis</h3>
                         {loading ? <p>Carregando...</p> : (
                             <div style={styles.grid}>
                                 {meetings.length > 0 ? meetings.map(m => (
@@ -196,9 +196,9 @@ export default function MeetingHub() {
                                                 whiteSpace: 'nowrap', 
                                                 overflow: 'hidden', 
                                                 textOverflow: 'ellipsis', 
-                                                color: '#fff' 
+                                                color: 'var(--color-text)' 
                                             }}>{m.title}</h4>
-                                            <span style={{ fontSize: '0.85rem', color: '#8b5cf6', fontWeight: 600 }}>/meet/{m.room_id}</span>
+                                            <span style={{ fontSize: '0.85rem', color: 'var(--color-primary-text)', fontWeight: 600 }}>/meet/{m.room_id}</span>
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button 
@@ -218,7 +218,7 @@ export default function MeetingHub() {
                                             )}
                                         </div>
                                     </div>
-                                )) : <p style={{ color: '#64748b' }}>Nenhuma reunião ativa no momento.</p>}
+                                )) : <p style={{ color: 'var(--color-text-subtle)' }}>Nenhuma reunião ativa no momento.</p>}
                             </div>
                         )}
                     </section>
@@ -230,7 +230,7 @@ export default function MeetingHub() {
 
 const styles = {
     card: { 
-        backgroundColor: '#0f172a', 
+        backgroundColor: 'var(--color-surface-1)', 
         padding: '25px', 
         borderRadius: '16px', 
         border: '1px solid rgba(139, 92, 246, 0.2)', 
@@ -238,21 +238,21 @@ const styles = {
         width: '100%',
         overflow: 'hidden' 
     },
-    label: { fontSize: '0.9rem', color: '#9ca3af', fontWeight: 600, marginBottom: '2px' },
+    label: { fontSize: '0.9rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '2px' },
     input: { 
         width: '100%', 
         padding: '14px', 
         borderRadius: '8px', 
         border: '1px solid #334155', 
-        backgroundColor: '#020617', 
-        color: '#fff', 
+        backgroundColor: 'var(--color-bg)', 
+        color: 'var(--color-text)', 
         outline: 'none', 
         fontSize: '1rem' 
     },
     urlPrefix: { 
         position: 'absolute' as 'absolute', 
         left: '12px', 
-        color: '#64748b', 
+        color: 'var(--color-text-subtle)', 
         fontSize: '0.9rem', 
         fontWeight: 700, 
         pointerEvents: 'none' as 'none' 
@@ -260,7 +260,7 @@ const styles = {
     button: { 
         width: '100%', 
         padding: '16px', 
-        backgroundColor: '#8b5cf6', 
+        backgroundColor: 'var(--color-primary)', 
         color: '#fff', 
         border: 'none', 
         borderRadius: '8px', 
@@ -276,7 +276,7 @@ const styles = {
         width: '100%' 
     },
     meetingCard: { 
-        backgroundColor: '#1e293b', 
+        backgroundColor: 'var(--color-surface-3)', 
         padding: '20px', 
         borderRadius: '14px', 
         display: 'flex', 
@@ -286,7 +286,7 @@ const styles = {
     },
     joinButton: { 
         padding: '10px 22px', 
-        backgroundColor: '#10b981', 
+        backgroundColor: 'var(--color-success)', 
         color: '#fff', 
         border: 'none', 
         borderRadius: '8px', 
@@ -296,7 +296,7 @@ const styles = {
     },
     deleteButton: { 
         padding: '10px 14px', 
-        backgroundColor: '#ef4444', 
+        backgroundColor: 'var(--color-danger)', 
         color: '#fff', 
         border: 'none', 
         borderRadius: '8px', 

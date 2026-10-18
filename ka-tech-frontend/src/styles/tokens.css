@@ -1,0 +1,219 @@
+/* ==========================================================================
+   KA Tech — Design tokens (tema claro e escuro)
+   O tema fica em <html data-theme="light|dark">, definido antes da pintura
+   por um script em index.html e alternado pelo ThemeProvider.
+   A cor primária pode vir do perfil (UserContext define --primary-color).
+   ========================================================================== */
+
+:root {
+  /* --- Marca (independe do tema) --- */
+  --brand-violet: #7c3aed;
+  --brand-blue: #2563eb;
+
+  /* --- Tipografia --- */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Sora', var(--font-sans);
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: clamp(1.625rem, 1.3rem + 1.1vw, 2rem);
+  --text-4xl: clamp(1.875rem, 1.4rem + 1.8vw, 2.5rem);
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* --- Espaçamento (escala de 4px) --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* --- Raios --- */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-full: 999px;
+
+  /* --- Movimento --- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 450ms;
+
+  /* --- Layout --- */
+  --sidebar-width: 264px;
+  --topbar-height: 60px;
+  --content-max-width: 1320px;
+  --page-padding-x: clamp(1rem, 0.4rem + 2.6vw, 3rem);
+  --page-padding-y: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+
+  /* --- Camadas --- */
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-nav: 1000;
+  --z-modal: 2000;
+  --z-toast: 3000;
+}
+
+/* ---------------------------------- CLARO ---------------------------------- */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-primary: #6d28d9;
+  --color-primary-strong: #5b21b6;
+  --color-primary-soft: #f1ebfd;
+  --color-primary-border: #d5c4f7;
+  --color-primary-text: #5b21b6;
+  --color-accent: #2563eb;
+
+  --color-bg: #f7f7f9;
+  --color-bg-elevated: #ffffff;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f2f2f5;
+  --color-surface-3: #e6e6eb;
+  --color-surface-solid: #ffffff;
+  --color-overlay: rgba(17, 17, 24, 0.45);
+  --color-sidebar: #ffffff;
+
+  --color-border: #e4e4e9;
+  --color-border-strong: #cdcdd5;
+
+  --color-text: #17171c;
+  --color-text-secondary: #34343d;
+  --color-text-muted: #55555f;
+  --color-text-subtle: #6a6a75;
+  --color-text-on-primary: #ffffff;
+
+  --color-success: #047857;
+  --color-success-soft: #e6f6ef;
+  --color-success-text: #065f46;
+  --color-warning: #b45309;
+  --color-warning-soft: #fcf1e1;
+  --color-warning-text: #92400e;
+  --color-danger: #c81e1e;
+  --color-danger-soft: #fdecec;
+  --color-danger-text: #a51717;
+  --color-info: #1d4ed8;
+  --color-info-soft: #e8effd;
+
+  --shadow-xs: 0 1px 2px rgba(17, 17, 24, 0.05);
+  --shadow-sm: 0 1px 3px rgba(17, 17, 24, 0.07), 0 1px 2px rgba(17, 17, 24, 0.04);
+  --shadow-md: 0 8px 24px -8px rgba(17, 17, 24, 0.14);
+  --shadow-lg: 0 24px 48px -14px rgba(17, 17, 24, 0.2);
+  --shadow-primary: 0 4px 12px -4px rgba(109, 40, 217, 0.35);
+  --focus-ring: 0 0 0 3px rgba(109, 40, 217, 0.3);
+
+  --gradient-primary: linear-gradient(180deg, #7432e0 0%, #6323cc 100%);
+  --gradient-progress: linear-gradient(90deg, #6d28d9 0%, #7c3aed 100%);
+  --gradient-hero: linear-gradient(135deg, #f4effd 0%, #f2f4fb 100%);
+  --gradient-text: linear-gradient(135deg, #5b21b6 0%, #6d28d9 100%);
+  --ambient-opacity: 0.05;
+}
+
+/* ------------------------------ ESCURO (grafite) ----------------------------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-primary: #6d5ad9;
+  --color-primary-strong: #6553cc;
+  --color-primary-soft: rgba(139, 124, 246, 0.12);
+  --color-primary-border: rgba(139, 124, 246, 0.32);
+  --color-primary-text: #b7adff;
+  --color-accent: #7a8aa6;
+
+  --color-bg: #111113;
+  --color-bg-elevated: #19191c;
+  --color-surface-1: #18181b;
+  --color-surface-2: #1f1f23;
+  --color-surface-3: #2a2a2f;
+  --color-surface-solid: #18181b;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-sidebar: #141416;
+
+  --color-border: #26262b;
+  --color-border-strong: #3a3a41;
+
+  --color-text: #ececee;
+  --color-text-secondary: #cfcfd4;
+  --color-text-muted: #a3a3ab;
+  --color-text-subtle: #8c8c95;
+  --color-text-on-primary: #ffffff;
+
+  --color-success: #34b98a;
+  --color-success-soft: rgba(52, 185, 138, 0.12);
+  --color-success-text: #7dd3b0;
+  --color-warning: #d9a03f;
+  --color-warning-soft: rgba(217, 160, 63, 0.12);
+  --color-warning-text: #e8c27e;
+  --color-danger: #e25c5c;
+  --color-danger-soft: rgba(226, 92, 92, 0.12);
+  --color-danger-text: #f0a0a0;
+  --color-info: #8fb0e8;
+  --color-info-soft: rgba(143, 176, 232, 0.12);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 24px -10px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.6);
+  --shadow-primary: none;
+  --focus-ring: 0 0 0 3px rgba(139, 124, 246, 0.4);
+
+  --gradient-primary: linear-gradient(180deg, #6d5ad9 0%, #6250c8 100%);
+  --gradient-progress: linear-gradient(90deg, #7461e0 0%, #8b7cf6 100%);
+  --gradient-hero: linear-gradient(135deg, #1c1b21 0%, #18181b 100%);
+  --gradient-text: linear-gradient(135deg, #ececee 0%, #b7adff 100%);
+  --ambient-opacity: 0;
+}
+
+/* --- Aliases legados (usados nos <style> das páginas ainda não migradas) --- */
+:root {
+  --primary: var(--color-primary);
+  --primary-hover: var(--color-primary-strong);
+  --bg-dark: var(--color-bg);
+  --bg-card: var(--color-surface-1);
+  --card-glass: var(--color-surface-1);
+  --border: var(--color-border);
+  --border-color: var(--color-border);
+  --glass-border: var(--color-border);
+  --text-light: var(--color-text);
+  --text-main: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-dim: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --text-tertiary: var(--color-text-subtle);
+  --font-main: var(--font-sans);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --danger: var(--color-danger);
+  --surface-1: var(--color-surface-1);
+  --surface-2: var(--color-surface-2);
+  --bg-panel: var(--color-surface-1);
+  --bg-hover: var(--color-surface-2);
+  --active-orange: var(--color-primary);
+}
+
+/* Breakpoints de referência (CSS não aceita variáveis em @media):
+   mobile  <= 640px
+   tablet  <= 1024px  (sidebar vira gaveta + barra superior)
+   desktop >  1024px */

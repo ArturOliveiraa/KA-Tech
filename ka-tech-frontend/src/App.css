@@ -1,34 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;800&display=swap');
 
 /* ==========================================================================
    1. VARIÁVEIS E CONFIGURAÇÕES GLOBAIS
    ========================================================================== */
 
 :root {
-  --primary-color: #8b5cf6;
-  --bg-dark: #020617;
-  --sidebar-width: 260px;   /* Largura única para todo o projeto */
-  --content-padding: 40px;  /* Espaçamento interno padronizado */
+  --content-padding: 40px;
 }
 
-/* Trava o 'pulo' do layout quando a barra de rolagem aparece */
-html {
-  scrollbar-gutter: stable;
-  box-sizing: border-box;
-}
-
-*, *:before, *:after {
-  box-sizing: inherit;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg-dark);
-  color: #f9fafb;
-  font-family: 'Sora', sans-serif;
-  overflow-x: hidden;
-}
 
 /* ==========================================================================
    2. LAYOUT DE AUTENTICAÇÃO (LOGIN / REGISTRO) - MANTIDO
@@ -37,7 +15,7 @@ body {
 .auth-page {
   min-height: 100vh;
   display: flex;
-  background: radial-gradient(circle at top left, #1a1033 0, #020617 55%, #000 100%);
+  background: var(--gradient-hero);
   width: 100%;
 }
 
@@ -56,7 +34,7 @@ body {
 }
 
 .auth-right {
-  background: #020617;
+  background: var(--color-bg);
   align-items: center;
   justify-content: center;
 }
@@ -96,7 +74,7 @@ body {
 }
 
 .left-content p {
-  color: #9ca3af;
+  color: var(--color-text-muted);
   font-size: 0.95rem;
   font-weight: 400;
 }
@@ -118,9 +96,9 @@ body {
   max-width: 420px;
   padding: 2.5rem 2.75rem;
   border-radius: 1.5rem;
-  background: rgba(15, 23, 42, 0.98);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
 }
 
 .login-header h1 {
@@ -140,7 +118,7 @@ body {
 .field label {
   display: block;
   font-size: 0.85rem;
-  color: #e5e7eb;
+  color: var(--color-text-secondary);
   margin-bottom: 0.4rem;
   font-weight: 600;
 }
@@ -149,16 +127,16 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: #020617;
+  background: var(--color-bg);
   border-radius: 999px;
   padding: 0.6rem 0.95rem;
-  border: 1px solid #1f2937;
+  border: 1px solid var(--color-border-strong);
   transition: all 0.2s ease;
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.35);
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .primary-button {
@@ -166,7 +144,7 @@ body {
   border: none;
   border-radius: 999px;
   padding: 0.75rem 1.2rem;
-  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  background: var(--gradient-primary);
   color: #ffffff;
   font-weight: 600;
   font-size: 0.95rem;
@@ -177,39 +155,6 @@ body {
 /* ==========================================================================
    3. ESTRUTURA DO DASHBOARD (SIDEBAR FIXA E CONTEÚDO) - AJUSTADO
    ========================================================================== */
-
-.dashboard-wrapper {
-  display: flex; /* Mudança para Flex para garantir ancoragem lateral */
-  background: var(--bg-dark);
-  min-height: 100vh;
-  width: 100%;
-}
-
-/* Sidebar FIXA */
-.dashboard-sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: var(--sidebar-width);
-  height: 100vh;
-  background: #020617;
-  border-right: 1px solid #1f2937;
-  padding: 2.5rem 1.8rem;
-  display: flex;
-  flex-direction: column;
-  z-index: 1000;
-}
-
-/* Área de Conteúdo INDEPENDENTE */
-.dashboard-content {
-  flex: 1;
-  margin-left: var(--sidebar-width); /* Reserva espaço para a sidebar fixa */
-  padding: var(--content-padding);
-  width: calc(100% - var(--sidebar-width));
-  min-height: 100vh;
-  box-sizing: border-box;
-  overflow-y: auto;
-}
 
 .dashboard-header {
   display: flex;
@@ -232,16 +177,16 @@ body {
 }
 
 .course-card-v2 {
-  background: #020617;
+  background: var(--color-bg);
   border-radius: 1.2rem;
-  border: 1px solid #1f2937;
+  border: 1px solid var(--color-border-strong);
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
 .course-card-v2:hover {
   transform: translateY(-5px);
-  border-color: var(--primary-color);
+  border-color: var(--color-primary);
 }
 
 /* ==========================================================================
@@ -257,19 +202,6 @@ body {
     padding: 2rem 1.5rem;
   }
 
-  .dashboard-wrapper {
-    flex-direction: column;
-  }
-
-  .dashboard-sidebar {
-    display: none; 
-  }
-
-  .dashboard-content {
-    margin-left: 0 !important; /* Remove a reserva da sidebar no mobile */
-    padding: 20px 20px 120px 20px !important;
-    width: 100% !important;
-  }
 
   .admin-sections-container {
     grid-template-columns: 1fr; 

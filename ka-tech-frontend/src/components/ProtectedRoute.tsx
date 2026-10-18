@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { LoadingScreen } from "./ui";
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
@@ -31,7 +32,6 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
       // Se der erro ou se a coluna 'equipe' estiver vazia/nula, perfil está incompleto
       if (profileError || !profile?.equipe || profile.equipe.trim() === "") {
-        console.log("Perfil incompleto detectado. Faltando equipe.");
         setIsProfileComplete(false);
       } else {
         setIsProfileComplete(true);
@@ -44,13 +44,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }, [location.pathname]); // Re-executa se a rota mudar
 
   // Enquanto carrega, mostra uma tela vazia ou loading (evita piscar o dashboard)
-  if (loading) {
-    return (
-      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617', color: '#8b5cf6' }}>
-        Verificando acesso...
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen label="Verificando acesso..." />;
   
   // Se não estiver logado, joga para a tela de login
   if (!session) return <Navigate to="/" replace />;
