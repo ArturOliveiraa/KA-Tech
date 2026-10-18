@@ -209,7 +209,7 @@ export default function ContentManagement() {
     <div className="dashboard-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
        <div style={{ textAlign: 'center' }}>
           <Sparkles size={40} color="#8b5cf6" style={{ animation: 'pulse 2s infinite', margin: '0 auto 15px' }} />
-          <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>Sincronizando Plataforma...</h3>
+          <h3 style={{ color: 'var(--color-text)', fontSize: '1.2rem', fontWeight: 800 }}>Sincronizando Plataforma...</h3>
           <style>{`@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }`}</style>
        </div>
     </div>
@@ -221,22 +221,18 @@ export default function ContentManagement() {
 
       <style>{`
         :root { 
-          --primary: #8b5cf6; --primary-hover: #7c3aed;
-          --bg-dark: #020617; /* Tom de fundo ultra-profundo (slate-950) */
-          --card-glass: rgba(15, 23, 42, 0.4); 
-          --border: rgba(255, 255, 255, 0.06); 
-          --text-muted: #94a3b8;
-        }
+          /* Tom de fundo ultra-profundo (slate-950) */
+          }
         * { box-sizing: border-box; }
         
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--color-surface-2); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-        .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; color: #f8fafc; }
-        .main-content { flex: 1; margin-left: 260px; padding: 50px 60px; transition: 0.3s ease; width: calc(100% - 260px); }
+        .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: var(--font-sans); overflow-x: hidden; color: var(--color-text); }
+        .main-content { flex: 1; margin-left: var(--sidebar-width); padding: 50px 60px; transition: 0.3s ease; width: calc(100% - var(--sidebar-width)); }
         
         .brand-logo-mobile { display: none; width: 100%; justify-content: center; margin-bottom: 30px; }
         .brand-logo-mobile img { height: 60px; object-fit: contain; }
@@ -245,7 +241,7 @@ export default function ContentManagement() {
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; }
         .header-title { 
           font-size: 2.5rem; font-weight: 900; margin: 0; letter-spacing: -1px;
-          background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 100%);
+          background: var(--gradient-text);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
         .header-actions { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -255,27 +251,27 @@ export default function ContentManagement() {
           border-radius: 14px; font-weight: 600; font-size: 0.9rem; border: none; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
         }
         .btn-header:active { transform: scale(0.96); }
-        .btn-header.ghost { background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid var(--border); backdrop-filter: blur(10px); }
-        .btn-header.ghost:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.15); }
-        .btn-header.primary { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
-        .btn-header.primary:hover { box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4); transform: translateY(-2px); filter: brightness(1.1); }
-        .btn-header.danger { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
-        .btn-header.danger:hover { background: #ef4444; color: #fff; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); transform: translateY(-2px); }
+        .btn-header.ghost { background: var(--color-surface-2); color: var(--text-muted); border: 1px solid var(--border); backdrop-filter: blur(10px); }
+        .btn-header.ghost:hover { background: var(--color-surface-2); color: var(--color-text); border-color: var(--color-border); }
+        .btn-header.primary { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; box-shadow: var(--shadow-sm); }
+        .btn-header.primary:hover { box-shadow: var(--shadow-sm); transform: translateY(-2px); filter: brightness(1.1); }
+        .btn-header.danger { background: var(--color-danger-soft); color: var(--color-danger-text); border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent); }
+        .btn-header.danger:hover { background: var(--color-danger); color: #fff; box-shadow: var(--shadow-sm); transform: translateY(-2px); }
         
         /* Barra de Busca Refinada */
         .search-container { position: relative; width: 100%; margin-bottom: 50px; }
         .search-input {
           width: 100%; padding: 22px 22px 22px 60px; border-radius: 24px;
-          background: rgba(255,255,255,0.02); border: 1px solid var(--border);
-          color: #fff; font-size: 1.1rem; outline: none; transition: all 0.3s ease;
+          background: var(--color-surface-2); border: 1px solid var(--border);
+          color: var(--color-text); font-size: 1.1rem; outline: none; transition: all 0.3s ease;
           backdrop-filter: blur(12px);
         }
         .search-input:focus {
-          background: rgba(139, 92, 246, 0.03); border-color: var(--primary);
-          box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1), 0 10px 40px -10px rgba(139, 92, 246, 0.15);
+          background: var(--color-primary-soft); border-color: var(--primary);
+          box-shadow: var(--shadow-sm);
         }
-        .search-input::placeholder { color: #475569; font-weight: 500; }
-        .search-icon { position: absolute; left: 24px; top: 50%; transform: translateY(-50%); color: #64748b; transition: 0.3s; }
+        .search-input::placeholder { color: var(--color-text-subtle); font-weight: 500; }
+        .search-icon { position: absolute; left: 24px; top: 50%; transform: translateY(-50%); color: var(--color-text-subtle); transition: 0.3s; }
         .search-input:focus + .search-icon { color: var(--primary); }
 
         /* Animações de Entrada */
@@ -292,15 +288,15 @@ export default function ContentManagement() {
         
         .course-card { 
           display: flex; flex-direction: column; 
-          background: linear-gradient(145deg, rgba(30,41,59,0.5) 0%, rgba(15,23,42,0.8) 100%);
+          background: linear-gradient(145deg, var(--color-surface-2) 0%, var(--color-surface-1) 100%);
           border: 1px solid var(--border); border-radius: 24px; overflow: hidden;
           transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           animation: fadeUp 0.6s ease-out forwards;
           opacity: 0;
         }
         .course-card:hover { 
-          transform: translateY(-8px); border-color: rgba(139, 92, 246, 0.5); 
-          box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5), 0 0 30px rgba(139, 92, 246, 0.15); 
+          transform: translateY(-8px); border-color: var(--color-primary-border); 
+          box-shadow: var(--shadow-sm); 
         }
         
         .course-thumb-wrapper { position: relative; height: 200px; background: #000; overflow: hidden; }
@@ -318,12 +314,12 @@ export default function ContentManagement() {
           padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; backdrop-filter: blur(12px);
           text-transform: uppercase; letter-spacing: 0.5px;
         }
-        .xp-1 { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .xp-2 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
-        .xp-3 { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .xp-1 { background: var(--color-success-soft); color: var(--color-success-text); border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent); }
+        .xp-2 { background: var(--color-warning-soft); color: var(--color-warning-text); border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent); }
+        .xp-3 { background: var(--color-danger-soft); color: var(--color-danger-text); border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent); }
 
         .course-content { padding: 24px; flex: 1; display: flex; flex-direction: column; z-index: 2; }
-        .course-title { font-size: 1.3rem; font-weight: 800; margin: 0 0 12px 0; line-height: 1.4; color: #fff; }
+        .course-title { font-size: 1.3rem; font-weight: 800; margin: 0 0 12px 0; line-height: 1.4; color: var(--color-text); }
         .course-desc { color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 24px; }
         
         .course-actions { 
@@ -335,53 +331,53 @@ export default function ContentManagement() {
           padding: 14px; border-radius: 14px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: 0.2s; border: none;
         }
         .btn-action:active { transform: scale(0.96); }
-        .btn-action.manage { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: #fff; flex: 2; }
-        .btn-action.manage:hover { box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4); transform: translateY(-2px); }
-        .btn-action.edit { background: rgba(255,255,255,0.04); color: #e2e8f0; flex: 1; border: 1px solid transparent; }
-        .btn-action.edit:hover { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); }
-        .btn-action.delete { background: rgba(255,255,255,0.04); color: #e2e8f0; flex: 1; border: 1px solid transparent; }
-        .btn-action.delete:hover { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
+        .btn-action.manage { background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%); color: #fff; flex: 2; }
+        .btn-action.manage:hover { box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+        .btn-action.edit { background: var(--color-surface-2); color: var(--color-text-secondary); flex: 1; border: 1px solid transparent; }
+        .btn-action.edit:hover { background: var(--color-info-soft); color: var(--color-info); border-color: color-mix(in srgb, var(--color-info) 35%, transparent); }
+        .btn-action.delete { background: var(--color-surface-2); color: var(--color-text-secondary); flex: 1; border: 1px solid transparent; }
+        .btn-action.delete:hover { background: var(--color-danger-soft); color: var(--color-danger-text); border-color: color-mix(in srgb, var(--color-danger) 35%, transparent); }
 
         /* Painel Lateral (Drawer) */
-        .side-panel-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.6); backdrop-filter: blur(8px); z-index: 100; opacity: 0; pointer-events: none; transition: 0.4s ease; }
+        .side-panel-overlay { position: fixed; inset: 0; background: var(--color-surface-1); backdrop-filter: blur(8px); z-index: 100; opacity: 0; pointer-events: none; transition: 0.4s ease; }
         .side-panel-overlay.open { opacity: 1; pointer-events: all; }
         
         .side-panel { 
           position: fixed; top: 0; right: -650px; width: 100%; max-width: 600px; height: 100vh; 
-          background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(24px); 
-          border-left: 1px solid rgba(255,255,255,0.08); z-index: 101; 
+          background: var(--color-surface-1); backdrop-filter: blur(24px); 
+          border-left: 1px solid var(--color-border); z-index: 101; 
           padding: 40px; transition: right 0.5s cubic-bezier(0.16, 1, 0.3, 1); overflow-y: auto; 
           box-shadow: -30px 0 60px rgba(0,0,0,0.6); 
         }
         .side-panel.open { right: 0; }
 
         /* Form Controls Internos */
-        .section-title { font-size: 1.15rem; color: #fff; font-weight: 800; display: flex; align-items: center; gap: 10px; margin: 35px 0 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+        .section-title { font-size: 1.15rem; color: var(--color-text); font-weight: 800; display: flex; align-items: center; gap: 10px; margin: 35px 0 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
         .form-group { margin-bottom: 24px; }
         .form-label { display: flex; align-items: center; gap: 8px; color: var(--text-muted); margin-bottom: 10px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        .form-input { width: 100%; padding: 18px; border-radius: 16px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.08); color: #fff; outline: none; transition: 0.3s; font-size: 0.95rem; }
-        .form-input:focus { border-color: var(--primary); background: rgba(139, 92, 246, 0.05); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1); }
+        .form-input { width: 100%; padding: 18px; border-radius: 16px; background: var(--color-surface-2); border: 1px solid var(--color-border); color: var(--color-text); outline: none; transition: 0.3s; font-size: 0.95rem; }
+        .form-input:focus { border-color: var(--primary); background: var(--color-primary-soft); box-shadow: var(--shadow-sm); }
         
         /* CORREÇÃO DO SELECT (TEMA ESCURO) */
-        select.form-input option { background-color: #0f172a; color: #f8fafc; }
+        select.form-input option { background-color: var(--color-surface-1); color: var(--color-text); }
         
         .upload-zone { 
-          border: 2px dashed rgba(255,255,255,0.15); padding: 40px 20px; border-radius: 20px; 
-          text-align: center; cursor: pointer; transition: 0.3s; background: rgba(255,255,255,0.02);
+          border: 2px dashed var(--color-border); padding: 40px 20px; border-radius: 20px; 
+          text-align: center; cursor: pointer; transition: 0.3s; background: var(--color-surface-2);
           display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
         }
-        .upload-zone:hover { border-color: var(--primary); background: rgba(139, 92, 246, 0.05); }
+        .upload-zone:hover { border-color: var(--primary); background: var(--color-primary-soft); }
         .upload-zone.has-image { padding: 0; overflow: hidden; border-style: solid; height: 220px; position: relative; }
         .upload-zone img { width: 100%; height: 100%; object-fit: cover; }
 
         .btn-submit { 
           width: 100%; padding: 20px; border-radius: 16px; border: none; 
-          background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); 
+          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%); 
           color: white; font-weight: 800; font-size: 1.05rem; cursor: pointer; transition: 0.3s; 
           display: flex; align-items: center; justify-content: center; gap: 10px;
         }
-        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4); }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 
         @media (max-width: 1024px) { 
           .main-content { margin-left: 0; padding: 30px 20px; width: 100%; } 
@@ -427,7 +423,7 @@ export default function ContentManagement() {
                 <button onClick={() => navigate("/live-setup")} className="btn-header danger">
                   <MonitorPlay size={18} /> Setup Live
                 </button>
-                <button onClick={openNewForm} className="btn-header" style={{ background: '#fff', color: '#0f172a', boxShadow: '0 4px 20px rgba(255,255,255,0.2)' }}>
+                <button onClick={openNewForm} className="btn-header" style={{ background: '#fff', color: 'var(--color-text)', boxShadow: 'var(--shadow-sm)' }}>
                   <Plus size={18} strokeWidth={3} /> Nova Trilha
                 </button>
               </div>
@@ -447,8 +443,8 @@ export default function ContentManagement() {
 
             {/* GRID DE CURSOS COM ANIMAÇÃO STAGGER */}
             {filteredCourses.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '100px 20px', background: 'rgba(255,255,255,0.01)', borderRadius: '30px', border: '2px dashed rgba(255,255,255,0.05)' }}>
-                 <Layers size={64} style={{ opacity: 0.15, margin: '0 auto 20px', color: '#fff' }} />
+              <div style={{ textAlign: 'center', padding: '100px 20px', background: 'var(--color-surface-2)', borderRadius: '30px', border: '2px dashed var(--color-border)' }}>
+                 <Layers size={64} style={{ opacity: 0.15, margin: '0 auto 20px', color: 'var(--color-text)' }} />
                  <h3 style={{ fontSize: '1.5rem', marginBottom: '10px', fontWeight: 800 }}>Vazio por aqui</h3>
                  <p style={{ color: 'var(--text-muted)' }}>Crie a sua primeira trilha para começar a transformar a equipe.</p>
               </div>
@@ -482,7 +478,7 @@ export default function ContentManagement() {
                           </button>
                         </div>
                         
-                        <div style={{ width: '100%', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <div style={{ width: '100%', background: 'var(--color-surface-2)', padding: '6px', borderRadius: '16px', border: '1px solid var(--color-border)' }}>
                           <GenerateQuizButton 
                               courseId={c.id} title={c.title} description={c.description}
                               onQuizGenerated={(data: any) => setActiveQuiz(data)}
@@ -502,10 +498,10 @@ export default function ContentManagement() {
         <div className={`side-panel-overlay ${isFormOpen ? 'open' : ''}`} onClick={closeForm}></div>
         <div className={`side-panel ${isFormOpen ? 'open' : ''}`}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '35px' }}>
-            <h2 style={{ color: '#fff', margin: 0, fontSize: '1.8rem', fontWeight: 900, letterSpacing: '-0.5px' }}>
+            <h2 style={{ color: 'var(--color-text)', margin: 0, fontSize: '1.8rem', fontWeight: 900, letterSpacing: '-0.5px' }}>
               {editingCourseId ? "✏️ Editar Trilha" : "✨ Nova Trilha"}
             </h2>
-            <button onClick={closeForm} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#94a3b8', width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}>
+            <button onClick={closeForm} style={{ background: 'var(--color-surface-2)', border: 'none', color: 'var(--color-text-muted)', width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }} onMouseOut={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}>
               <X size={20} strokeWidth={3} />
             </button>
           </div>
@@ -575,8 +571,8 @@ export default function ContentManagement() {
                 ) : (
                   <>
                     <UploadCloud size={36} color="#64748b" style={{ marginBottom: '5px' }} />
-                    <span style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '1.1rem' }}>Clique ou arraste a arte final</span>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Proporção sugerida: 16:9 (1920x1080px)</span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '1.1rem' }}>Clique ou arraste a arte final</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-subtle)' }}>Proporção sugerida: 16:9 (1920x1080px)</span>
                   </>
                 )}
               </div>
@@ -585,7 +581,7 @@ export default function ContentManagement() {
             {/* SESSÃO 3: GAMIFICAÇÃO */}
             <h3 className="section-title"><Award size={20} color="#fbbf24" /> Gamificação (Insígnia de Mestre)</h3>
             
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '20px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'var(--color-surface-2)', padding: '20px', borderRadius: '20px', border: '1px solid var(--border)' }}>
               <div style={{ flex: 1 }}>
                 <div className="form-group" style={{ marginBottom: '15px' }}>
                   <label className="form-label">Título da Conquista</label>
@@ -597,9 +593,9 @@ export default function ContentManagement() {
                 </button>
               </div>
               
-              <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: 'rgba(0,0,0,0.5)', border: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: 'rgba(0,0,0,0.5)', border: '1px dashed var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {badgeThumb ? (
-                  <img src={badgeThumb} alt="Badge" style={{ width: '75%', height: '75%', objectFit: 'contain', filter: 'drop-shadow(0 4px 15px rgba(251, 191, 36, 0.5))' }} />
+                  <img src={badgeThumb} alt="Badge" style={{ width: '75%', height: '75%', objectFit: 'contain', filter: 'none' }} />
                 ) : (
                   <Award size={36} color="#475569" />
                 )}
@@ -616,24 +612,24 @@ export default function ContentManagement() {
 
         {/* MODAL DE SETUP DE QUIZ AVULSO */}
         {showStandaloneSetup && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(12px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-            <div style={{ width: '100%', maxWidth: '550px', background: 'linear-gradient(145deg, #0f172a 0%, #020617 100%)', borderRadius: '30px', padding: '40px', position: 'relative', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), 0 0 40px rgba(139, 92, 246, 0.2)' }}>
-              <button onClick={() => setShowStandaloneSetup(false)} style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(255,255,255,0.05)', border: 'none', color: 'var(--text-muted)', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+          <div style={{ position: 'fixed', inset: 0, background: 'var(--color-surface-1)', backdropFilter: 'blur(12px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+            <div style={{ width: '100%', maxWidth: '550px', background: 'linear-gradient(145deg, var(--color-surface-1) 0%, var(--color-bg) 100%)', borderRadius: '30px', padding: '40px', position: 'relative', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+              <button onClick={() => setShowStandaloneSetup(false)} style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--color-surface-2)', border: 'none', color: 'var(--text-muted)', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}>
                 <X size={20} />
               </button>
               
-              <h2 style={{ color: '#fff', marginBottom: '10px', fontSize: '1.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 style={{ color: 'var(--color-text)', marginBottom: '10px', fontSize: '1.8rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Brain color="var(--primary)" size={32} /> Setup do Mestre
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginBottom: '35px', lineHeight: '1.5' }}>Acione a IA para arquitetar um desafio personalizado baseado nas suas instruções.</p>
               
               <div className="form-group">
-                <label className="form-label" style={{ color: '#e2e8f0' }}>Foco do Desafio</label>
+                <label className="form-label" style={{ color: 'var(--color-text-secondary)' }}>Foco do Desafio</label>
                 <input className="form-input" placeholder="Ex: Cultura Organizacional e Feedback..." value={standaloneTitle} onChange={(e) => setStandaloneTitle(e.target.value)} style={{ padding: '20px', fontSize: '1.05rem', borderRadius: '20px' }} />
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#e2e8f0' }}>Prompt Base (Contexto para a IA)</label>
+                <label className="form-label" style={{ color: 'var(--color-text-secondary)' }}>Prompt Base (Contexto para a IA)</label>
                 <textarea className="form-input" style={{ height: '140px', resize: 'none', padding: '20px', borderRadius: '20px', lineHeight: '1.6' }} placeholder="Contextualize a inteligência: 'Gere 10 perguntas focadas em soft skills, com pegadinhas sobre...' " value={standaloneDesc} onChange={(e) => setStandaloneDesc(e.target.value)} />
               </div>
 

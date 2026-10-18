@@ -137,37 +137,31 @@ export default function LiveSetup() {
             <Sidebar />
             
             <style>{`
-                :root { 
-                    --primary: #8b5cf6; 
-                    --bg-dark: #020617; 
-                    --card-glass: rgba(15, 23, 42, 0.75); 
-                    --border: rgba(255, 255, 255, 0.08);
-                }
-                .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: 'Sora', sans-serif; color: #fff; overflow-x: hidden; }
-                .main-content { flex: 1; margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
+                .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: var(--font-sans); color: var(--color-text); overflow-x: hidden; }
+                .main-content { flex: 1; margin-left: var(--sidebar-width); padding: 40px; width: calc(100% - var(--sidebar-width)); }
                 .brand-logo-mobile { display: none !important; } 
                 .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; }
                 .header-flex h1 { font-size: 2.2rem; font-weight: 900; margin: 0; }
                 .live-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: start; }
-                .glass-card { background: var(--card-glass); backdrop-filter: blur(20px); border-radius: 30px; padding: 40px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-                .form-label { color: #94a3b8; margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; display: block; }
-                .form-input { width: 100%; padding: 18px 22px; border-radius: 18px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); color: #fff; outline: none; font-family: 'Sora'; }
+                .glass-card { background: var(--card-glass); backdrop-filter: blur(20px); border-radius: 30px; padding: 40px; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+                .form-label { color: var(--color-text-muted); margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; display: block; }
+                .form-input { width: 100%; padding: 18px 22px; border-radius: 18px; background: var(--color-surface-2); border: 1px solid var(--border); color: var(--color-text); outline: none; font-family: var(--font-sans); }
                 
                 /* Correção para o ícone de calendário no input type="date" e "datetime-local" ficar branco */
                 ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.6; }
                 ::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
-                .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s; }
+                .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%); color: white; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s; }
                 .btn-submit:hover { opacity: 0.9; transform: translateY(-2px); }
-                .course-item { padding: 25px; background: rgba(255,255,255,0.02); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
+                .course-item { padding: 25px; background: var(--color-surface-2); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
                 .action-btn { padding: 10px 15px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
-                .action-btn.edit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; margin-right: 8px; }
-                .action-btn.finish { background: #ef4444; color: #fff; }
+                .action-btn.edit { background: var(--color-primary-soft); color: var(--color-primary-text); margin-right: 8px; }
+                .action-btn.finish { background: var(--color-danger); color: #fff; }
 
-                .checkbox-container { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; cursor: pointer; background: rgba(139, 92, 246, 0.1); padding: 15px 20px; border-radius: 16px; border: 1px solid rgba(139, 92, 246, 0.3); transition: 0.3s; }
-                .checkbox-container:hover { background: rgba(139, 92, 246, 0.2); }
+                .checkbox-container { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; cursor: pointer; background: var(--color-primary-soft); padding: 15px 20px; border-radius: 16px; border: 1px solid var(--color-primary-border); transition: 0.3s; }
+                .checkbox-container:hover { background: var(--color-primary-soft); }
                 .checkbox-container input { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
-                .checkbox-container span { font-weight: 700; font-size: 0.95rem; color: #e2e8f0; }
+                .checkbox-container span { font-weight: 700; font-size: 0.95rem; color: var(--color-text-secondary); }
 
                 @media (max-width: 1024px) { 
                     .main-content { margin-left: 0; padding: 20px; width: 100%; } 
@@ -185,14 +179,14 @@ export default function LiveSetup() {
                 <header className="header-flex">
                     <div>
                         <h1>Agendamento de Live</h1>
-                        <p style={{ color: '#64748b', marginTop: '5px' }}>Gerencie as transmissões e replays</p>
+                        <p style={{ color: 'var(--color-text-subtle)', marginTop: '5px' }}>Gerencie as transmissões e replays</p>
                     </div>
                     <button onClick={() => navigate(-1)} className="action-btn edit" style={{ padding: '15px 30px', borderRadius: '18px', fontWeight: 900 }}>VOLTAR</button>
                 </header>
 
                 <div className="live-grid">
                     <div className="glass-card">
-                        <h2 style={{ color: '#fff', marginBottom: '30px', fontWeight: 900 }}>{editingId ? "✏️ Editar" : "✨ Nova Publicação"}</h2>
+                        <h2 style={{ color: 'var(--color-text)', marginBottom: '30px', fontWeight: 900 }}>{editingId ? "✏️ Editar" : "✨ Nova Publicação"}</h2>
                         <form onSubmit={handleSaveLive}>
                             
                             {!editingId && (
@@ -240,21 +234,21 @@ export default function LiveSetup() {
                             </button>
                             
                             {editingId && (
-                                <button type="button" onClick={resetForm} style={{ width: '100%', marginTop: '15px', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 900 }}>CANCELAR</button>
+                                <button type="button" onClick={resetForm} style={{ width: '100%', marginTop: '15px', background: 'transparent', color: 'var(--color-danger-text)', border: 'none', cursor: 'pointer', fontWeight: 900 }}>CANCELAR</button>
                             )}
                         </form>
                     </div>
 
                     <div className="glass-card">
-                        <h2 style={{ color: '#fff', marginBottom: '30px', fontWeight: 900 }}>🚀 Próximas Lives</h2>
+                        <h2 style={{ color: 'var(--color-text)', marginBottom: '30px', fontWeight: 900 }}>🚀 Próximas Lives</h2>
                         <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '5px' }}>
                             {lives.length === 0 ? (
-                                <p style={{ color: '#64748b', textAlign: 'center', marginTop: '20px' }}>Nenhuma live agendada para o futuro.</p>
+                                <p style={{ color: 'var(--color-text-subtle)', textAlign: 'center', marginTop: '20px' }}>Nenhuma live agendada para o futuro.</p>
                             ) : (
                                 lives.map(live => (
-                                    <div key={live.id} className="course-item" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                                    <div key={live.id} className="course-item" style={{ borderLeft: '4px solid var(--color-primary)' }}>
                                         <div style={{ fontWeight: 900, fontSize: '1rem' }}>{live.title}</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '8px 0' }}>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '8px 0' }}>
                                             📅 {new Date(live.scheduled_at).toLocaleString('pt-BR')}
                                         </div>
                                         <div style={{ display: 'flex' }}>

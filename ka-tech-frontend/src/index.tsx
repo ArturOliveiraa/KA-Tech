@@ -1,10 +1,13 @@
 import './index.css';
+import './App.css';
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from './components/UserContext';
+import { ThemeProvider } from './components/ThemeContext';
+import { LoadingScreen } from './components/ui';
 import MeetPage from './pages/MeetPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -32,6 +35,7 @@ const MeetingHub = lazy(() => import('./pages/MeetingHub'));
 const QuizView = lazy(() => import('./components/QuizPlayer'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
+const AdminCourseEditor = lazy(() => import('./pages/AdminCourseEditor'));
 const AdminLives = lazy(() => import('./pages/AdminLives'));
 const AdminGamification = lazy(() => import('./pages/AdminGamification'));
 const AdminFeedbacks = lazy(() => import('./pages/AdminFeedbacks'));
@@ -46,24 +50,14 @@ const queryClient = new QueryClient({
   },
 });
 
-const LoadingFallback = () => (
-  <div style={{ 
-    height: '100vh', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', 
-    backgroundColor: '#020617', color: '#8b5cf6', fontWeight: 800, fontSize: '1.2rem', flexDirection: 'column', gap: '15px'
-  }}>
-    <div className="spinner" style={{
-      width: '40px', height: '40px', border: '4px solid rgba(139, 92, 246, 0.3)', borderTopColor: '#8b5cf6', borderRadius: '50%', animation: 'spin 1s linear infinite'
-    }}></div>
-    <span>Carregando...</span>
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-  </div>
-);
+const LoadingFallback = () => <LoadingScreen />;
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
   <React.StrictMode>
     <HelmetProvider>
+      <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <UserProvider> 
           <BrowserRouter>
@@ -103,6 +97,7 @@ root.render(
                 <Route path="/admin/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
                 <Route path="/admin/usuarios" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
                 <Route path="/admin/cursos" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
+                <Route path="/admin/cursos/:id" element={<ProtectedRoute><AdminCourseEditor /></ProtectedRoute>} />
                 <Route path="/admin/lives" element={<ProtectedRoute><AdminLives /></ProtectedRoute>} />
                 <Route path="/admin/gamificacao" element={<ProtectedRoute><AdminGamification /></ProtectedRoute>} />
                 <Route path="/admin/feedbacks" element={<ProtectedRoute><AdminFeedbacks /></ProtectedRoute>} />
@@ -115,6 +110,7 @@ root.render(
           </BrowserRouter>
         </UserProvider>
       </QueryClientProvider>
+      </ThemeProvider>
     </HelmetProvider>
   </React.StrictMode>
 );

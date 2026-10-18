@@ -92,15 +92,15 @@ export function GenerateQuizButton({ courseId, lessonId, title, description, onQ
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px' }}>
-          <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700 }}>Alternativas por Pergunta:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--color-surface-2)', padding: '10px', borderRadius: '12px' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 700 }}>Alternativas por Pergunta:</label>
           <input 
             type="number" 
             min="2" 
             max="6" 
             value={optionsCount} 
             onChange={(e) => setOptionsCount(Number(e.target.value))}
-            style={{ width: '60px', padding: '5px', borderRadius: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid #334155', color: '#fff', textAlign: 'center' }}
+            style={{ width: '60px', padding: '5px', borderRadius: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text)', textAlign: 'center' }}
           />
         </div>
         

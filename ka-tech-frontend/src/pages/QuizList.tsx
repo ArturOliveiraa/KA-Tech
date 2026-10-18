@@ -65,37 +65,37 @@ export default function QuizList() {
     q.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div style={{ padding: '100px', textAlign: 'center', color: '#8b5cf6', fontWeight: 800 }}>Carregando biblioteca de quizzes...</div>;
+  if (loading) return <div style={{ padding: '100px', textAlign: 'center', color: 'var(--color-primary-text)', fontWeight: 800 }}>Carregando biblioteca de quizzes...</div>;
 
   return (
     <div className="quiz-list-wrapper">
       <style>{`
-        .quiz-list-wrapper { min-height: 100vh; background: #020617; color: #fff; padding: 40px; font-family: 'Sora', sans-serif; }
+        .quiz-list-wrapper { min-height: 100vh; background: var(--color-bg); color: var(--color-text); padding: 40px; font-family: var(--font-sans); }
         .container { max-width: 1000px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
         .header h1 { font-size: 2rem; font-weight: 900; margin: 0; }
         
         .search-bar { position: relative; margin-bottom: 30px; }
-        .search-bar input { width: 100%; padding: 15px 20px 15px 50px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; color: #fff; outline: none; transition: 0.3s; }
-        .search-bar input:focus { border-color: #8b5cf6; box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
-        .search-icon { position: absolute; left: 18px; top: 15px; color: #64748b; }
+        .search-bar input { width: 100%; padding: 15px 20px 15px 50px; background: var(--color-surface-1); border: 1px solid var(--color-border); border-radius: 15px; color: var(--color-text); outline: none; transition: 0.3s; }
+        .search-bar input:focus { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+        .search-icon { position: absolute; left: 18px; top: 15px; color: var(--color-text-subtle); }
 
         .quiz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        .quiz-card { background: #0f172a; border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; padding: 25px; transition: 0.3s; }
-        .quiz-card:hover { transform: translateY(-5px); border-color: rgba(139, 92, 246, 0.3); }
+        .quiz-card { background: var(--color-surface-1); border: 1px solid var(--color-border); border-radius: 20px; padding: 25px; transition: 0.3s; }
+        .quiz-card:hover { transform: translateY(-5px); border-color: var(--color-primary-border); }
         
-        .quiz-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 10px; color: #fff; display: flex; align-items: center; gap: 10px; }
-        .quiz-desc { color: #94a3b8; font-size: 0.85rem; line-height: 1.5; margin-bottom: 20px; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .quiz-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 10px; color: var(--color-text); display: flex; align-items: center; gap: 10px; }
+        .quiz-desc { color: var(--color-text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 20px; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
         
-        .card-actions { display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; }
+        .card-actions { display: flex; gap: 10px; border-top: 1px solid var(--color-border); padding-top: 20px; }
         .action-btn { flex: 1; padding: 10px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 0.75rem; transition: 0.2s; }
-        .btn-view { background: rgba(139, 92, 246, 0.1); color: #c4b5fd; }
-        .btn-copy { background: rgba(16, 185, 129, 0.1); color: #6ee7b7; }
-        .btn-delete { background: rgba(239, 68, 68, 0.1); color: #fca5a5; flex: 0; padding: 10px 15px; }
+        .btn-view { background: var(--color-primary-soft); color: var(--color-primary-text); }
+        .btn-copy { background: var(--color-success-soft); color: #6ee7b7; }
+        .btn-delete { background: var(--color-danger-soft); color: var(--color-danger-text); flex: 0; padding: 10px 15px; }
         
-        .btn-view:hover { background: #8b5cf6; color: #fff; }
-        .btn-copy:hover { background: #10b981; color: #fff; }
-        .btn-delete:hover { background: #ef4444; color: #fff; }
+        .btn-view:hover { background: var(--color-primary); color: #fff; }
+        .btn-copy:hover { background: var(--color-success); color: #fff; }
+        .btn-delete:hover { background: var(--color-danger); color: #fff; }
 
         @media (max-width: 768px) { .quiz-list-wrapper { padding: 20px; } .header { flex-direction: column; align-items: flex-start; gap: 20px; } }
       `}</style>
@@ -104,11 +104,11 @@ export default function QuizList() {
         <header className="header">
           <div>
             <h1>Biblioteca de Quizzes</h1>
-            <p style={{ color: '#64748b' }}>Todos os desafios gerados pela IA</p>
+            <p style={{ color: 'var(--color-text-subtle)' }}>Todos os desafios gerados pela IA</p>
           </div>
           <button 
             onClick={() => navigate("/admin/gestao-conteudo")}
-            style={{ background: '#1e293b', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 700 }}
+            style={{ background: 'var(--color-surface-3)', color: 'var(--color-text)', border: 'none', padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 700 }}
           >
             + Criar Novo
           </button>
@@ -161,7 +161,7 @@ export default function QuizList() {
         </div>
 
         {filteredQuizzes.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '50px', color: '#64748b' }}>
+          <div style={{ textAlign: 'center', padding: '50px', color: 'var(--color-text-subtle)' }}>
             Nenhum quiz encontrado.
           </div>
         )}

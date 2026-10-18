@@ -183,25 +183,25 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
   };
 
   return (
-    <div style={{ color: '#f8fafc', minHeight: '80vh', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+    <div style={{ color: 'var(--color-text)', minHeight: '80vh', fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px', borderBottom: '1px solid var(--color-border)', paddingBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <div>
-          <button onClick={onBack} style={{ background: 'transparent', color: '#94a3b8', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <button onClick={onBack} style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
             ← Voltar aos Cursos
           </button>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 900, margin: 0, color: '#fff' }}>
-            Gerenciar Aulas: <span style={{ color: '#FF9800' }}>{courseTitle}</span>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 900, margin: 0, color: 'var(--color-text)' }}>
+            Gerenciar Aulas: <span style={{ color: 'var(--color-primary-text)' }}>{courseTitle}</span>
           </h2>
         </div>
-        <button onClick={openNewLessonPanel} style={{ background: '#FF9800', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button onClick={openNewLessonPanel} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
           + Nova Aula
         </button>
       </header>
 
       {lessons.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '16px', background: 'rgba(255,255,255,0.01)' }}>
-          <p style={{ color: '#8BA0B8', marginBottom: '16px' }}>Nenhuma aula cadastrada nesta trilha.</p>
-          <button onClick={openNewLessonPanel} style={{ background: '#FF9800', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>Adicionar Primeira Aula</button>
+        <div style={{ textAlign: 'center', padding: '60px', border: '2px dashed var(--color-border)', borderRadius: '16px', background: 'var(--color-surface-2)' }}>
+          <p style={{ color: 'var(--color-text-muted)', marginBottom: '16px' }}>Nenhuma aula cadastrada nesta trilha.</p>
+          <button onClick={openNewLessonPanel} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>Adicionar Primeira Aula</button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -210,20 +210,20 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
             const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=140&auto=format&fit=crop&q=60`;
 
             return (
-              <div key={l.id} style={{ display: 'flex', background: '#0B0E17', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '14px', padding: '14px 20px', alignItems: 'center', gap: '20px' }}>
+              <div key={l.id} style={{ display: 'flex', background: 'var(--color-surface-1)', border: '1px solid var(--color-border)', borderRadius: '14px', padding: '14px 20px', alignItems: 'center', gap: '20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <button onClick={() => moveLesson(index, 'up')} disabled={index === 0} style={{ background: 'transparent', border: 'none', color: '#8BA0B8', cursor: 'pointer' }}>▲</button>
-                  <span style={{ color: '#8BA0B8', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center' }}>{l.order}</span>
-                  <button onClick={() => moveLesson(index, 'down')} disabled={index === lessons.length - 1} style={{ background: 'transparent', border: 'none', color: '#8BA0B8', cursor: 'pointer' }}>▼</button>
+                  <button onClick={() => moveLesson(index, 'up')} disabled={index === 0} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>▲</button>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center' }}>{l.order}</span>
+                  <button onClick={() => moveLesson(index, 'down')} disabled={index === lessons.length - 1} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>▼</button>
                 </div>
 
                 <img src={thumbUrl} alt="Thumb" style={{ width: '120px', height: '68px', borderRadius: '8px', objectFit: 'cover', background: '#000' }} />
 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff' }}>{l.title}</span>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text)' }}>{l.title}</span>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    {l.duration ? <span style={{ fontSize: '0.75rem', background: 'rgba(255,152,0,0.1)', color: '#FF9800', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>⏱ {l.duration} min</span> : null}
-                    {l.content ? <span style={{ fontSize: '0.75rem', background: 'rgba(34,197,94,0.1)', color: '#4ADE80', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>✨ IA Treinada</span> : <span style={{ fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>⚠️ Sem Base IA</span>}
+                    {l.duration ? <span style={{ fontSize: '0.75rem', background: 'var(--color-warning-soft)', color: 'var(--color-primary-text)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>⏱ {l.duration} min</span> : null}
+                    {l.content ? <span style={{ fontSize: '0.75rem', background: 'var(--color-success-soft)', color: 'var(--color-success-text)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>✨ IA Treinada</span> : <span style={{ fontSize: '0.75rem', background: 'var(--color-danger-soft)', color: 'var(--color-danger-text)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>⚠️ Sem Base IA</span>}
                   </div>
                 </div>
 
@@ -234,8 +234,8 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
                     description={l.content || `Quiz da aula: ${l.title}`}
                     onQuizGenerated={(data: any) => setActiveQuiz(data)}
                   />
-                  <button onClick={() => openEditPanel(l)} title="Editar" style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#38BDF8', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer' }}>✏️</button>
-                  <button onClick={() => handleDeleteLesson(l.id)} title="Excluir" style={{ background: 'rgba(239,68,68,0.1)', border: 'none', color: '#EF4444', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer' }}>🗑️</button>
+                  <button onClick={() => openEditPanel(l)} title="Editar" style={{ background: 'var(--color-surface-2)', border: 'none', color: 'var(--color-info)', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer' }}>✏️</button>
+                  <button onClick={() => handleDeleteLesson(l.id)} title="Excluir" style={{ background: 'var(--color-danger-soft)', border: 'none', color: 'var(--color-danger-text)', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer' }}>🗑️</button>
                 </div>
               </div>
             );
@@ -245,34 +245,34 @@ export default function ManageLessons({ courseId, courseTitle, onBack }: ManageL
 
       {/* Gaveta Lateral */}
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)', zIndex: 40, opacity: isPanelOpen ? 1 : 0, pointerEvents: isPanelOpen ? 'all' : 'none', transition: '0.3s' }} onClick={closePanel}></div>
-      <div style={{ position: 'fixed', top: 0, right: isPanelOpen ? 0 : '-500px', width: '100%', maxWidth: '480px', height: '100vh', background: '#111625', zIndex: 50, padding: '30px', transition: 'right 0.4s ease', overflowY: 'auto', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+      <div style={{ position: 'fixed', top: 0, right: isPanelOpen ? 0 : '-500px', width: '100%', maxWidth: '480px', height: '100vh', background: 'var(--color-surface-1)', zIndex: 50, padding: '30px', transition: 'right 0.4s ease', overflowY: 'auto', borderLeft: '1px solid var(--color-border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-          <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff' }}>{formData.id ? "Editar Aula" : "Nova Aula"}</h3>
-          <button onClick={closePanel} style={{ background: 'none', border: 'none', color: '#8BA0B8', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--color-text)' }}>{formData.id ? "Editar Aula" : "Nova Aula"}</h3>
+          <button onClick={closePanel} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
         </div>
 
         <form onSubmit={handleSaveLesson} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ color: '#8BA0B8', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Título da Aula</label>
-            <input type="text" style={{ width: '100%', boxSizing: 'border-box', background: '#0B0E17', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px', marginTop: '6px' }} required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
+            <label style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Título da Aula</label>
+            <input type="text" style={{ width: '100%', boxSizing: 'border-box', background: 'var(--color-surface-1)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '12px', borderRadius: '10px', marginTop: '6px' }} required value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
           </div>
 
           <div>
-            <label style={{ color: '#8BA0B8', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Link do YouTube (Duração automática)</label>
-            <input type="url" style={{ width: '100%', boxSizing: 'border-box', background: '#0B0E17', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px', marginTop: '6px' }} required placeholder="https://youtube.com/watch?v=..." value={formData.videoUrl} onChange={(e) => setFormData({...formData, videoUrl: e.target.value})} />
+            <label style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Link do YouTube (Duração automática)</label>
+            <input type="url" style={{ width: '100%', boxSizing: 'border-box', background: 'var(--color-surface-1)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '12px', borderRadius: '10px', marginTop: '6px' }} required placeholder="https://youtube.com/watch?v=..." value={formData.videoUrl} onChange={(e) => setFormData({...formData, videoUrl: e.target.value})} />
           </div>
 
           <div>
-            <label style={{ color: '#8BA0B8', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Ordem de Exibição</label>
-            <input type="number" style={{ width: '100%', boxSizing: 'border-box', background: '#0B0E17', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px', marginTop: '6px' }} required min="1" value={formData.order} onChange={(e) => setFormData({...formData, order: Number(e.target.value)})} />
+            <label style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Ordem de Exibição</label>
+            <input type="number" style={{ width: '100%', boxSizing: 'border-box', background: 'var(--color-surface-1)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '12px', borderRadius: '10px', marginTop: '6px' }} required min="1" value={formData.order} onChange={(e) => setFormData({...formData, order: Number(e.target.value)})} />
           </div>
 
           <div>
-            <label style={{ color: '#8BA0B8', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Transcrição / Base para IA</label>
-            <textarea style={{ width: '100%', boxSizing: 'border-box', background: '#0B0E17', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: '10px', marginTop: '6px', minHeight: '150px' }} required value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} />
+            <label style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Transcrição / Base para IA</label>
+            <textarea style={{ width: '100%', boxSizing: 'border-box', background: 'var(--color-surface-1)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '12px', borderRadius: '10px', marginTop: '6px', minHeight: '150px' }} required value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} />
           </div>
 
-          <button type="submit" disabled={loading} style={{ background: '#FF9800', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', marginTop: '10px' }}>
+          <button type="submit" disabled={loading} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', marginTop: '10px' }}>
             {loading ? 'Buscando duração & Salvando...' : formData.id ? 'Salvar Alterações' : 'Publicar Aula'}
           </button>
         </form>

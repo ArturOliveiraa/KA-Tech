@@ -1,533 +1,184 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import {
+  BarChart3, BookOpen, ChevronDown, Compass, LayoutDashboard, LogOut, Medal, Menu,
+  MessageSquare, Moon, Settings, ShieldCheck, Sun, Trophy, X,
+} from "lucide-react";
 import { supabase } from "../supabaseClient";
 import Avatar from "./Avatar";
 import { useUser } from "./UserContext";
-import { MessageSquare, X, Send } from "lucide-react";
+import { useTheme } from "./ThemeContext";
+import FeedbackModal from "./FeedbackModal";
+
+type NavItem = { to: string; label: string; icon: React.ElementType };
+
+const LEARN: NavItem[] = [
+  { to: "/dashboard", label: "Minha jornada", icon: LayoutDashboard },
+  { to: "/cursos", label: "Trilhas", icon: Compass },
+];
+
+const COMMUNITY: NavItem[] = [
+  { to: "/rankings", label: "Ranking", icon: Medal },
+  { to: "/conquistas", label: "Conquistas", icon: Trophy },
+];
+
+const ADMIN: NavItem[] = [
+  { to: "/admin/usuarios", label: "Usuários", icon: ShieldCheck },
+  { to: "/admin/cursos", label: "Cursos e trilhas", icon: BookOpen },
+  { to: "/admin/gamificacao", label: "Gamificação", icon: Trophy },
+  { to: "/admin/feedbacks", label: "Feedbacks", icon: MessageSquare },
+  { to: "/admin/relatorio-alunos", label: "Relatório de alunos", icon: BarChart3 },
+];
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const { userRole, userName, avatarUrl, themeColor, sidebarLogo, loading } = useUser();
+  const { userRole, userName, avatarUrl, sidebarLogo, loading } = useUser();
+  const { theme, toggleTheme } = useTheme();
 
   const [isLiveActive, setIsLiveActive] = useState(false);
-  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(() => location.pathname.startsWith("/admin"));
 
-  // === ESTADOS PARA O FEEDBACK WIDGET ===
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [feedbackType, setFeedbackType] = useState('melhoria');
-  const [feedbackName, setFeedbackName] = useState(userName || ''); 
-  const [feedbackContact, setFeedbackContact] = useState(''); 
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const isStaff = userRole === "admin" || userRole === "teacher";
 
   useEffect(() => {
     const checkLiveStatus = async () => {
-      const now = new Date().toISOString();
       const { data } = await supabase
         .from("lives")
         .select("id")
         .is("duration", null)
-        .lte("scheduled_at", now)
+        .lte("scheduled_at", new Date().toISOString())
         .limit(1);
-
-      setIsLiveActive(data && data.length > 0 ? true : false);
+      setIsLiveActive(!!data && data.length > 0);
     };
-
     checkLiveStatus();
     const interval = setInterval(checkLiveStatus, 30000);
     return () => clearInterval(interval);
   }, []);
 
+  // Fecha a gaveta ao trocar de página
+  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  // Trava a rolagem do fundo com a gaveta aberta
   useEffect(() => {
-    if (userName && !feedbackName) setFeedbackName(userName);
-  }, [userName, feedbackName]);
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
-  const toggleMenu = (menu: string) => {
-    setExpandedMenu(expandedMenu === menu ? null : menu);
-  };
+  const renderLink = ({ to, label, icon: Icon }: NavItem) => (
+    <NavLink key={to} to={to} className={({ isActive }) => `sb-link ${isActive ? "is-active" : ""}`}>
+      <Icon size={18} aria-hidden="true" />
+      <span>{label}</span>
+    </NavLink>
+  );
 
-  const handleLinkClick = () => {
-    setIsMobileOpen(false);
-  };
-
-  const handleFeedbackSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackMessage.trim() || !feedbackName.trim() || !feedbackContact.trim()) return;
-
-    setIsSubmitting(true);
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        alert("Você precisa estar logado para enviar feedback.");
-        return;
-      }
-
-      const { error } = await supabase
-        .from('feedbacks')
-        .insert([{ 
-          user_id: user.id, 
-          type: feedbackType, 
-          message: feedbackMessage,
-          user_name: feedbackName,
-          contact_info: feedbackContact
-        }]);
-
-      if (error) throw error;
-
-      setFeedbackSuccess(true);
-      setFeedbackMessage('');
-      setFeedbackContact('');
-      setTimeout(() => {
-        setIsFeedbackOpen(false);
-        setFeedbackSuccess(false);
-      }, 3000);
-
-    } catch (error) {
-      console.error("Erro ao enviar feedback:", error);
-      alert("Ocorreu um erro ao enviar seu feedback. Tente novamente.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const LARGURA_SIDEBAR = "270px";
-
-  if (loading) return <aside className="sidebar-container" style={{ width: LARGURA_SIDEBAR, backgroundColor: '#060913' }} />;
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
 
   return (
     <>
-      <style>{`
-        :root { 
-          --bg-sidebar: linear-gradient(180deg, #111625 0%, #050810 100%);
-          --bg-hover: rgba(255, 255, 255, 0.06);   
-          --active-orange: #FF9800; 
-          --text-main: #E2E8F0;  
-          --text-muted: #8BA0B8; 
-          --border-color: rgba(255, 255, 255, 0.05);
-        }
-        
-        .sidebar-container { 
-          width: ${LARGURA_SIDEBAR}; 
-          height: 100vh; 
-          background: var(--bg-sidebar); 
-          display: flex; 
-          flex-direction: column; 
-          position: fixed; 
-          left: 0; 
-          top: 0; 
-          z-index: 1000; 
-          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-          box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3);
-        }
+      {/* Barra superior (tablet e celular) */}
+      <header className="sb-topbar">
+        <button className="sb-icon-btn" onClick={() => setMobileOpen(true)} aria-label="Abrir menu" aria-expanded={mobileOpen}>
+          <Menu size={20} />
+        </button>
+        <Link to="/dashboard" className="sb-topbar__logo">
+          <img src={sidebarLogo} alt="KA Tech" className="brand-logo-img" />
+        </Link>
+        <button className="sb-icon-btn" onClick={toggleTheme} aria-label={theme === "dark" ? "Usar tema claro" : "Usar tema escuro"}>
+          <ThemeIcon size={18} />
+        </button>
+      </header>
 
-        .sidebar-logo { 
-          height: 80px; 
-          padding: 15px 20px; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          width: 100%; 
-          border-bottom: 1px solid var(--border-color); 
-        }
-        .logo-img { max-width: 180px; max-height: 45px; object-fit: contain; }
-        
-        .sidebar-nav { 
-          flex: 1; 
-          display: flex; 
-          flex-direction: column; 
-          padding: 15px 12px; 
-          gap: 6px; 
-          overflow-y: auto; 
-          overflow-x: hidden; 
-        }
-        
-        .sidebar-nav::-webkit-scrollbar { width: 6px; }
-        .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-        
-        .nav-group { display: flex; flex-direction: column; width: 100%; }
-        
-        .nav-button { 
-          background: transparent; 
-          border: none; 
-          width: 100%; 
-          cursor: pointer; 
-          text-align: left; 
-          padding: 12px 14px; 
-          color: var(--text-main); 
-          border-radius: 8px;
-          font-size: 0.95rem; 
-          font-weight: 500;
-          transition: background-color 0.2s ease, color 0.2s ease;
-          display: flex;
-          align-items: center;
-          text-decoration: none;
-        }
-        
-        .nav-button:hover:not(.active) { background-color: var(--bg-hover); }
-        .nav-button.active { background-color: var(--active-orange); color: #FFFFFF; }
+      <div className={`sb-overlay ${mobileOpen ? "is-open" : ""}`} onClick={() => setMobileOpen(false)} aria-hidden="true" />
 
-        .nav-item-content { display: flex; align-items: center; width: 100%; }
-        
-        .nav-icon { 
-          font-size: 1.1rem; 
-          margin-right: 12px; 
-          width: 22px; 
-          text-align: center; 
-          color: var(--text-muted);
-        }
-        .nav-button.active .nav-icon { color: #FFFFFF; }
-        
-        .nav-text { flex: 1; }
-        
-        .nav-arrow { 
-          font-size: 0.8rem; 
-          font-weight: bold;
-          color: var(--text-muted); 
-          transition: transform 0.2s ease;
-        }
-        .nav-button.active .nav-arrow { color: #FFFFFF; }
-
-        .sub-menu { display: flex; flex-direction: column; padding: 4px 0 10px 0; gap: 2px; }
-
-        .sub-link { 
-          padding: 8px 16px 8px 48px; 
-          color: var(--text-main); 
-          text-decoration: none; 
-          font-size: 0.9rem; 
-          font-weight: 400;
-          transition: background-color 0.2s ease, color 0.2s ease;
-          display: block; 
-          border-radius: 6px;
-          margin: 0 4px;
-        }
-        .sub-link:hover { color: #FFFFFF; background-color: var(--bg-hover); }
-        .sub-link.active { color: #FFFFFF; font-weight: 600; }
-
-        .divider { height: 1px; background-color: var(--border-color); margin: 10px 0; width: 100%; }
-
-        .nav-live {
-          background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
-          color: white !important;
-          animation: pulse-live 2s infinite;
-        }
-
-        @keyframes pulse-live {
-          0% { transform: scale(1); box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
-          50% { transform: scale(1.01); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
-          100% { transform: scale(1); box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
-        }
-
-        .sidebar-footer { 
-          padding: 15px 20px; 
-          border-top: 1px solid var(--border-color); 
-          background: rgba(0, 0, 0, 0.15); 
-        }
-
-        .feedback-popover {
-          background: rgba(15, 23, 42, 0.95);
-          border: 1px solid var(--border-color);
-          border-radius: 12px;
-          padding: 16px;
-          margin: 4px 10px 10px 10px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-          animation: fadeUp 0.2s ease;
-          box-sizing: border-box; 
-        }
-        
-        .feedback-input {
-          width: 100%; 
-          padding: 10px 12px; 
-          border-radius: 6px;
-          background: rgba(255,255,255,0.05); 
-          border: 1px solid rgba(255,255,255,0.1);
-          color: #fff; 
-          outline: none; 
-          margin-bottom: 10px; 
-          font-size: 0.85rem;
-          box-sizing: border-box; 
-          font-family: inherit;
-        }
-        
-        .feedback-input:focus {
-          border-color: var(--active-orange);
-          background: rgba(255,255,255,0.08);
-        }
-
-        .feedback-btn {
-          width: 100%; 
-          padding: 12px; 
-          border-radius: 6px;
-          background: var(--active-orange); 
-          color: #fff; 
-          border: none;
-          font-weight: 600; 
-          cursor: pointer; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          gap: 6px; 
-          font-size: 0.9rem;
-          box-sizing: border-box;
-          transition: filter 0.2s;
-        }
-        
-        .feedback-btn:hover { filter: brightness(1.1); }
-
-        .mobile-overlay {
-          display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 998;
-          opacity: 0; transition: opacity 0.3s ease;
-        }
-        .mobile-overlay.show { opacity: 1; }
-        
-        .mobile-toggle {
-          display: none; position: fixed; bottom: 20px; right: 20px; width: 55px; height: 55px;
-          border-radius: 50%; background-color: var(--active-orange); color: #fff; border: none;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1001; cursor: pointer;
-          align-items: center; justify-content: center; font-size: 1.5rem;
-        }
-
-        @media (max-width: 1024px) {
-          .mobile-overlay { display: block; pointer-events: none; }
-          .mobile-overlay.show { pointer-events: auto; }
-          .mobile-toggle { display: flex; }
-          .sidebar-container { transform: translateX(-100%); transition: transform 0.3s ease; }
-          .sidebar-container.open { transform: translateX(0); }
-        }
-      `}</style>
-
-      <div className={`mobile-overlay ${isMobileOpen ? 'show' : ''}`} onClick={() => setIsMobileOpen(false)} />
-      <button className="mobile-toggle" onClick={() => setIsMobileOpen(!isMobileOpen)}>
-        {isMobileOpen ? '✕' : '☰'}
-      </button>
-
-      <aside className={`sidebar-container ${isMobileOpen ? 'open' : ''}`}>
-        <div className="sidebar-logo">
-          <Link to="/dashboard" onClick={handleLinkClick} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <img src={sidebarLogo} alt="KA Tech" className="logo-img" />
+      <aside className={`sb ${mobileOpen ? "is-open" : ""}`} aria-label="Menu principal">
+        <div className="sb-brand">
+          <Link to="/dashboard" className="sb-brand__logo">
+            <img src={sidebarLogo} alt="KA Tech" className="brand-logo-img" />
           </Link>
+          <button className="sb-icon-btn sb-close" onClick={() => setMobileOpen(false)} aria-label="Fechar menu">
+            <X size={20} />
+          </button>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sb-nav">
           {isLiveActive && (
-            <Link to="/live" onClick={handleLinkClick} className={`nav-button nav-live ${location.pathname === '/live' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">((•))</span>
-                <span className="nav-text">LIVE!</span>
-              </div>
-            </Link>
+            <NavLink to="/live" className={({ isActive }) => `sb-live ${isActive ? "is-active" : ""}`}>
+              <span className="sb-live__dot" aria-hidden="true" />
+              <span>Ao vivo agora</span>
+              <span className="sb-live__tag">LIVE</span>
+            </NavLink>
           )}
 
-          <div className="nav-group">
-            <button onClick={() => toggleMenu('cursos')} className={`nav-button ${expandedMenu === 'cursos' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">📚</span>
-                <span className="nav-text">Cursos</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'cursos' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'cursos' && (
-              <div className="sub-menu">
-                <Link to="/dashboard" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>Visão Geral</Link>
-              </div>
-            )}
-          </div>
-
-          <div className="nav-group">
-            <button onClick={() => toggleMenu('trilhas')} className={`nav-button ${expandedMenu === 'trilhas' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">🔍</span>
-                <span className="nav-text">Trilhas</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'trilhas' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'trilhas' && (
-              <div className="sub-menu">
-                <Link to="/cursos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/cursos' ? 'active' : ''}`}>Trilhas de Conhecimento</Link>
-              </div>
-            )}
-          </div>
-
-          <div className="nav-group">
-            <button onClick={() => toggleMenu('ranking')} className={`nav-button ${expandedMenu === 'ranking' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">🏅</span>
-                <span className="nav-text">Ranking</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'ranking' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'ranking' && (
-              <div className="sub-menu">
-                <Link to="/rankings" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/rankings' ? 'active' : ''}`}>Hall da Fama</Link>
-              </div>
-            )}
-          </div>
-
-          <div className="nav-group">
-            <button onClick={() => toggleMenu('conquistas')} className={`nav-button ${expandedMenu === 'conquistas' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">🏆</span>
-                <span className="nav-text">Conquistas</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'conquistas' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'conquistas' && (
-              <div className="sub-menu">
-                <Link to="/conquistas" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/conquistas' ? 'active' : ''}`}>Salão de Troféus</Link>
-              </div>
-            )}
-          </div>
-
-          {/* ÁREA ADMIN / TEACHER */}
-          {(userRole === 'admin' || userRole === 'teacher') && (
+          {loading ? (
+            <div className="sb-skeleton" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => <div key={i} className="ui-skeleton" style={{ height: 38 }} />)}
+            </div>
+          ) : (
             <>
-              <div className="divider"></div>
-
-              <div className="nav-group">
-                <button onClick={() => toggleMenu('gestao')} className={`nav-button ${expandedMenu === 'gestao' ? 'active' : ''}`}>
-                  <div className="nav-item-content">
-                    <span className="nav-icon">🛠️</span>
-                    <span className="nav-text">Gestão</span>
-                    <span className="nav-arrow" style={{ transform: expandedMenu === 'gestao' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-                  </div>
-                </button>
-                {expandedMenu === 'gestao' && (
-                  <div className="sub-menu">
-                    <Link to="/admin/usuarios" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/usuarios' ? 'active' : ''}`}>Usuários</Link>
-                    <Link to="/admin/cursos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/cursos' ? 'active' : ''}`}>Cursos e Trilhas</Link>
-                    <Link to="/admin/lives" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/lives' ? 'active' : ''}`}>Gerir Lives</Link>
-                    <Link to="/admin/gamificacao" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/gamificacao' ? 'active' : ''}`}>Gamificação</Link>
-                    <Link to="/admin/feedbacks" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/feedbacks' ? 'active' : ''}`}>Feedbacks (Bugs)</Link>
-                  </div>
-                )}
+              <div className="sb-group">
+                <span className="sb-group__label">Aprender</span>
+                {LEARN.map(renderLink)}
               </div>
 
-              {/* MENU EXPANSÍVEL DE RELATÓRIOS */}
-              <div className="nav-group">
-                <button onClick={() => toggleMenu('relatorios')} className={`nav-button ${expandedMenu === 'relatorios' ? 'active' : ''}`}>
-                  <div className="nav-item-content">
-                    <span className="nav-icon">📊</span>
-                    <span className="nav-text">Relatórios</span>
-                    <span className="nav-arrow" style={{ transform: expandedMenu === 'relatorios' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-                  </div>
-                </button>
-                {expandedMenu === 'relatorios' && (
-                  <div className="sub-menu">
-                    <Link to="/admin/relatorio-alunos" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/relatorio-alunos' ? 'active' : ''}`}>Alunos</Link>
-                    <Link to="/admin/relatorio-y" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/admin/relatorio-y' ? 'active' : ''}`}>Relatório Y</Link>
-                  </div>
-                )}
+              <div className="sb-group">
+                <span className="sb-group__label">Comunidade</span>
+                {COMMUNITY.map(renderLink)}
               </div>
+
+              {isStaff && (
+                <div className="sb-group">
+                  <button
+                    className="sb-group__toggle"
+                    onClick={() => setAdminOpen((v) => !v)}
+                    aria-expanded={adminOpen}
+                    aria-controls="sb-admin"
+                  >
+                    <span>Gestão</span>
+                    <ChevronDown size={16} style={{ transform: adminOpen ? "rotate(180deg)" : "none" }} />
+                  </button>
+                  {adminOpen && <div id="sb-admin" className="sb-group__items">{ADMIN.map(renderLink)}</div>}
+                </div>
+              )}
             </>
           )}
-
-          <div className="divider"></div>
-
-          {/* FEEDBACK BUTTON INLINE */}
-          <div className="nav-group">
-            <button 
-              onClick={() => setIsFeedbackOpen(!isFeedbackOpen)} 
-              className={`nav-button ${isFeedbackOpen ? 'active' : ''}`}
-            >
-              <div className="nav-item-content">
-                <MessageSquare className="nav-icon" size={18} style={{ width: '22px' }} />
-                <span className="nav-text" style={{ fontSize: '0.9rem' }}>Deixar Feedback</span>
-                <span className="nav-arrow" style={{ transform: isFeedbackOpen ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            
-            {isFeedbackOpen && (
-              <div className="feedback-popover">
-                {feedbackSuccess ? (
-                  <div style={{ textAlign: 'center', padding: '10px 0', color: '#10b981', fontSize: '0.9rem' }}>
-                    Obrigado pelo seu feedback! 🚀
-                  </div>
-                ) : (
-                  <form onSubmit={handleFeedbackSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <input 
-                      type="text"
-                      value={feedbackName}
-                      onChange={(e) => setFeedbackName(e.target.value)}
-                      placeholder="Seu Nome"
-                      required
-                      className="feedback-input"
-                    />
-
-                    <input 
-                      type="text"
-                      value={feedbackContact}
-                      onChange={(e) => setFeedbackContact(e.target.value)}
-                      placeholder="Discord ou WhatsApp"
-                      required
-                      className="feedback-input"
-                    />
-
-                    <select 
-                      value={feedbackType} 
-                      onChange={(e) => setFeedbackType(e.target.value)}
-                      className="feedback-input"
-                    >
-                      <option value="melhoria" style={{ color: '#000' }}>💡 Sugestão</option>
-                      <option value="bug" style={{ color: '#000' }}>🐛 Reportar Bug</option>
-                      <option value="elogio" style={{ color: '#000' }}>⭐ Elogio</option>
-                      <option value="outro" style={{ color: '#000' }}>🤔 Outro</option>
-                    </select>
-
-                    <textarea 
-                      value={feedbackMessage}
-                      onChange={(e) => setFeedbackMessage(e.target.value)}
-                      placeholder="Descreva detalhadamente..."
-                      rows={3}
-                      required
-                      className="feedback-input"
-                      style={{ resize: 'none' }}
-                    />
-
-                    <button type="submit" disabled={isSubmitting} className="feedback-btn">
-                      {isSubmitting ? 'Enviando...' : <><Send size={14} /> Enviar</>}
-                    </button>
-                  </form>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="nav-group">
-            <button onClick={() => toggleMenu('ajustes')} className={`nav-button ${expandedMenu === 'ajustes' ? 'active' : ''}`}>
-              <div className="nav-item-content">
-                <span className="nav-icon">⚙️</span>
-                <span className="nav-text">Ajustes</span>
-                <span className="nav-arrow" style={{ transform: expandedMenu === 'ajustes' ? 'rotate(-90deg)' : 'rotate(0deg)' }}>&lt;</span>
-              </div>
-            </button>
-            {expandedMenu === 'ajustes' && (
-              <div className="sub-menu">
-                <Link to="/configuracoes" onClick={handleLinkClick} className={`sub-link ${location.pathname === '/configuracoes' ? 'active' : ''}`}>Perfil</Link>
-              </div>
-            )}
-          </div>
-
         </nav>
 
-        <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Avatar src={avatarUrl} name={userName} />
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <span style={{ color: '#E2E8F0', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{userName}</span>
-              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Sair</button>
-            </div>
+        <div className="sb-footer">
+          <div className="sb-actions">
+            <button className="sb-link" onClick={() => setFeedbackOpen(true)}>
+              <MessageSquare size={18} aria-hidden="true" />
+              <span>Deixar feedback</span>
+            </button>
+            <button className="sb-link" onClick={toggleTheme} aria-pressed={theme === "dark"}>
+              <ThemeIcon size={18} aria-hidden="true" />
+              <span>{theme === "dark" ? "Tema claro" : "Tema escuro"}</span>
+            </button>
+          </div>
+
+          <div className="sb-user">
+            <Link to="/configuracoes" className="sb-user__profile" title="Configurações do perfil">
+              <Avatar src={avatarUrl} name={userName} />
+              <span className="sb-user__text">
+                <span className="sb-user__name">{userName}</span>
+                <span className="sb-user__role">{userRole === "admin" ? "Administrador" : userRole === "teacher" ? "Instrutor" : "Aluno"}</span>
+              </span>
+              <Settings size={16} aria-hidden="true" className="sb-user__gear" />
+            </Link>
+            <button className="sb-icon-btn sb-logout" onClick={handleLogout} aria-label="Sair da conta" title="Sair">
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </aside>
+
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} defaultName={userName} />
     </>
   );
 };

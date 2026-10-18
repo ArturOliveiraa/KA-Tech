@@ -1,20 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import Sidebar from '../components/Sidebar';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { BookOpen, Download, Eye, GraduationCap, KeyRound, Search, Shield, ShieldCheck, UserCog, Users } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { supabase } from "../supabaseClient";
+import Sidebar from "../components/Sidebar";
+import SEO from "../components/SEO";
+import { Button, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import TagPicker, { TagOption } from "../components/admin/TagPicker";
+import Drawer from "../components/admin/Drawer";
 
 interface Profile {
   id: string;
   full_name: string;
-  email?: string; 
+  email?: string;
   role: string;
   avatar_url: string;
   created_at: string;
   total_xp: number;
   level: number;
   patent: string;
-  profile_tags?: { tags: { id: string, name: string, type: string } }[]; 
+  equipe?: string | null;
+  profile_tags?: { tags: { id: string; name: string; type: string } }[];
 }
 
 interface StudentHistory {
@@ -27,125 +33,160 @@ interface StudentHistory {
   completedList: string[];
 }
 
+interface CourseAccess { id: number; title: string; course_tags: { tag_id: string }[]; }
+
+const ROLES = [
+  { value: "student", label: "Aluno", icon: GraduationCap },
+  { value: "teacher", label: "Professor", icon: Shield },
+  { value: "admin", label: "Administrador", icon: ShieldCheck },
+];
+
+const normalizeRole = (role?: string) => {
+  const r = (role || "student").toLowerCase().trim();
+  if (r === "aluno") return "student";
+  if (r === "professor") return "teacher";
+  return r;
+};
+const roleLabel = (role?: string) => ROLES.find((r) => r.value === normalizeRole(role))?.label || "Aluno";
+
+const formatDate = (dateString: string) =>
+  dateString ? new Date(dateString).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<Profile[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
+  const [courses, setCourses] = useState<CourseAccess[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [noSectorOnly, setNoSectorOnly] = useState(false);
+
+  // Edição de acesso
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState('');
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("student");
+  const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  // Ficha do aluno
   const [selectedUserForHistory, setSelectedUserForHistory] = useState<Profile | null>(null);
   const [studentHistory, setStudentHistory] = useState<StudentHistory | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('admin_users_view')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [profilesRes, profileTagsRes, tagsRes, coursesRes] = await Promise.all([
+        supabase.from("admin_users_view").select("*").order("created_at", { ascending: false }),
+        supabase.from("profile_tags").select("profile_id, tags(id, name, type)"),
+        supabase.from("tags").select("id, name, type").order("name", { ascending: true }),
+        supabase.from("courses").select("id, title, course_tags (tag_id)").order("title", { ascending: true }),
+      ]);
+      if (profilesRes.error) throw profilesRes.error;
 
-      if (profilesError) throw profilesError;
-
-      const { data: profileTagsData } = await supabase
-        .from('profile_tags')
-        .select('profile_id, tags(id, name, type)');
-
-      if (profilesData) {
-        const usersWithTags = profilesData.map(user => {
-          const userTags = profileTagsData?.filter(pt => pt.profile_id === user.id) || [];
-          return { ...user, profile_tags: userTags };
-        });
-        setUsers(usersWithTags as unknown as Profile[]);
-      }
+      const usersWithTags = (profilesRes.data || []).map((user: any) => ({
+        ...user,
+        profile_tags: profileTagsRes.data?.filter((pt: any) => pt.profile_id === user.id) || [],
+      }));
+      setUsers(usersWithTags as unknown as Profile[]);
+      setTags(tagsRes.data || []);
+      setCourses((coursesRes.data as CourseAccess[]) || []);
     } catch (error) {
-      console.error('Erro ao buscar dados do Supabase:', error);
+      console.error("Erro ao buscar dados do Supabase:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleEditClick = (user: Profile) => {
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const userTagIds = (user: Profile) => (user.profile_tags || []).map((pt) => pt.tags?.id).filter(Boolean) as string[];
+
+  const openEdit = (user: Profile) => {
     setEditingUser(user);
-    setEditName(user.full_name || '');
-    setEditRole((user.role || 'student').toLowerCase());
-    setIsEditModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsEditModalOpen(false);
-    setEditingUser(null);
+    setEditName(user.full_name || "");
+    setEditRole(normalizeRole(user.role));
+    setEditTagIds(userTagIds(user));
+    setSaveError(null);
   };
 
   const handleSaveChanges = async () => {
     if (!editingUser) return;
     setIsSaving(true);
-
+    setSaveError(null);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: editName, role: editRole })
-        .eq('id', editingUser.id);
-
+      const { error } = await supabase.from("profiles").update({ full_name: editName, role: editRole }).eq("id", editingUser.id);
       if (error) throw error;
 
-      setUsers(users.map(u => u.id === editingUser.id ? { ...u, full_name: editName, role: editRole } : u));
-      handleCloseModal();
+      const current = userTagIds(editingUser);
+      const toAdd = editTagIds.filter((t) => !current.includes(t));
+      const toRemove = current.filter((t) => !editTagIds.includes(t));
+      if (toRemove.length) {
+        const { error: delError } = await supabase.from("profile_tags").delete().eq("profile_id", editingUser.id).in("tag_id", toRemove);
+        if (delError) throw delError;
+      }
+      if (toAdd.length) {
+        const { error: insError } = await supabase.from("profile_tags").insert(toAdd.map((tag_id) => ({ profile_id: editingUser.id, tag_id })));
+        if (insError) throw insError;
+      }
+
+      const newProfileTags = editTagIds
+        .map((tid) => tags.find((t) => t.id === tid))
+        .filter(Boolean)
+        .map((t) => ({ tags: { id: t!.id, name: t!.name, type: t!.type || "" } }));
+      setUsers((prev) => prev.map((u) => (u.id === editingUser.id ? { ...u, full_name: editName, role: editRole, profile_tags: newProfileTags } : u)));
+      setEditingUser(null);
+      setNotice({ tone: "success", text: "Acesso atualizado." });
     } catch (error: any) {
-      console.error('Erro ao salvar usuário:', error);
-      alert('Erro ao salvar: ' + error.message);
+      console.error("Erro ao salvar usuário:", error);
+      setSaveError("Não foi possível salvar: " + (error?.message || "verifique suas permissões."));
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleResetPassword = async (user: Profile) => {
+    if (!user.email) return setNotice({ tone: "danger", text: "Esse usuário não tem e-mail cadastrado." });
+    if (!window.confirm(`Enviar um link de redefinição de senha para ${user.email}?`)) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: window.location.origin + "/update-password" });
+    setNotice(error
+      ? { tone: "danger", text: "Não foi possível enviar o e-mail: " + error.message }
+      : { tone: "success", text: `Link de redefinição enviado para ${user.email}.` });
+  };
+
   const handleOpenHistory = async (user: Profile) => {
     setSelectedUserForHistory(user);
-    setIsHistoryModalOpen(true);
+    setStudentHistory(null);
     setLoadingHistory(true);
 
     try {
-      const { data: enrollments } = await supabase
-        .from('course_enrollments')
-        .select('courseId')
-        .eq('userId', user.id);
-
+      const { data: enrollments } = await supabase.from("course_enrollments").select("courseId").eq("userId", user.id);
       const courseIds = enrollments?.map((e: any) => e.courseId).filter(Boolean) || [];
 
-      const { data: progressList } = await supabase
-        .from('user_progress')
-        .select('course_id, lesson_id, last_time')
-        .eq('user_id', user.id);
+      const { data: progressList } = await supabase.from("user_progress").select("course_id, lesson_id, last_time").eq("user_id", user.id);
 
-      let completedCourseIds: number[] = [];
-      
+      const completedCourseIds: number[] = [];
       if (courseIds.length > 0) {
-        const { data: lessonsData } = await supabase
-          .from('lessons')
-          .select('id, course_id')
-          .in('course_id', courseIds);
+        const { data: lessonsData } = await supabase.from("lessons").select("id, course_id").in("course_id", courseIds);
 
         const totalLessonsPerCourse: { [key: number]: number } = {};
-        lessonsData?.forEach((l: any) => {
-          totalLessonsPerCourse[l.course_id] = (totalLessonsPerCourse[l.course_id] || 0) + 1;
-        });
+        lessonsData?.forEach((l: any) => { totalLessonsPerCourse[l.course_id] = (totalLessonsPerCourse[l.course_id] || 0) + 1; });
 
         const watchedLessonsPerCourse: { [key: number]: Set<number> } = {};
         progressList?.forEach((p: any) => {
           if (p.course_id && p.lesson_id) {
-            if (!watchedLessonsPerCourse[p.course_id]) {
-              watchedLessonsPerCourse[p.course_id] = new Set();
-            }
+            if (!watchedLessonsPerCourse[p.course_id]) watchedLessonsPerCourse[p.course_id] = new Set();
             watchedLessonsPerCourse[p.course_id].add(p.lesson_id);
           }
         });
@@ -153,69 +194,37 @@ const AdminUsers: React.FC = () => {
         courseIds.forEach((courseId: number) => {
           const total = totalLessonsPerCourse[courseId] || 0;
           const watched = watchedLessonsPerCourse[courseId]?.size || 0;
-          if (total > 0 && watched >= total) {
-            completedCourseIds.push(courseId);
-          }
+          if (total > 0 && watched >= total) completedCourseIds.push(courseId);
         });
       }
 
       const activeCourseIds = courseIds.filter((id: number) => !completedCourseIds.includes(id));
-
-      let enrolledList: string[] = [];
-      if (activeCourseIds.length > 0) {
-        const { data: coursesData } = await supabase
-          .from('courses')
-          .select('title')
-          .in('id', activeCourseIds);
-        enrolledList = coursesData?.map((c: any) => c.title) || [];
-      }
-
-      let completedList: string[] = [];
-      if (completedCourseIds.length > 0) {
-        const { data: completedCoursesData } = await supabase
-          .from('courses')
-          .select('title')
-          .in('id', completedCourseIds);
-        completedList = completedCoursesData?.map((c: any) => c.title) || [];
-      }
+      const titlesFor = async (ids: number[]) => {
+        if (!ids.length) return [] as string[];
+        const { data } = await supabase.from("courses").select("title").in("id", ids);
+        return data?.map((c: any) => c.title) || [];
+      };
+      const [enrolledList, completedList] = await Promise.all([titlesFor(activeCourseIds), titlesFor(completedCourseIds)]);
 
       const lessonsProgress = progressList?.filter((p: any) => p.lesson_id !== null && p.lesson_id !== undefined) || [];
-      const lessonsWatchedCount = lessonsProgress.length;
-      
-      const totalSeconds = lessonsProgress.reduce((acc: number, curr: any) => {
-        return acc + (curr.last_time || 0);
-      }, 0);
+      const totalSeconds = lessonsProgress.reduce((acc: number, curr: any) => acc + (curr.last_time || 0), 0);
 
-      const totalMinutes = (totalSeconds / 60).toFixed(1);
-
-      const { data: livesData } = await supabase
-        .from('live_attendance')
-        .select('id')
-        .eq('user_id', user.id);
-
-      const livesAttendedCount = livesData?.length || 0;
+      const { data: livesData } = await supabase.from("live_attendance").select("id").eq("user_id", user.id);
 
       setStudentHistory({
         enrolledCoursesCount: enrolledList.length,
         completedCoursesCount: completedList.length,
-        lessonsWatchedCount,
-        totalMinutesWatched: totalMinutes,
-        livesAttendedCount,
+        lessonsWatchedCount: lessonsProgress.length,
+        totalMinutesWatched: (totalSeconds / 60).toFixed(1),
+        livesAttendedCount: livesData?.length || 0,
         enrolledList,
-        completedList
+        completedList,
       });
-
     } catch (error) {
-      console.error('Erro ao buscar histórico do aluno:', error);
+      console.error("Erro ao buscar histórico do aluno:", error);
     } finally {
       setLoadingHistory(false);
     }
-  };
-
-  const handleCloseHistory = () => {
-    setIsHistoryModalOpen(false);
-    setSelectedUserForHistory(null);
-    setStudentHistory(null);
   };
 
   const exportStudentPDF = () => {
@@ -223,11 +232,11 @@ const AdminUsers: React.FC = () => {
     const doc = new jsPDF();
 
     doc.setFontSize(16);
-    doc.text(`Ficha Acadêmica - ${selectedUserForHistory.full_name || 'Aluno'}`, 14, 15);
+    doc.text(`Ficha Acadêmica - ${selectedUserForHistory.full_name || "Aluno"}`, 14, 15);
     doc.setFontSize(10);
-    doc.text(`E-mail: ${selectedUserForHistory.email || 'Não informado'}`, 14, 22);
-    doc.text(`Patente: ${selectedUserForHistory.patent || 'N/A'} | Nível: ${selectedUserForHistory.level || 1} | XP Total: ${(selectedUserForHistory.total_xp || 0).toLocaleString('pt-BR')}`, 14, 28);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
+    doc.text(`E-mail: ${selectedUserForHistory.email || "Não informado"}`, 14, 22);
+    doc.text(`Patente: ${selectedUserForHistory.patent || "N/A"} | Nível: ${selectedUserForHistory.level || 1} | XP Total: ${(selectedUserForHistory.total_xp || 0).toLocaleString("pt-BR")}`, 14, 28);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 34);
 
     doc.setFontSize(12);
     doc.text("Resumo de Atividades:", 14, 44);
@@ -240,398 +249,243 @@ const AdminUsers: React.FC = () => {
         ["Cursos Concluídos", studentHistory.completedCoursesCount.toString()],
         ["Aulas Assistidas", studentHistory.lessonsWatchedCount.toString()],
         ["Tempo Total Assistido", `${studentHistory.totalMinutesWatched} min`],
-        ["Lives Assistidas", studentHistory.livesAttendedCount.toString()]
+        ["Lives Assistidas", studentHistory.livesAttendedCount.toString()],
       ],
-      theme: 'grid',
-      headStyles: { fillColor: [255, 152, 0] }
+      theme: "grid",
+      headStyles: { fillColor: [109, 40, 217] },
     });
 
-    let finalY = (doc as any).lastAutoTable.finalY + 10;
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
     doc.text("Cursos Matriculados:", 14, finalY);
     autoTable(doc, {
       startY: finalY + 4,
       head: [["Título do Curso"]],
-      body: studentHistory.enrolledList.length > 0 ? studentHistory.enrolledList.map(c => [c]) : [["Nenhum curso matriculado"]],
-      theme: 'grid',
-      headStyles: { fillColor: [56, 189, 248] }
+      body: studentHistory.enrolledList.length > 0 ? studentHistory.enrolledList.map((c) => [c]) : [["Nenhum curso matriculado"]],
+      theme: "grid",
+      headStyles: { fillColor: [55, 65, 81] },
     });
 
-    doc.save(`Ficha_${selectedUserForHistory.full_name || 'Aluno'}.pdf`);
+    doc.save(`Ficha_${selectedUserForHistory.full_name || "Aluno"}.pdf`);
   };
 
-  const filteredUsers = users.filter(user => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (user.full_name && user.full_name.toLowerCase().includes(searchLower)) ||
-      (user.email && user.email.toLowerCase().includes(searchLower))
-    );
-  });
+  const filteredUsers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return users.filter((user) => {
+      const matchesSearch = !term || user.full_name?.toLowerCase().includes(term) || user.email?.toLowerCase().includes(term);
+      const matchesRole = roleFilter === "all" || normalizeRole(user.role) === roleFilter;
+      const ids = userTagIds(user);
+      const matchesTag = !tagFilter.length || ids.includes(tagFilter[0]);
+      const matchesNoSector = !noSectorOnly || ids.length === 0;
+      return matchesSearch && matchesRole && matchesTag && matchesNoSector;
+    });
+  }, [users, searchTerm, roleFilter, tagFilter, noSectorOnly]);
 
-  const totalUsers = users.length;
-  const totalStudents = users.filter(u => {
-    const r = (u.role || '').toLowerCase().trim();
-    return r === 'aluno' || r === 'student';
-  }).length;
-  const totalTeachers = users.filter(u => {
-    const r = (u.role || '').toLowerCase().trim();
-    return r === 'teacher' || r === 'admin' || r === 'professor';
-  }).length;
+  const counts = useMemo(() => ({
+    total: users.length,
+    students: users.filter((u) => normalizeRole(u.role) === "student").length,
+    staff: users.filter((u) => ["teacher", "admin"].includes(normalizeRole(u.role))).length,
+    noSector: users.filter((u) => userTagIds(u).length === 0).length,
+  }), [users]);
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '--/--/----';
-    return new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
+  // Cursos que os setores escolhidos liberam (prévia do acesso)
+  const accessibleCourses = useMemo(
+    () => courses.filter((c) => c.course_tags?.some((ct) => editTagIds.includes(ct.tag_id))),
+    [courses, editTagIds]
+  );
+
+  const clearFilters = () => { setSearchTerm(""); setRoleFilter("all"); setTagFilter([]); setNoSectorOnly(false); };
 
   return (
-    <div className="admin-layout">
+    <div className="ui-shell">
+      <SEO title="Usuários" />
       <Sidebar />
+      <main className="ui-main">
+        <div className="ui-main__inner">
+          <PageHeader eyebrow="Gestão" title="Usuários" subtitle="Encontre pessoas, ajuste cargos e defina a quais setores cada uma tem acesso." />
 
-      <style>{`
-        .admin-layout { display: flex; min-height: 100vh; background-color: #060913; font-family: 'Segoe UI', Roboto, sans-serif; }
-        .admin-main-content { flex: 1; margin-left: 270px; padding: 40px; color: #E2E8F0; width: calc(100% - 270px); box-sizing: border-box; }
-        
-        .admin-header { margin-bottom: 30px; }
-        .header-text h1 { font-size: 2.2rem; font-weight: 800; margin: 0 0 8px 0; color: #FFFFFF; }
-        .header-text p { color: #8BA0B8; margin: 0; font-size: 1rem; }
-
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .metric-card { background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; display: flex; align-items: center; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease; }
-        .metric-card:hover { transform: translateY(-3px); }
-        .metric-icon-wrapper { width: 50px; height: 50px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); display: flex; align-items: center; justify-content: center; margin-right: 16px; border: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
-        .metric-card.orange .metric-icon-wrapper { background: rgba(255, 152, 0, 0.1); border-color: rgba(255, 152, 0, 0.2); }
-        .metric-info { display: flex; flex-direction: column; overflow: hidden; }
-        .metric-title { color: #8BA0B8; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
-        .metric-value { font-size: 1.8rem; font-weight: 800; color: #FFFFFF; line-height: 1; }
-        .metric-card.orange .metric-value { color: #FF9800; }
-
-        .toolbar { display: flex; background: rgba(255, 255, 255, 0.02); padding: 16px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px; backdrop-filter: blur(10px); }
-        .search-input-wrapper { position: relative; width: 100%; }
-        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8BA0B8; width: 18px; height: 18px; }
-        .admin-input, .admin-select { box-sizing: border-box; height: 46px; background: #0B0E17; border: 1px solid rgba(255,255,255,0.1); color: #E2E8F0; border-radius: 10px; font-size: 0.95rem; outline: none; transition: all 0.3s; width: 100%; }
-        .admin-input { padding: 12px 15px 12px 40px; }
-        .admin-select { padding: 0 15px; cursor: pointer; }
-        .admin-input:focus, .admin-select:focus { border-color: #FF9800; box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.15); }
-
-        .table-container { background: rgba(255, 255, 255, 0.02); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); overflow-x: auto; width: 100%; }
-        .admin-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 750px; }
-        .admin-table th { padding: 16px 20px; color: #8BA0B8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); background: rgba(0, 0, 0, 0.2); }
-        .admin-table td { padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.9rem; vertical-align: middle; }
-        .admin-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
-        
-        .user-info { display: flex; align-items: center; gap: 12px; }
-        .user-avatar { width: 38px; height: 38px; border-radius: 10px; background: #2C3B4C; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #FFF; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
-
-        .role-tag { padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-        .role-admin { background: rgba(239, 68, 68, 0.1); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.2); }
-        .role-teacher, .role-professor { background: rgba(139, 92, 246, 0.1); color: #A78BFA; border: 1px solid rgba(139, 92, 246, 0.2); }
-        .role-student, .role-aluno { background: rgba(34, 197, 94, 0.1); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.2); }
-
-        .tag-badge { background: rgba(255, 255, 255, 0.1); color: #E2E8F0; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; margin-right: 4px; display: inline-block; margin-bottom: 2px; }
-
-        .action-actions-cell { display: flex; gap: 6px; justify-content: center; }
-        .action-btn { background: none; border: none; color: #8BA0B8; cursor: pointer; font-size: 1rem; padding: 6px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-        .action-btn:hover { color: #FF9800; background: rgba(255, 152, 0, 0.1); }
-        .action-btn.history:hover { color: #38BDF8; background: rgba(56, 189, 248, 0.1); }
-
-        /* MODAIS */
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 15px; }
-        .modal-content { background: #111625; width: 100%; max-width: 450px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-        
-        .modal-content.history-modal { max-width: 650px; max-height: 90vh; overflow-y: auto; }
-        .modal-title { font-size: 1.3rem; font-weight: 700; color: #FFF; margin: 0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        
-        .history-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 10px; }
-        .history-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
-        .history-card-title { color: #8BA0B8; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
-        .history-card-value { color: #FFF; font-size: 1.4rem; font-weight: 800; }
-        .history-card-value.accent { color: #38BDF8; }
-
-        .history-section-title { font-size: 0.9rem; font-weight: 700; color: #E2E8F0; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .history-list { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 10px 14px; max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-        .history-list-item { font-size: 0.85rem; color: #8BA0B8; display: flex; align-items: center; gap: 8px; }
-        .history-list-item::before { content: "•"; color: #FF9800; font-weight: bold; }
-
-        .modal-group { display: flex; flex-direction: column; gap: 6px; }
-        .modal-label { color: #8BA0B8; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
-        
-        .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #8BA0B8; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-cancel:hover { background: rgba(255,255,255,0.05); color: #FFF; }
-        .btn-save { background: #FF9800; border: none; color: #FFF; padding: 8px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-        .btn-save:hover { background: #F57C00; }
-        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-pdf-modal { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #EF4444; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px; }
-        .btn-pdf-modal:hover { background: rgba(239, 68, 68, 0.2); color: #FFF; }
-
-        @media (max-width: 1024px) { 
-          .admin-main-content { margin-left: 0; padding: 16px; padding-bottom: 90px; width: 100%; } 
-          .admin-header { margin-bottom: 24px; }
-          .header-text h1 { font-size: 1.7rem; }
-          .metrics-grid { grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; } 
-          .toolbar { padding: 12px; }
-          .history-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
-
-      <main className="admin-main-content">
-        <div className="admin-header">
-          <div className="header-text">
-            <h1>Gestão de Usuários</h1>
-            <p>Gerencie alunos, professores e administradores da plataforma.</p>
-          </div>
-        </div>
-
-        {/* CARDS DE RESUMO GERAL */}
-        <div className="metrics-grid">
-          <div className="metric-card">
-            <div className="metric-icon-wrapper">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8BA0B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            </div>
-            <div className="metric-info">
-              <span className="metric-title">Total de Usuários</span>
-              <span className="metric-value">{totalUsers}</span>
-            </div>
-          </div>
-          
-          <div className="metric-card orange">
-            <div className="metric-icon-wrapper">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF9800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
-            </div>
-            <div className="metric-info">
-              <span className="metric-title">Total de Alunos</span>
-              <span className="metric-value">{totalStudents}</span>
-            </div>
+          <div className="adm-stats">
+            <div className="ui-card adm-stat"><span className="adm-stat__icon"><Users size={18} /></span><div><strong>{counts.total}</strong><span>usuários</span></div></div>
+            <div className="ui-card adm-stat"><span className="adm-stat__icon"><GraduationCap size={18} /></span><div><strong>{counts.students}</strong><span>alunos</span></div></div>
+            <div className="ui-card adm-stat"><span className="adm-stat__icon"><ShieldCheck size={18} /></span><div><strong>{counts.staff}</strong><span>professores e admins</span></div></div>
+            <button type="button" className="ui-card ui-card--interactive adm-stat" onClick={() => setNoSectorOnly((v) => !v)} aria-pressed={noSectorOnly} title="Mostrar só quem está sem setor">
+              <span className="adm-stat__icon" style={{ background: "var(--color-warning-soft)", color: "var(--color-warning-text)" }}><UserCog size={18} /></span>
+              <div style={{ textAlign: "left" }}><strong>{counts.noSector}</strong><span>{noSectorOnly ? "filtrando sem setor" : "sem setor"}</span></div>
+            </button>
           </div>
 
-          <div className="metric-card">
-            <div className="metric-icon-wrapper">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8BA0B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            </div>
-            <div className="metric-info">
-              <span className="metric-title">Professores & Admins</span>
-              <span className="metric-value">{totalTeachers}</span>
-            </div>
-          </div>
-        </div>
+          {notice && <div className={`ui-alert ui-alert--${notice.tone}`} role="status" style={{ marginBottom: 16 }}>{notice.text}</div>}
 
-        {/* BARRA DE PESQUISA SIMPLES */}
-        <div className="toolbar">
-          <div className="search-input-wrapper">
-            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input 
-              type="text" 
-              placeholder="Buscar usuário por nome ou e-mail..." 
-              className="admin-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+          <div className="adm-toolbar">
+            <div className="ui-input-group">
+              <Search size={16} />
+              <input type="search" className="ui-input" placeholder="Buscar por nome ou e-mail" aria-label="Buscar usuários" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <Select
+              aria-label="Filtrar por cargo"
+              value={roleFilter}
+              onChange={setRoleFilter}
+              minWidth={190}
+              options={[{ value: "all", label: "Todos os cargos", icon: <Users size={15} /> }, ...ROLES.map(({ value, label, icon: Icon }) => ({ value, label, icon: <Icon size={15} /> }))]}
             />
+            <TagPicker id="users-tag-filter" options={tags} value={tagFilter} onChange={setTagFilter} single placeholder="Filtrar por setor" />
+            {(searchTerm || roleFilter !== "all" || tagFilter.length > 0 || noSectorOnly) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
+            )}
           </div>
-        </div>
 
-        {/* TABELA DE USUÁRIOS */}
-        <div className="table-container">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Usuário</th>
-                <th>Cargo</th>
-                <th>Franquia / Tags</th>
-                <th>Patente / Nível</th>
-                <th>XP Total</th>
-                <th>Cadastrado em</th>
-                <th style={{ textAlign: 'center' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#8BA0B8' }}>Carregando base de dados...</td></tr>
-              ) : filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => {
-                  const role = (user.role || 'student').toLowerCase();
-                  return (
-                    <tr key={user.id}>
-                      <td>
-                        <div className="user-info">
-                          {user.avatar_url ? (
-                            <img src={user.avatar_url} alt={user.full_name} className="user-avatar" />
-                          ) : (
-                            <div className="user-avatar">
-                              {user.full_name ? user.full_name.charAt(0).toUpperCase() : '?'}
+          <div className="ui-card adm-table-wrap">
+            {loading ? (
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+                {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} height={44} />)}
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div style={{ padding: 16 }}>
+                <EmptyState icon={<Users size={28} />} title="Nenhum usuário encontrado" description="Ajuste a busca ou os filtros." action={<Button variant="secondary" onClick={clearFilters}>Limpar filtros</Button>} />
+              </div>
+            ) : (
+              <table className="adm-table">
+                <thead>
+                  <tr><th>Usuário</th><th>Cargo</th><th>Setores</th><th>Nível</th><th>XP</th><th>Cadastro</th><th style={{ textAlign: "right" }}>Ações</th></tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user) => {
+                    const role = normalizeRole(user.role);
+                    const pts = user.profile_tags || [];
+                    return (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="adm-cell-main">
+                            {user.avatar_url
+                              ? <img src={user.avatar_url} alt="" className="us-avatar" />
+                              : <span className="us-avatar" aria-hidden="true">{user.full_name ? user.full_name.charAt(0).toUpperCase() : "?"}</span>}
+                            <div style={{ minWidth: 0 }}>
+                              <strong>{user.full_name || "Sem nome"}</strong>
+                              {user.email && <small>{user.email}</small>}
                             </div>
-                          )}
-                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                            <span style={{ fontWeight: 600, color: '#FFFFFF', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user.full_name || 'Usuário sem nome'}</span>
-                            {user.email && <span style={{ fontSize: '0.8rem', color: '#8BA0B8', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user.email}</span>}
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`role-tag role-${role}`}>
-                          {role === 'admin' ? 'Admin' : role === 'teacher' || role === 'professor' ? 'Professor' : 'Aluno'}
-                        </span>
-                      </td>
-                      <td>
-                        {user.profile_tags && user.profile_tags.length > 0 ? (
-                          user.profile_tags.map((pt, idx) => (
-                            <span key={idx} className="tag-badge">
-                              {pt.tags?.name} {pt.tags?.type ? `(${pt.tags.type})` : ''}
-                            </span>
-                          ))
-                        ) : (
-                          <span style={{ color: '#8BA0B8', fontSize: '0.85rem' }}>-</span>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontWeight: 600, color: '#FF9800' }}>{user.patent || 'Sem Patente'}</span>
-                          <span style={{ fontSize: '0.8rem', color: '#8BA0B8' }}>Lvl {user.level || 1}</span>
-                        </div>
-                      </td>
-                      <td style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#E2E8F0' }}>
-                        {user.total_xp ? user.total_xp.toLocaleString('pt-BR') : 0}
-                      </td>
-                      <td style={{ color: '#8BA0B8' }}>{formatDate(user.created_at)}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <div className="action-actions-cell">
-                          <button className="action-btn history" title="Ver Ficha / Histórico" onClick={() => handleOpenHistory(user)}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                          </button>
-                          <button className="action-btn" title="Editar Usuário" onClick={() => handleEditClick(user)}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#8BA0B8' }}>Nenhum usuário encontrado.</td></tr>
-              )}
-            </tbody>
-          </table>
+                        </td>
+                        <td data-label="Cargo">
+                          <span className={`ui-badge ${role === "admin" ? "" : role === "teacher" ? "ui-badge--success" : "ui-badge--neutral"}`}>{roleLabel(role)}</span>
+                        </td>
+                        <td data-label="Setores">
+                          {pts.length ? (
+                            <div className="adm-chips">
+                              {pts.slice(0, 2).map((pt, idx) => <span key={idx} className="ui-badge ui-badge--neutral">{pt.tags?.name}</span>)}
+                              {pts.length > 2 && <span className="ui-badge ui-badge--neutral" title={pts.slice(2).map((p) => p.tags?.name).join(", ")}>+{pts.length - 2}</span>}
+                            </div>
+                          ) : <span className="ui-badge ui-badge--warning">Sem setor</span>}
+                        </td>
+                        <td data-label="Nível">
+                          <span style={{ color: "var(--color-text)", fontWeight: 600 }}>{user.patent || "—"}</span>
+                          <span className="ui-hint" style={{ display: "block" }}>Nível {user.level || 1}</span>
+                        </td>
+                        <td data-label="XP" style={{ fontVariantNumeric: "tabular-nums" }}>{(user.total_xp || 0).toLocaleString("pt-BR")}</td>
+                        <td data-label="Cadastro">{formatDate(user.created_at)}</td>
+                        <td>
+                          <div className="adm-actions">
+                            <button className="sb-icon-btn" onClick={() => handleOpenHistory(user)} title="Ficha do aluno" aria-label={`Ficha de ${user.full_name}`}><Eye size={16} /></button>
+                            <button className="sb-icon-btn" onClick={() => openEdit(user)} title="Cargo e acesso" aria-label={`Editar acesso de ${user.full_name}`}><UserCog size={16} /></button>
+                            <button className="sb-icon-btn" onClick={() => handleResetPassword(user)} title="Enviar redefinição de senha" aria-label={`Redefinir senha de ${user.full_name}`}><KeyRound size={16} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {!loading && <p className="ui-hint" style={{ marginTop: 10 }}>Mostrando {filteredUsers.length} de {users.length} usuários.</p>}
         </div>
       </main>
 
-      {/* MODAL DE HISTÓRICO / FICHA DO ALUNO */}
-      {isHistoryModalOpen && selectedUserForHistory && (
-        <div className="modal-overlay" onClick={handleCloseHistory}>
-          <div className="modal-content history-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">
-              <span>Ficha Acadêmica: {selectedUserForHistory.full_name || 'Usuário'}</span>
-              <button onClick={handleCloseHistory} style={{ background: 'none', border: 'none', color: '#8BA0B8', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
-            </h2>
+      {/* Cargo e acesso */}
+      <Drawer
+        open={!!editingUser}
+        onClose={() => !isSaving && setEditingUser(null)}
+        title="Cargo e acesso"
+        subtitle={editingUser?.email || editingUser?.full_name}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditingUser(null)} disabled={isSaving}>Cancelar</Button>
+            <Button onClick={handleSaveChanges} loading={isSaving}>Salvar alterações</Button>
+          </>
+        }
+      >
+        <div className="adm-form">
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="u-name">Nome completo</label>
+            <input id="u-name" className="ui-input" value={editName} onChange={(e) => setEditName(e.target.value)} />
+          </div>
 
-            {loadingHistory ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#8BA0B8' }}>Carregando dados acadêmicos...</div>
-            ) : studentHistory ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                
-                <div className="history-grid">
-                  <div className="history-card">
-                    <span className="history-card-title">Cursos Matriculados</span>
-                    <span className="history-card-value">{studentHistory.enrolledCoursesCount}</span>
-                  </div>
-                  <div className="history-card">
-                    <span className="history-card-title">Cursos Concluídos</span>
-                    <span className="history-card-value" style={{ color: '#4ADE80' }}>{studentHistory.completedCoursesCount}</span>
-                  </div>
-                  <div className="history-card">
-                    <span className="history-card-title">Aulas Assistidas</span>
-                    <span className="history-card-value accent">{studentHistory.lessonsWatchedCount}</span>
-                  </div>
-                  <div className="history-card">
-                    <span className="history-card-title">Tempo Total Assistido</span>
-                    <span className="history-card-value" style={{ color: '#FF9800' }}>{studentHistory.totalMinutesWatched} min</span>
-                  </div>
-                  <div className="history-card" style={{ gridColumn: 'span 2' }}>
-                    <span className="history-card-title">Lives Assistidas</span>
-                    <span className="history-card-value" style={{ color: '#A78BFA' }}>{studentHistory.livesAttendedCount}</span>
-                  </div>
-                </div>
+          <div className="ui-field">
+            <span className="ui-label">Cargo</span>
+            <div className="ui-tabs" role="radiogroup" aria-label="Cargo" style={{ display: "flex" }}>
+              {ROLES.map(({ value, label, icon: Icon }) => (
+                <button key={value} type="button" role="radio" className="ui-tab" style={{ flex: 1, justifyContent: "center" }} aria-checked={editRole === value} onClick={() => setEditRole(value)}>
+                  <Icon size={14} /> {label}
+                </button>
+              ))}
+            </div>
+            <span className="ui-hint">
+              {editRole === "admin" ? "Acesso total à gestão, inclusive usuários." : editRole === "teacher" ? "Gerencia cursos, aulas e lives." : "Assiste aos cursos dos setores abaixo."}
+            </span>
+          </div>
 
-                <div className="modal-group">
-                  <span className="history-section-title">Cursos em Andamento / Matriculados</span>
-                  <div className="history-list">
-                    {studentHistory.enrolledList.length > 0 ? (
-                      studentHistory.enrolledList.map((course, idx) => (
-                        <div key={idx} className="history-list-item">{course}</div>
-                      ))
-                    ) : (
-                      <span style={{ color: '#8BA0B8', fontSize: '0.85rem' }}>Nenhum curso matriculado no momento.</span>
-                    )}
-                  </div>
-                </div>
+          <div className="ui-field">
+            <TagPicker id="u-tags" label="Setores" options={tags} value={editTagIds} onChange={setEditTagIds} placeholder="Buscar setor ou região" inline listHeight={280} />
+          </div>
 
-                <div className="modal-group">
-                  <span className="history-section-title">Cursos Já Concluídos</span>
-                  <div className="history-list">
-                    {studentHistory.completedList.length > 0 ? (
-                      studentHistory.completedList.map((course, idx) => (
-                        <div key={idx} className="history-list-item" style={{ color: '#4ADE80' }}>{course}</div>
-                      ))
-                    ) : (
-                      <span style={{ color: '#8BA0B8', fontSize: '0.85rem' }}>Nenhum curso concluído ainda.</span>
-                    )}
-                  </div>
-                </div>
+          <div className="us-access-preview">
+            <span className="ui-label" style={{ display: "flex", alignItems: "center", gap: 6 }}><BookOpen size={14} /> Cursos liberados por esses setores: {accessibleCourses.length}</span>
+            {accessibleCourses.length ? (
+              <ul>{accessibleCourses.map((c) => <li key={c.id}>{c.title}</li>)}</ul>
+            ) : (
+              <span className="ui-hint">Nenhum curso está ligado aos setores escolhidos.</span>
+            )}
+          </div>
 
-              </div>
-            ) : null}
+          {saveError && <div className="ui-alert ui-alert--danger" role="alert">{saveError}</div>}
+        </div>
+      </Drawer>
 
-            <div className="modal-actions">
-              <button className="btn-pdf-modal" onClick={exportStudentPDF} disabled={loadingHistory}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                Exportar Ficha (PDF)
-              </button>
-              <button className="btn-save" onClick={handleCloseHistory}>Fechar Ficha</button>
+      {/* Ficha do aluno */}
+      <Drawer
+        open={!!selectedUserForHistory}
+        onClose={() => setSelectedUserForHistory(null)}
+        title="Ficha do aluno"
+        subtitle={selectedUserForHistory?.full_name}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setSelectedUserForHistory(null)}>Fechar</Button>
+            <Button variant="secondary" onClick={exportStudentPDF} disabled={loadingHistory || !studentHistory} icon={<Download size={16} />}>Exportar PDF</Button>
+          </>
+        }
+      >
+        {loadingHistory ? (
+          <div className="ui-loading-inline"><div className="ui-spinner" /> Carregando ficha...</div>
+        ) : studentHistory ? (
+          <div className="adm-form">
+            <div className="us-history-grid">
+              <div className="ui-card"><strong>{studentHistory.enrolledCoursesCount}</strong><span>em andamento</span></div>
+              <div className="ui-card"><strong style={{ color: "var(--color-success-text)" }}>{studentHistory.completedCoursesCount}</strong><span>concluídos</span></div>
+              <div className="ui-card"><strong>{studentHistory.lessonsWatchedCount}</strong><span>aulas assistidas</span></div>
+              <div className="ui-card"><strong>{studentHistory.totalMinutesWatched}</strong><span>minutos assistidos</span></div>
+              <div className="ui-card" style={{ gridColumn: "span 2" }}><strong>{studentHistory.livesAttendedCount}</strong><span>lives assistidas</span></div>
+            </div>
+            <div>
+              <p className="adm-section-label">Em andamento</p>
+              {studentHistory.enrolledList.length ? <ul className="us-list">{studentHistory.enrolledList.map((c, i) => <li key={i}>{c}</li>)}</ul> : <span className="ui-hint">Nenhum curso em andamento.</span>}
+            </div>
+            <div>
+              <p className="adm-section-label">Concluídos</p>
+              {studentHistory.completedList.length ? <ul className="us-list">{studentHistory.completedList.map((c, i) => <li key={i}>{c}</li>)}</ul> : <span className="ui-hint">Nenhum curso concluído ainda.</span>}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* MODAL DE EDIÇÃO */}
-      {isEditModalOpen && editingUser && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">
-              <span>Editar Usuário</span>
-              <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', color: '#8BA0B8', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
-            </h2>
-            
-            <div className="modal-group">
-              <label className="modal-label">Nome Completo</label>
-              <input 
-                type="text" 
-                className="admin-input" 
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
-            </div>
-
-            <div className="modal-group">
-              <label className="modal-label">Cargo (Permissão)</label>
-              <select 
-                className="admin-select"
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value)}
-              >
-                <option value="student">Aluno</option>
-                <option value="teacher">Professor</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-
-            <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
-              <button className="btn-cancel" onClick={handleCloseModal} disabled={isSaving}>Cancelar</button>
-              <button className="btn-save" onClick={handleSaveChanges} disabled={isSaving}>
-                {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+        ) : (
+          <div className="ui-alert ui-alert--danger">Não foi possível carregar a ficha.</div>
+        )}
+      </Drawer>
     </div>
   );
 };

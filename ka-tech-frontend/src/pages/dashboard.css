@@ -1,0 +1,144 @@
+/* Minha Jornada (dashboard do aluno) */
+
+.dash-search { width: min(100%, 320px); }
+
+.dash-stats {
+  display: grid;
+  /* desktop: cartões compactos alinhados à esquerda em vez de esticados */
+  grid-template-columns: repeat(3, minmax(0, 220px));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.dash-stat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  text-align: center;
+}
+.dash-stat > div { display: flex; flex-direction: column; align-items: center; }
+.dash-stat strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+}
+.dash-stat span { color: var(--color-text-muted); font-size: var(--text-sm); }
+.dash-stat__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text) !important;
+}
+.dash-stat__icon--blue { background: var(--color-info-soft); color: var(--color-info) !important; }
+.dash-stat__icon--pink { background: var(--color-danger-soft); color: var(--color-danger-text) !important; }
+
+.dash-tabs { margin-bottom: var(--space-6); }
+.dash-count {
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+}
+
+/* --- Destaque "continuar assistindo" --- */
+.dash-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  margin-bottom: var(--space-10);
+  overflow: hidden;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+.dash-hero__media {
+  position: relative;
+  min-height: 260px;
+  background: var(--color-surface-3);
+}
+.dash-hero__media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dash-hero__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+  background: var(--gradient-hero);
+}
+.dash-hero__title {
+  margin: 0;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-black);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dash-hero__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 360px;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.dash-hero__actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); }
+
+/* --- Cartões de curso --- */
+.dash-card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+.dash-card-link:focus-visible { box-shadow: var(--focus-ring); }
+.dash-fav {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-bg-elevated) 85%, transparent);
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(6px);
+  transition: transform var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+.dash-fav:hover { transform: scale(1.08); color: var(--color-danger); }
+.dash-fav.is-active { color: var(--color-danger); }
+.dash-percent { min-width: 34px; text-align: right; }
+
+@media (max-width: 860px) {
+  .dash-hero { grid-template-columns: 1fr; }
+  .dash-hero__media { min-height: 0; aspect-ratio: 16 / 9; }
+}
+
+@media (max-width: 640px) {
+  .dash-search { width: 100%; }
+  .dash-stats { grid-template-columns: 1fr 1fr 1fr; gap: var(--space-2); }
+  .dash-stat { flex-direction: column; gap: var(--space-2); padding: var(--space-3); }
+  .dash-stat__icon { width: 34px; height: 34px; }
+  .dash-stat strong { font-size: var(--text-xl); }
+  .dash-stat span { font-size: var(--text-xs); }
+  .dash-hero__actions { width: 100%; }
+  .dash-hero__actions .ui-btn:first-child { flex: 1; }
+}

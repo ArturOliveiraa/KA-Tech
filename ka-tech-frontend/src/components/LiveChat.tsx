@@ -57,7 +57,7 @@ export default function LiveChat({ user, youtubeVideoId }: LiveChatProps) {
     const src = `https://www.youtube.com/live_chat?v=${youtubeVideoId}&embed_domain=${domain}&dark_theme=1`;
 
     return (
-      <div style={{ width: '100%', height: '100%', borderRadius: '24px', overflow: 'hidden', background: '#000', border: '1px solid rgba(139, 92, 246, 0.1)' }}>
+      <div style={{ width: '100%', height: '100%', borderRadius: '24px', overflow: 'hidden', background: '#000', border: '1px solid var(--color-primary-border)' }}>
         <iframe 
             src={src}
             width="100%" 
@@ -71,9 +71,9 @@ export default function LiveChat({ user, youtubeVideoId }: LiveChatProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#09090b', borderRadius: '24px', border: '1px solid rgba(139, 92, 246, 0.1)', overflow: 'hidden' }}>
-      <div style={{ padding: '12px 16px', background: 'rgba(139, 92, 246, 0.05)', borderBottom: '1px solid rgba(139, 92, 246, 0.1)' }}>
-        <span style={{ color: '#a78bfa', fontWeight: 800 }}>CHAT INTERNO</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--color-bg)', borderRadius: '24px', border: '1px solid var(--color-primary-border)', overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px', background: 'var(--color-primary-soft)', borderBottom: '1px solid var(--color-primary-border)' }}>
+        <span style={{ color: 'var(--color-primary-text)', fontWeight: 800 }}>CHAT INTERNO</span>
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -83,18 +83,18 @@ export default function LiveChat({ user, youtubeVideoId }: LiveChatProps) {
                <Avatar src={msg.avatar_url} name={msg.user_name} />
              </div>
              <div>
-               <div style={{ color: '#8b5cf6', fontWeight: 800, fontSize: '0.8rem' }}>{msg.user_name}</div>
-               <div style={{ color: '#fff', fontSize: '0.9rem' }}>{msg.content}</div>
+               <div style={{ color: 'var(--color-primary-text)', fontWeight: 800, fontSize: '0.8rem' }}>{msg.user_name}</div>
+               <div style={{ color: 'var(--color-text)', fontSize: '0.9rem' }}>{msg.content}</div>
              </div>
           </div>
         ))}
       </div>
 
-      <form onSubmit={handleInternalSend} style={{ padding: '15px', background: '#020617' }}>
+      <form onSubmit={handleInternalSend} style={{ padding: '15px', background: 'var(--color-bg)' }}>
         <input 
             value={newMessage} onChange={(e) => setNewMessage(e.target.value)} 
             placeholder="Digite..." 
-            style={{ width: '100%', background: '#09090b', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: '12px', padding: '12px', color: '#fff' }} 
+            style={{ width: '100%', background: 'var(--color-bg)', border: '1px solid var(--color-primary-border)', borderRadius: '12px', padding: '12px', color: 'var(--color-text)' }} 
         />
       </form>
     </div>

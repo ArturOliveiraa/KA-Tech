@@ -50,18 +50,18 @@ export default function MeetPage() {
   if (loading || userLoading) return <div style={styles.loading}>Carregando meet...</div>;
 
   return (
-    <div className="meet-external-wrapper" style={{ backgroundColor: '#020617', minHeight: '100vh' }}>
+    <div className="meet-external-wrapper" style={{ backgroundColor: 'var(--color-bg)', minHeight: '100vh' }}>
       <style>{`
         .meet-external-wrapper { display: block; width: 100%; }
-        .meet-main-content { margin-left: 260px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .meet-main-content { margin-left: var(--sidebar-width); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .meet-header { 
           flex-shrink: 0; 
           height: 70px; 
           padding: 0 30px; 
           display: flex; 
           align-items: center; 
-          border-bottom: 1px solid rgba(139, 92, 246, 0.1); 
-          background-color: #020617; 
+          border-bottom: 1px solid var(--color-primary-border); 
+          background-color: var(--color-bg); 
         }
 
         /* 1. O contêiner pai ocupa o espaço flexível */
@@ -97,8 +97,8 @@ export default function MeetPage() {
 
       <main className="meet-main-content">
         <header className="meet-header">
-          <h2 style={{ color: '#fff', fontSize: '1.1rem', margin: 0 }}>
-            Aula Ao Vivo: <span style={{ color: '#8b5cf6' }}>{roomId}</span>
+          <h2 style={{ color: 'var(--color-text)', fontSize: '1.1rem', margin: 0 }}>
+            Aula Ao Vivo: <span style={{ color: 'var(--color-primary-text)' }}>{roomId}</span>
           </h2>
           <span style={{color: '#444', fontSize: '0.7rem', marginLeft: '10px'}}>Role: {userRole}</span>
         </header>
@@ -136,5 +136,5 @@ export default function MeetPage() {
 }
 
 const styles = {
-  loading: { display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: '#020617', color: '#8b5cf6' }
+  loading: { display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--color-bg)', color: 'var(--color-primary-text)' }
 };

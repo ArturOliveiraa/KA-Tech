@@ -90,24 +90,24 @@ export default function AdminFeedbacks() {
 
       <main className="dashboard-content">
         <header style={{ marginBottom: '30px' }}>
-          <h1 style={{ fontSize: '2rem', color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ fontSize: '2rem', color: 'var(--color-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <MessageSquare size={28} className="text-primary" />
             Caixa de Feedbacks
           </h1>
-          <p style={{ color: '#94a3b8', marginTop: '8px' }}>
+          <p style={{ color: 'var(--color-text-muted)', marginTop: '8px' }}>
             Acompanhe bugs, sugestões e elogios enviados pelos alunos.
           </p>
         </header>
 
         <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
           {loading ? (
-            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px 0' }}>Carregando feedbacks...</div>
+            <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '40px 0' }}>Carregando feedbacks...</div>
           ) : feedbacks.length === 0 ? (
-            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px 0' }}>Nenhum feedback recebido ainda.</div>
+            <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '40px 0' }}>Nenhum feedback recebido ainda.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', color: '#E2E8F0', minWidth: '800px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--color-text-secondary)', minWidth: '800px' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+                <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left' }}>
                   <th style={{ padding: '15px' }}>Data</th>
                   <th style={{ padding: '15px' }}>Usuário / Contato</th>
                   <th style={{ padding: '15px' }}>Tipo</th>
@@ -118,13 +118,13 @@ export default function AdminFeedbacks() {
               </thead>
               <tbody>
                 {feedbacks.map((fb) => (
-                  <tr key={fb.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '15px', fontSize: '0.85rem', color: '#94a3b8' }}>
+                  <tr key={fb.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    <td style={{ padding: '15px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
                       {new Date(fb.created_at).toLocaleDateString('pt-BR')}
                     </td>
                     <td style={{ padding: '15px' }}>
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{fb.user_name}</div>
-                      <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{fb.contact_info}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{fb.user_name}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{fb.contact_info}</div>
                     </td>
                     <td style={{ padding: '15px' }}>
                       {getTypeIcon(fb.type)} <span style={{ textTransform: 'capitalize' }}>{fb.type}</span>
@@ -178,47 +178,47 @@ export default function AdminFeedbacks() {
           display: flex;
           width: 100%;
           min-height: 100vh;
-          background-color: #020617; 
-          font-family: 'Inter', system-ui, sans-serif;
+          background-color: var(--color-bg); 
+          font-family: var(--font-sans);
           overflow-x: hidden; 
         }
 
         .dashboard-content {
           flex: 1;
-          margin-left: 270px; /* Espaço exato da sidebar */
-          width: calc(100% - 270px);
+          margin-left: var(--sidebar-width); /* Espaço exato da sidebar */
+          width: calc(100% - var(--sidebar-width));
           max-width: 100vw;
           padding: 40px 60px;
         }
 
         .glass-panel {
-          background: rgba(15, 23, 42, 0.4); 
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--color-surface-1); 
+          border: 1px solid var(--color-border);
           width: 100%;
           overflow-x: auto; /* Cria barra de rolagem horizontal só na tabela */
           -webkit-overflow-scrolling: touch;
         }
 
-        .text-primary { color: #8b5cf6; }
+        .text-primary { color: var(--color-primary-text); }
 
         /* ESTILOS DAS TAGS E BOTÕES */
         .badge {
           padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
         }
-        .badge-pending { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
-        .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
-        .badge-success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .badge-pending { background: rgba(148, 163, 184, 0.2); color: var(--color-text-muted); }
+        .badge-warning { background: var(--color-warning-soft); color: var(--color-warning-text); }
+        .badge-success { background: var(--color-success-soft); color: var(--color-success-text); }
 
         .action-btn {
-          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
-          color: #fff; width: 32px; height: 32px; border-radius: 8px;
+          background: var(--color-surface-2); border: 1px solid var(--color-border); 
+          color: var(--color-text); width: 32px; height: 32px; border-radius: 8px;
           display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
           flex-shrink: 0;
         }
         .action-btn:hover { transform: translateY(-2px); }
-        .success-btn:hover { background: rgba(16, 185, 129, 0.2); border-color: #34d399; color: #34d399; }
-        .warning-btn:hover { background: rgba(245, 158, 11, 0.2); border-color: #fcd34d; color: #fcd34d; }
-        .danger-btn:hover { background: rgba(239, 68, 68, 0.2); border-color: #f87171; color: #f87171; }
+        .success-btn:hover { background: var(--color-success-soft); border-color: #34d399; color: var(--color-success-text); }
+        .warning-btn:hover { background: var(--color-warning-soft); border-color: #fcd34d; color: var(--color-warning-text); }
+        .danger-btn:hover { background: var(--color-danger-soft); border-color: #f87171; color: var(--color-danger-text); }
         
         /* RESPONSIVIDADE BÁSICA */
         @media (max-width: 1024px) {

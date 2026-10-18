@@ -181,29 +181,29 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
       </div>
 
       <style>{`
-        .qe-wrapper { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.95); z-index: 9999; display: flex; justify-content: center; padding: 20px; overflow: hidden; font-family: 'Sora', sans-serif; }
-        .qe-container { background: #0f172a; width: 100%; max-width: 750px; border-radius: 24px; display: flex; flex-direction: column; border: 1px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .qe-wrapper { position: fixed; inset: 0; background: var(--color-surface-1); z-index: 9999; display: flex; justify-content: center; padding: 20px; overflow: hidden; font-family: var(--font-sans); }
+        .qe-container { background: var(--color-surface-1); width: 100%; max-width: 750px; border-radius: 24px; display: flex; flex-direction: column; border: 1px solid var(--color-border-strong); box-shadow: var(--shadow-md); }
         
-        .qe-header { padding: 20px 24px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
-        .qe-title-area h1 { font-size: 1.2rem; font-weight: 800; color: #fff; margin: 0; }
-        .qe-title-area p { font-size: 0.8rem; color: #64748b; margin: 0; }
+        .qe-header { padding: 20px 24px; border-bottom: 1px solid var(--color-border-strong); display: flex; justify-content: space-between; align-items: center; }
+        .qe-title-area h1 { font-size: 1.2rem; font-weight: 800; color: var(--color-text); margin: 0; }
+        .qe-title-area p { font-size: 0.8rem; color: var(--color-text-subtle); margin: 0; }
         .qe-actions { display: flex; align-items: center; gap: 12px; }
         
-        .btn-publish { background: #10b981; border: none; color: #fff; padding: 10px 18px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
-        .btn-publish:hover { background: #059669; transform: translateY(-1px); }
-        .btn-close { background: #1e293b; border: none; color: #94a3b8; padding: 8px; border-radius: 10px; cursor: pointer; transition: 0.2s; display: flex; }
+        .btn-publish { background: var(--color-success); border: none; color: #fff; padding: 10px 18px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-publish:hover { background: var(--color-success); transform: translateY(-1px); }
+        .btn-close { background: var(--color-surface-3); border: none; color: var(--color-text-muted); padding: 8px; border-radius: 10px; cursor: pointer; transition: 0.2s; display: flex; }
 
         .qe-scroll-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
         
-        .qe-label { display: block; color: #94a3b8; font-size: 0.7rem; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px; }
-        .qe-main-input { width: 100%; background: #1e293b; border: 1px solid #334155; padding: 14px 18px; border-radius: 14px; color: #fff; font-size: 1rem; outline: none; }
+        .qe-label { display: block; color: var(--color-text-muted); font-size: 0.7rem; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .qe-main-input { width: 100%; background: var(--color-surface-3); border: 1px solid var(--color-border-strong); padding: 14px 18px; border-radius: 14px; color: var(--color-text); font-size: 1rem; outline: none; }
 
-        .qe-card { background: #1e293b; border-radius: 20px; padding: 20px; border: 1px solid #334155; }
+        .qe-card { background: var(--color-surface-3); border-radius: 20px; padding: 20px; border: 1px solid var(--color-border-strong); }
         .qe-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .qe-card-header span { color: #8b5cf6; font-weight: 900; font-size: 0.75rem; letter-spacing: 1px; }
-        .btn-del-q { background: rgba(239, 68, 68, 0.1); border: none; color: #ef4444; padding: 8px; border-radius: 8px; cursor: pointer; }
+        .qe-card-header span { color: var(--color-primary-text); font-weight: 900; font-size: 0.75rem; letter-spacing: 1px; }
+        .btn-del-q { background: var(--color-danger-soft); border: none; color: var(--color-danger-text); padding: 8px; border-radius: 8px; cursor: pointer; }
 
-        .qe-question-textarea { width: 100%; background: #0f172a; border: 1px solid #334155; padding: 15px; border-radius: 14px; color: #fff; min-height: 50px; resize: none; margin-bottom: 20px; font-family: inherit; font-size: 0.95rem; line-height: 1.5; outline: none; overflow: hidden; box-sizing: border-box; }
+        .qe-question-textarea { width: 100%; background: var(--color-surface-1); border: 1px solid var(--color-border-strong); padding: 15px; border-radius: 14px; color: var(--color-text); min-height: 50px; resize: none; margin-bottom: 20px; font-family: inherit; font-size: 0.95rem; line-height: 1.5; outline: none; overflow: hidden; box-sizing: border-box; }
 
         .qe-options-grid { display: flex; flex-direction: column; gap: 10px; }
         
@@ -211,24 +211,24 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
           display: flex; 
           align-items: flex-start; 
           gap: 6px; 
-          background: #0f172a; 
+          background: var(--color-surface-1); 
           padding: 10px 12px; 
           border-radius: 14px; 
-          border: 1px solid #334155; 
+          border: 1px solid var(--color-border-strong); 
           transition: 0.2s; 
           width: 100%;
         }
-        .qe-opt-box.is-correct { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
+        .qe-opt-box.is-correct { border-color: var(--color-success); background: var(--color-success-soft); }
         
         .qe-check-icon { color: #334155; cursor: pointer; flex-shrink: 0; margin-top: 4px; }
-        .is-correct .qe-check-icon { color: #10b981; }
+        .is-correct .qe-check-icon { color: var(--color-success-text); }
         
         /* FIX DO CORTE LATERAL (INICIO) E FINAL 👇 */
         .qe-opt-textarea { 
           flex: 1; 
           background: transparent; 
           border: none; 
-          color: #cbd5e1; 
+          color: var(--color-text-secondary); 
           outline: none; 
           font-size: 0.9rem; 
           resize: none; 
@@ -243,14 +243,14 @@ export function QuizEditor({ courseId, lessonId, initialData, onClose, onSaved }
           box-sizing: border-box; 
         }
         
-        .qe-del-icon { color: #475569; cursor: pointer; flex-shrink: 0; margin-top: 6px; }
-        .qe-del-icon:hover { color: #ef4444; }
+        .qe-del-icon { color: var(--color-text-subtle); cursor: pointer; flex-shrink: 0; margin-top: 6px; }
+        .qe-del-icon:hover { color: var(--color-danger-text); }
 
-        .btn-add-opt { background: transparent; border: 1px dashed #334155; color: #64748b; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 0.8rem; }
-        .btn-add-q { width: 100%; padding: 18px; background: rgba(139, 92, 246, 0.05); border: 2px dashed #334155; border-radius: 16px; color: #94a3b8; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-add-opt { background: transparent; border: 1px dashed var(--color-border-strong); color: var(--color-text-subtle); padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 0.8rem; }
+        .btn-add-q { width: 100%; padding: 18px; background: var(--color-primary-soft); border: 2px dashed var(--color-border-strong); border-radius: 16px; color: var(--color-text-muted); font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
 
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: 10px; }
       `}</style>
     </div>
   );

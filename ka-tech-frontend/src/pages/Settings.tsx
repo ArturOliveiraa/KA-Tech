@@ -1,30 +1,44 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Award, Camera, LogOut, Mail, Moon, Palette, Save, Sun, User } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
+import SEO from "../components/SEO";
+import { useUser } from "../components/UserContext";
+import { useTheme } from "../components/ThemeContext";
+import { Button, LoadingScreen, PageHeader } from "../components/ui";
+import BrandUpload from "../components/admin/BrandUpload";
+import "./Settings.css";
+
+type Tab = "perfil" | "marca";
+
+const AVATAR_MAX_MB = 3;
 
 function Settings() {
+  const navigate = useNavigate();
+  const { refreshBranding, refreshProfile } = useUser();
+  const { theme, setTheme } = useTheme();
+
+  const [tab, setTab] = useState<Tab>("perfil");
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [profileId, setProfileId] = useState<string>("");
+  const [profileId, setProfileId] = useState("");
   const [fullName, setFullName] = useState("");
+  const [savedName, setSavedName] = useState("");
+  const [email, setEmail] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [themeColor, setThemeColor] = useState("#8b5cf6");
   const [userRole, setUserRole] = useState("");
 
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarDrag, setAvatarDrag] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const avatarInput = useRef<HTMLInputElement>(null);
+
   const [certLogoUrl, setCertLogoUrl] = useState("");
-  const [uploadingCert, setUploadingCert] = useState(false);
-  const [selectedCertFile, setSelectedCertFile] = useState<File | null>(null);
-
   const [sidebarLogoUrl, setSidebarLogoUrl] = useState("");
-  const [uploadingSidebar, setUploadingSidebar] = useState(false);
-  const [selectedSidebarFile, setSelectedSidebarFile] = useState<File | null>(null);
 
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--primary-color', themeColor);
-  }, [themeColor]);
+  const isAdmin = userRole === "admin";
 
   useEffect(() => {
     async function loadProfile() {
@@ -33,154 +47,199 @@ function Settings() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return navigate("/");
         setProfileId(user.id);
+        setEmail(user.email || "");
 
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
         if (profile) {
           setFullName(profile.full_name || "");
+          setSavedName(profile.full_name || "");
           setAvatarUrl(profile.avatar_url || "");
           setUserRole(profile.role || "");
           if (profile.theme_color) setThemeColor(profile.theme_color);
 
-          if (profile.role === 'admin') {
+          if (profile.role === "admin") {
             const { data: settings } = await supabase.from("platform_settings").select("key, value");
             if (settings) {
-              const cert = settings.find(s => s.key === "certificate_logo");
-              const side = settings.find(s => s.key === "sidebar_logo");
-              if (cert) setCertLogoUrl(cert.value);
-              if (side) setSidebarLogoUrl(side.value);
+              setCertLogoUrl(settings.find((s) => s.key === "certificate_logo")?.value || "");
+              setSidebarLogoUrl(settings.find((s) => s.key === "sidebar_logo")?.value || "");
             }
           }
         }
-      } catch (error: any) { console.error(error.message); } finally { setLoading(false); }
+      } catch (error: any) {
+        console.error(error.message);
+      } finally {
+        setLoading(false);
+      }
     }
     loadProfile();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.href = "/login";
   }
 
-  async function handleUploadAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadAvatar(file?: File | null) {
+    if (!file || !profileId) return;
+    if (!file.type.startsWith("image/")) return setNotice({ tone: "danger", text: "Escolha um arquivo de imagem." });
+    if (file.size > AVATAR_MAX_MB * 1024 * 1024) return setNotice({ tone: "danger", text: `A foto passa de ${AVATAR_MAX_MB} MB.` });
     try {
-      setUploading(true);
-      if (!event.target.files || event.target.files.length === 0 || !profileId) return;
-      const file = event.target.files[0];
+      setUploadingAvatar(true);
       const fileName = `avatar-${profileId}-${Date.now()}`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, file);
       if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName);
+      const { error: dbError } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", profileId);
+      if (dbError) throw dbError;
       setAvatarUrl(publicUrl);
-      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", profileId);
-    } catch (error: any) { alert(error.message); } finally { setUploading(false); }
+      await refreshProfile();
+      setNotice({ tone: "success", text: "Foto atualizada." });
+    } catch (error: any) {
+      setNotice({ tone: "danger", text: "Não foi possível trocar a foto: " + error.message });
+    } finally {
+      setUploadingAvatar(false);
+    }
   }
 
-  async function handleSaveBranding(key: 'sidebar_logo' | 'certificate_logo', file: File | null, setLoad: Function) {
-    if (!file) return;
-    try {
-      setLoad(true);
-      const fileName = `${key}-${Date.now()}`;
-      const { error: uploadError } = await supabase.storage.from('brandings').upload(fileName, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('brandings').getPublicUrl(fileName);
-      await supabase.from("platform_settings").upsert({ key, value: publicUrl }, { onConflict: 'key' });
-      alert("Marca atualizada com sucesso!");
-    } catch (error: any) { alert("Erro ao salvar: " + error.message); } finally { setLoad(false); }
+  async function saveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fullName.trim()) return setNotice({ tone: "danger", text: "Informe seu nome." });
+    setSavingProfile(true);
+    const { error } = await supabase.from("profiles").update({ full_name: fullName.trim(), theme_color: themeColor }).eq("id", profileId);
+    setSavingProfile(false);
+    if (error) return setNotice({ tone: "danger", text: "Não foi possível salvar: " + error.message });
+    setSavedName(fullName.trim());
+    await refreshProfile();
+    setNotice({ tone: "success", text: "Perfil salvo." });
   }
+
+  async function saveBranding(key: "sidebar_logo" | "certificate_logo", file: File) {
+    const ext = file.name.split(".").pop() || "png";
+    const fileName = `${key}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("brandings").upload(fileName, file, { contentType: file.type });
+    if (uploadError) throw uploadError;
+    const { data: { publicUrl } } = supabase.storage.from("brandings").getPublicUrl(fileName);
+    const { error: dbError } = await supabase.from("platform_settings").upsert({ key, value: publicUrl }, { onConflict: "key" });
+    if (dbError) throw dbError;
+    if (key === "sidebar_logo") { setSidebarLogoUrl(publicUrl); await refreshBranding(); }
+    else setCertLogoUrl(publicUrl);
+  }
+
+  if (loading) return <LoadingScreen label="Carregando configurações..." />;
+
+  const roleLabel = userRole === "admin" ? "Administrador" : userRole === "teacher" ? "Instrutor" : "Aluno";
+  const nameChanged = fullName.trim() !== savedName;
 
   return (
-    <div className="dashboard-wrapper" style={{ display: 'flex', width: '100%', minHeight: '100vh', backgroundColor: '#020617', fontFamily: "'Sora', sans-serif" }}>
-      <style>{`
-        * { box-sizing: border-box; }
-        :root { --primary-color: ${themeColor}; }
-        .dashboard-content { flex: 1; padding: 40px; margin-left: 260px; width: 100%; transition: 0.3s; max-width: 100vw; overflow-x: hidden; }
-        .dashboard-header { display: flex; flex-direction: column; gap: 8px; margin-bottom: 35px; }
-        .settings-grid { display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start; width: 100%; }
-        .admin-card-local { background: #09090b; border-radius: 16px; padding: 30px; flex: 1; min-width: 320px; max-width: 550px; border: 1px solid rgba(139, 92, 246, 0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
-        .local-field { margin-bottom: 24px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
-        .local-field label { color: #e5e7eb; font-size: 0.9rem; font-weight: 600; }
-        .local-input-wrapper input { width: 100%; background-color: #020617 !important; color: white !important; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 12px; font-size: 0.9rem; outline: none; }
-        .local-primary-button, .local-secondary-button { width: 100%; padding: 14px; margin-top: 10px; border-radius: 999px; border: none; color: #fff; font-weight: 800; cursor: pointer; transition: 0.2s; }
-        .local-primary-button:disabled, .local-secondary-button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .local-primary-button { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); }
-        .local-secondary-button { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); }
-        .avatar-frame { width: 140px; height: 140px; border-radius: 50%; border: 4px solid var(--primary-color); overflow: hidden; display: flex; justify-content: center; align-items: center; background: #111; margin: 0 auto; }
-        .btn-logout-mobile { display: none; }
-        @media (max-width: 1024px) {
-          .dashboard-content { margin-left: 0; padding: 40px 20px 140px 20px !important; }
-          .dashboard-header { align-items: center; text-align: center; }
-          .dashboard-header h1 { font-size: 1.8rem; margin: 0; }
-          .dashboard-header p { font-size: 0.85rem; margin: 0; }
-          .admin-card-local { min-width: 100% !important; max-width: 100% !important; padding: 25px 20px; }
-          .btn-logout-mobile { display: block; width: 100%; margin-top: 25px; padding: 16px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 14px; font-weight: 800; cursor: pointer; }
-        }
-      `}</style>
+    <div className="ui-shell">
+      <SEO title="Configurações" />
+      <Sidebar />
+      <main className="ui-main">
+        <div className="ui-main__inner st">
+          <PageHeader
+            title="Configurações"
+            subtitle={isAdmin ? "Seu perfil e a identidade visual da plataforma." : "Seu perfil e suas preferências."}
+          />
 
-      <Sidebar/>
-
-      <main className="dashboard-content">
-        <header className="dashboard-header">
-          <h1 style={{ color: '#fff' }}>Configurações</h1>
-          <p style={{ color: '#9ca3af' }}>Olá, {loading ? "..." : fullName}. Personalize seu perfil.</p>
-        </header>
-
-        <div className="settings-grid">
-          <div className="admin-card-local">
-            <form onSubmit={e => { e.preventDefault(); supabase.from("profiles").update({ full_name: fullName, theme_color: themeColor }).eq("id", profileId).then(() => alert("Perfil salvo!")); }}>
-              <div className="avatar-frame">
-                {avatarUrl ? (
-                  <img src={avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Foto de Perfil" />
-                ) : (
-                  <div style={{ fontSize: '2.5rem', color: '#fff' }}>{fullName.charAt(0)}</div>
-                )}
-              </div>
-              <div className="local-field" style={{ marginTop: '20px' }}>
-                <label>Foto de Perfil</label>
-                <input type="file" onChange={handleUploadAvatar} disabled={uploading} />
-              </div>
-              <div className="local-field">
-                <label>Nome Completo</label>
-                <div className="local-input-wrapper">
-                  <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} disabled={loading} />
-                </div>
-              </div>
-              <button className="local-primary-button" type="submit" disabled={loading || uploading}>
-                {loading ? "CARREGANDO..." : "SALVAR PERFIL"}
-              </button>
-            </form>
-          </div>
-
-          {userRole === 'admin' && (
-            <>
-              <div className="admin-card-local" style={{ borderColor: '#f59e0b' }}>
-                <h2 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '20px' }}>🎖️ Branding Certificado</h2>
-                {certLogoUrl && (
-                  <div style={{ background: '#fff', padding: '10px', borderRadius: '8px', marginBottom: '15px', textAlign: 'center' }}>
-                    <img src={certLogoUrl} style={{ maxHeight: '50px' }} alt="Prévia da Logo do Certificado" />
-                  </div>
-                )}
-                <input type="file" onChange={e => setSelectedCertFile(e.target.files?.[0] || null)} />
-                <button className="local-secondary-button" onClick={() => handleSaveBranding('certificate_logo', selectedCertFile, setUploadingCert)} disabled={uploadingCert || !selectedCertFile}>
-                  {uploadingCert ? "ENVIANDO..." : "SALVAR LOGO CERTIFICADO"}
-                </button>
-              </div>
-
-              <div className="admin-card-local" style={{ borderColor: '#3b82f6' }}>
-                <h2 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '20px' }}>🎨 Logo da Sidebar</h2>
-                {sidebarLogoUrl && (
-                  <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px', marginBottom: '15px', textAlign: 'center' }}>
-                    <img src={sidebarLogoUrl} style={{ maxHeight: '40px' }} alt="Prévia da Logo da Sidebar" />
-                  </div>
-                )}
-                <input type="file" onChange={e => setSelectedSidebarFile(e.target.files?.[0] || null)} />
-                <button className="local-primary-button" style={{ background: '#3b82f6' }} onClick={() => handleSaveBranding('sidebar_logo', selectedSidebarFile, setUploadingSidebar)} disabled={uploadingSidebar || !selectedSidebarFile}>
-                   {uploadingSidebar ? "ATUALIZANDO..." : "ATUALIZAR SIDEBAR"}
-                </button>
-              </div>
-            </>
+          {isAdmin && (
+            <div className="ui-tabs st-tabs" role="tablist" aria-label="Seções de configuração">
+              <button role="tab" className="ui-tab" aria-selected={tab === "perfil"} onClick={() => setTab("perfil")}><User size={15} /> Perfil pessoal</button>
+              <button role="tab" className="ui-tab" aria-selected={tab === "marca"} onClick={() => setTab("marca")}><Palette size={15} /> Identidade e marca</button>
+            </div>
           )}
 
-          <button className="btn-logout-mobile" onClick={handleLogout}>🚪 ENCERRAR SESSÃO</button>
+          {notice && <div className={`ui-alert ui-alert--${notice.tone}`} role="status" style={{ marginBottom: 16 }}>{notice.text}</div>}
+
+          {tab === "perfil" ? (
+            <div className="st-grid">
+              <section className="ui-card st-card">
+                <h2 className="st-card__title">Perfil</h2>
+                <form className="st-profile" onSubmit={saveProfile}>
+                  <button
+                    type="button"
+                    className={`st-avatar ${avatarDrag ? "is-dragging" : ""}`}
+                    onClick={() => avatarInput.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setAvatarDrag(true); }}
+                    onDragLeave={() => setAvatarDrag(false)}
+                    onDrop={(e) => { e.preventDefault(); setAvatarDrag(false); uploadAvatar(e.dataTransfer.files?.[0]); }}
+                    disabled={uploadingAvatar}
+                    aria-label="Trocar foto de perfil"
+                  >
+                    {avatarUrl ? <img src={avatarUrl} alt="" /> : <span className="st-avatar__initial">{(fullName || "?").charAt(0).toUpperCase()}</span>}
+                    <span className="st-avatar__overlay">
+                      {uploadingAvatar ? <span className="ui-spinner ui-spinner--sm" /> : <Camera size={20} />}
+                      <small>{uploadingAvatar ? "Enviando..." : "Trocar foto"}</small>
+                    </span>
+                  </button>
+                  <input ref={avatarInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { uploadAvatar(e.target.files?.[0]); e.target.value = ""; }} />
+                  <p className="ui-hint st-avatar__hint">Clique ou arraste uma foto · PNG, JPG ou WebP até {AVATAR_MAX_MB} MB</p>
+
+                  <div className="st-fields">
+                    <div className="ui-field">
+                      <label className="ui-label" htmlFor="st-name">Nome completo</label>
+                      <input id="st-name" className="ui-input" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
+                    </div>
+                    <div className="ui-field">
+                      <label className="ui-label" htmlFor="st-email">E-mail</label>
+                      <div className="ui-input-group">
+                        <Mail size={16} />
+                        <input id="st-email" className="ui-input" value={email} readOnly aria-readonly="true" />
+                      </div>
+                      <span className="ui-hint">Para trocar o e-mail, fale com um administrador.</span>
+                    </div>
+                    <div className="st-role"><span className="ui-badge">{roleLabel}</span></div>
+                  </div>
+
+                  <div className="st-card__foot">
+                    <Button type="submit" loading={savingProfile} disabled={!nameChanged} icon={<Save size={16} />}>Salvar perfil</Button>
+                  </div>
+                </form>
+              </section>
+
+              <div className="st-side">
+                <section className="ui-card st-card">
+                  <h2 className="st-card__title">Aparência</h2>
+                  <p className="st-card__desc">Escolha o tema da plataforma neste dispositivo.</p>
+                  <div className="st-theme" role="radiogroup" aria-label="Tema">
+                    <button type="button" role="radio" aria-checked={theme === "light"} className="st-theme__opt st-theme__opt--light" onClick={() => setTheme("light")}>
+                      <span className="st-theme__preview" aria-hidden="true"><span /><span /><span /></span>
+                      <span className="st-theme__label"><Sun size={14} /> Claro</span>
+                    </button>
+                    <button type="button" role="radio" aria-checked={theme === "dark"} className="st-theme__opt st-theme__opt--dark" onClick={() => setTheme("dark")}>
+                      <span className="st-theme__preview" aria-hidden="true"><span /><span /><span /></span>
+                      <span className="st-theme__label"><Moon size={14} /> Escuro</span>
+                    </button>
+                  </div>
+                </section>
+
+                <section className="ui-card st-card">
+                  <h2 className="st-card__title">Sessão</h2>
+                  <p className="st-card__desc">Sair desta conta neste navegador.</p>
+                  <Button variant="danger" onClick={handleLogout} icon={<LogOut size={16} />}>Sair da conta</Button>
+                </section>
+              </div>
+            </div>
+          ) : (
+            <div className="st-grid st-grid--brand">
+              <section className="ui-card st-card">
+                <h2 className="st-card__title"><Award size={16} /> Logo do certificado</h2>
+                <p className="st-card__desc">Aparece no topo dos certificados em PDF, sobre fundo branco.</p>
+                <BrandUpload currentUrl={certLogoUrl} previewBackground="#ffffff" onSave={(f) => saveBranding("certificate_logo", f)} />
+              </section>
+
+              <section className="ui-card st-card">
+                <h2 className="st-card__title"><Palette size={16} /> Logo da sidebar</h2>
+                <p className="st-card__desc">Aparece no menu lateral para todos. Prefira fundo transparente.</p>
+                <BrandUpload currentUrl={sidebarLogoUrl} previewBackground="var(--color-sidebar)" previewHeight={44} onSave={(f) => saveBranding("sidebar_logo", f)} />
+              </section>
+            </div>
+          )}
         </div>
       </main>
     </div>
