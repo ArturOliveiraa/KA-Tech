@@ -38,7 +38,7 @@ function CompleteProfile() {
     e.preventDefault();
     setErrorMessage("");
     
-    if (!nome || !equipe || !tipoUnidade || !regiaoId) {
+    if (!nome || !equipe || !tipoUnidade || (precisaUnidade && !regiaoId)) {
       setErrorMessage("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
@@ -56,11 +56,13 @@ function CompleteProfile() {
 
       if (profileError) throw profileError;
 
-      const { error: tagError } = await supabase
-        .from("profile_tags")
-        .upsert([{ profile_id: user.id, tag_id: regiaoId }]);
+      if (regiaoId) {
+        const { error: tagError } = await supabase
+          .from("profile_tags")
+          .upsert([{ profile_id: user.id, tag_id: regiaoId }]);
 
-      if (tagError) throw tagError;
+        if (tagError) throw tagError;
+      }
 
       navigate("/dashboard");
 
@@ -76,10 +78,20 @@ function CompleteProfile() {
     return match ? match[1] : "Geral";
   };
 
-  const tagsDoTipo = tagsDisponiveis.filter(tag => tag.type === tipoUnidade);
+  const normalizar = (v?: string | null) => (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+  const tagsDoTipo = tagsDisponiveis.filter(tag =>
+    normalizar(tag.type) === tipoUnidade || (!tag.type && normalizar(tag.name) === tipoUnidade)
+  );
+  // Sem nenhuma unidade cadastrada para o tipo, a pessoa pode finalizar e a equipe ajusta depois
+  const precisaUnidade = tagsDoTipo.length > 0;
   const estadosDisponiveis = Array.from(new Set(tagsDoTipo.map(tag => getEstado(tag.name)))).sort();
   const exibirFiltroEstado = estadosDisponiveis.length > 1 || (estadosDisponiveis.length === 1 && estadosDisponiveis[0] !== "Geral");
   
+  useEffect(() => {
+    if (tagsDoTipo.length === 1 && regiaoId !== tagsDoTipo[0].id) setRegiaoId(tagsDoTipo[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoUnidade, tagsDoTipo.length]);
+
   const tagsDoEstado = tagsDoTipo.filter(tag => getEstado(tag.name) === estadoSelecionado || !exibirFiltroEstado);
   
   const unidadesFiltradas = tagsDoEstado.filter(tag => 
@@ -211,6 +223,7 @@ function CompleteProfile() {
           transition: all 0.2s ease;
         }
         .unit-item:hover { background: var(--color-primary-soft); color: var(--color-text); border-color: var(--color-border-strong); }
+        .unit-notice { margin-bottom: 20px; padding: 12px 14px; border-radius: 12px; background: var(--color-warning-soft); border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent); color: var(--color-warning-text); font-size: 0.85rem; line-height: 1.5; }
         .unit-item.selected { background: var(--color-primary-soft); color: var(--color-primary-text); border-color: var(--color-primary); font-weight: 600; }
         .unit-empty { text-align: center; color: var(--color-text-subtle); font-size: 0.85rem; padding: 15px; }
 
@@ -313,8 +326,15 @@ function CompleteProfile() {
               </div>
             )}
 
+            {tipoUnidade && !precisaUnidade && (
+              <div className="unit-notice" role="status">
+                Ainda não há unidades cadastradas para <strong>{tipoUnidade === "PEV" ? "PEV" : tipoUnidade === "MATRIZ" ? "Matriz" : "Franquia"}</strong>.
+                Você pode finalizar agora; a equipe vincula sua unidade depois.
+              </div>
+            )}
+
             {/* LISTA DE UNIDADES COM BUSCA RÁPIDA */}
-            {tipoUnidade && (!exibirFiltroEstado || estadoSelecionado) && (
+            {tipoUnidade && precisaUnidade && (!exibirFiltroEstado || estadoSelecionado) && (
               <div className="input-group">
                 <label>Selecione a Unidade</label>
                 <div className="units-container">
@@ -346,7 +366,7 @@ function CompleteProfile() {
 
             {errorMessage && <div style={{ color: 'var(--color-danger-text)', textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem', fontWeight: 500 }}>{errorMessage}</div>}
 
-            <button className="btn-premium-action" type="submit" disabled={loading || !nome || !equipe || !tipoUnidade || !regiaoId}>
+            <button className="btn-premium-action" type="submit" disabled={loading || !nome || !equipe || !tipoUnidade || (precisaUnidade && !regiaoId)}>
               {loading ? "Processando..." : "Finalizar Cadastro"}
             </button>
           </form>
