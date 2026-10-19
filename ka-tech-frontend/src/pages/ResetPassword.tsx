@@ -4,6 +4,7 @@ import { Mail } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import AuthLayout, { AuthField } from "../components/AuthLayout";
 import { Button } from "../components/ui";
+import { authErrorMessage } from "../utils/authErrors";
 
 function ResetPassword() {
   const [email, setEmail] = useState("");
@@ -24,7 +25,7 @@ function ResetPassword() {
       if (error) throw error;
       setSuccessMessage("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.");
     } catch (err: any) {
-      setErrorMessage(err?.message || "Erro ao solicitar recuperação.");
+      setErrorMessage(authErrorMessage(err, "Não foi possível enviar o link."));
     } finally {
       setLoading(false);
     }

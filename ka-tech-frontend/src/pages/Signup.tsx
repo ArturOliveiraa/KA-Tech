@@ -4,6 +4,7 @@ import { Lock, Mail } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import AuthLayout, { AuthField } from "../components/AuthLayout";
 import { Button } from "../components/ui";
+import { authErrorMessage } from "../utils/authErrors";
 
 function Signup() {
   const [email, setEmail] = useState("");
@@ -27,7 +28,7 @@ function Signup() {
       if (error) throw error;
       setSuccessMessage("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
     } catch (err: any) {
-      setErrorMessage(err?.message || "Erro ao cadastrar.");
+      setErrorMessage(authErrorMessage(err, "Não foi possível criar a conta."));
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { Lock, Mail } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import AuthLayout, { AuthField } from "../components/AuthLayout";
 import { Button } from "../components/ui";
+import { authErrorMessage } from "../utils/authErrors";
 import discordLogo from "../assets/discord-logo.png";
 
 /** Logo oficial do Google ("G" multicolorido), como pedem as diretrizes de login do Google */
@@ -36,7 +37,7 @@ function Login() {
       });
       if (error) throw error;
     } catch (err: any) {
-      setErrorMessage(err.message || `Erro ao entrar com ${provider}.`);
+      setErrorMessage(authErrorMessage(err, `Não foi possível entrar com ${provider === "google" ? "Google" : "Discord"}.`));
       setLoading(false);
     }
   }
@@ -58,7 +59,7 @@ function Login() {
       setSuccessMessage(`Bem-vindo, ${displayName}! Redirecionando...`);
       setTimeout(() => navigate("/dashboard"), 1000);
     } catch (err: any) {
-      setErrorMessage(err?.message || "Erro ao fazer login. Verifique suas credenciais.");
+      setErrorMessage(authErrorMessage(err, "Não foi possível entrar."));
     } finally {
       setLoading(false);
     }

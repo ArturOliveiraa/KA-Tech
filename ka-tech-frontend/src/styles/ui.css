@@ -590,3 +590,14 @@ select.ui-input { appearance: none; padding-right: var(--space-10); background-i
 .rk-tab--maratonistas[aria-selected="true"] svg { color: var(--color-success-text); }
 .rk-tab--tempo[aria-selected="true"] svg { color: var(--color-info); }
 .rk-tab--on_fire[aria-selected="true"] svg { color: var(--color-danger-text); }
+
+/* Preenchimento automático do navegador (fundo azul/amarelo) segue o tema */
+.ui-input:-webkit-autofill,
+.ui-input:-webkit-autofill:hover,
+.ui-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+  box-shadow: 0 0 0 1000px var(--color-surface-1) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+.ui-input:-webkit-autofill:focus { box-shadow: 0 0 0 1000px var(--color-surface-1) inset, var(--focus-ring); }

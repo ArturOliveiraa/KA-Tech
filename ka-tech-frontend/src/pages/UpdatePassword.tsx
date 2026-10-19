@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import AuthLayout, { AuthField } from "../components/AuthLayout";
 import { Button } from "../components/ui";
+import { authErrorMessage } from "../utils/authErrors";
 
 function UpdatePassword() {
   const [password, setPassword] = useState("");
@@ -33,7 +34,7 @@ function UpdatePassword() {
       setSuccessMessage("Senha atualizada! Redirecionando para o login...");
       setTimeout(() => navigate("/"), 2000);
     } catch (err: any) {
-      setErrorMessage(err?.message || "Erro ao atualizar senha.");
+      setErrorMessage(authErrorMessage(err, "Não foi possível trocar a senha."));
     } finally {
       setLoading(false);
     }
