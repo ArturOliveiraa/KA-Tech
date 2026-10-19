@@ -99,8 +99,9 @@ const Sidebar: React.FC = () => {
 
       <aside className={`sb ${mobileOpen ? "is-open" : ""}`} aria-label="Menu principal">
         <div className="sb-brand">
-          <Link to="/dashboard" className="sb-brand__logo">
-            <img src={sidebarLogo} alt="KA Tech" className="brand-logo-img" />
+          <Link to="/dashboard" className="sb-brand__logo" aria-label="KA Academy - início">
+            <img src={sidebarLogo} alt="" className="brand-logo-img" />
+            <span className="sb-brand__name" aria-hidden="true">KA <strong>Academy</strong></span>
           </Link>
           <button className="sb-icon-btn sb-close" onClick={() => setMobileOpen(false)} aria-label="Fechar menu">
             <X size={20} />
