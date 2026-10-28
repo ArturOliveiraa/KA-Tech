@@ -19,7 +19,9 @@
 
 begin;
 
-create extension if not exists vector with schema extensions;
+-- A extensão já existe neste banco (usada por aula_embeddings), no esquema public.
+-- Por isso os tipos abaixo não indicam esquema: valem onde a extensão estiver.
+create extension if not exists vector;
 
 -- -----------------------------------------------------------------------------
 -- 1. Status da indexação em cada aula
@@ -49,14 +51,14 @@ create table if not exists public.lesson_chunks (
   start_seconds integer not null default 0,
   end_seconds   integer,
   content       text not null,
-  embedding     extensions.vector(768) not null,
+  embedding     vector(768) not null,
   fts           tsvector generated always as (to_tsvector('portuguese', content)) stored,
   created_at    timestamptz not null default now(),
   unique (lesson_id, chunk_index)
 );
 
 create index if not exists lesson_chunks_embedding_idx
-  on public.lesson_chunks using hnsw (embedding extensions.vector_cosine_ops);
+  on public.lesson_chunks using hnsw (embedding vector_cosine_ops);
 create index if not exists lesson_chunks_fts_idx on public.lesson_chunks using gin (fts);
 create index if not exists lesson_chunks_lesson_idx on public.lesson_chunks (lesson_id);
 
@@ -74,7 +76,7 @@ create policy lesson_chunks_read on public.lesson_chunks
 --    SECURITY INVOKER: roda com as permissões de quem busca.
 -- -----------------------------------------------------------------------------
 create or replace function public.search_lesson_chunks(
-  query_embedding extensions.vector(768),
+  query_embedding vector(768),
   query_text text,
   match_count integer default 8
 )
@@ -134,8 +136,8 @@ as $$
   limit greatest(1, least(match_count, 20));
 $$;
 
-revoke all on function public.search_lesson_chunks(extensions.vector, text, integer) from public;
-grant execute on function public.search_lesson_chunks(extensions.vector, text, integer) to authenticated;
+revoke all on function public.search_lesson_chunks(vector, text, integer) from public;
+grant execute on function public.search_lesson_chunks(vector, text, integer) to authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 4. Gatilhos: marca para indexar e chama a Edge Function
@@ -254,7 +256,7 @@ commit;
 -- drop trigger if exists lessons_mark_for_index on public.lessons;
 -- drop function if exists public.lessons_request_index();
 -- drop function if exists public.lessons_mark_for_index();
--- drop function if exists public.search_lesson_chunks(extensions.vector, text, integer);
+-- drop function if exists public.search_lesson_chunks(vector, text, integer);
 -- drop table if exists public.lesson_chunks;
 -- alter table public.lessons drop constraint if exists lessons_index_status_check;
 -- alter table public.lessons
