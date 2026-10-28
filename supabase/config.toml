@@ -1,0 +1,11 @@
+# Configuração mínima para publicar as Edge Functions com a CLI do Supabase.
+# Ligue a pasta ao projeto uma vez: supabase link --project-ref zvgchncgvadzpkffhfbr
+project_id = "ka-tech"
+
+# Chamada pelo gatilho do banco (pg_net) sem login; a função confere o
+# cabeçalho x-index-secret ou o login de um admin/instrutor.
+[functions.index-lesson]
+verify_jwt = false
+
+[functions.search-lessons]
+verify_jwt = true

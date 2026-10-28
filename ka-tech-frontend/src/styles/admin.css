@@ -604,3 +604,22 @@
 @media (max-width: 1024px) {
   .ce-steps { top: var(--topbar-height); }
 }
+
+/* Situação da aula na busca da pandAI */
+.lm-index {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-subtle);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-semibold);
+  width: fit-content;
+}
+.lm-index--done { background: var(--color-primary-soft); color: var(--color-primary-text); }
+.lm-index--processing { background: var(--color-info-soft); color: var(--color-info); }
+.lm-index--error { background: var(--color-danger-soft); color: var(--color-danger-text); cursor: help; }
+.lm-info { display: flex; flex-direction: column; }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import LessonView from "../components/LessonView";
@@ -18,6 +18,11 @@ import "./Player.css";
 
 export default function Player() {
     const { slug } = useParams<{ slug: string }>();
+    // Vindo da busca da pandAI: ?aula=<id>&t=<segundos> abre a aula já no minuto certo
+    const [searchParams] = useSearchParams();
+    const requestedRef = useRef<{ lessonId: number; time: number } | null>(
+        searchParams.get("aula") ? { lessonId: Number(searchParams.get("aula")), time: Math.max(0, Number(searchParams.get("t")) || 0) } : null
+    );
     const navigate = useNavigate();
 
     // Estados de Dados
@@ -107,7 +112,9 @@ export default function Player() {
                         const prog = userProgress.find(p => p.lesson_id === lesson.id);
                         return !prog?.is_completed;
                     });
-                    setActiveLessonId(nextLesson ? nextLesson.id : allLessons[0].id);
+                    const requested = requestedRef.current && allLessons.find(l => l.id === requestedRef.current!.lessonId);
+                    setActiveLessonId(requested ? requested.id : nextLesson ? nextLesson.id : allLessons[0].id);
+                    if (!requested) requestedRef.current = null;
                 }
 
             } catch (error) {
@@ -199,7 +206,13 @@ export default function Player() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             const { data } = await supabase.from("user_progress").select("last_time").eq("user_id", user.id).eq("lesson_id", activeLessonId).maybeSingle();
-            setLessonStartTime(data?.last_time || 0);
+            const requested = requestedRef.current;
+            if (requested && requested.lessonId === activeLessonId) {
+                setLessonStartTime(requested.time);
+                requestedRef.current = null; // vale só para a primeira abertura
+            } else {
+                setLessonStartTime(data?.last_time || 0);
+            }
             setIsTimeLoaded(true);
         }
         fetchSavedTime();

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowDown, ArrowUp, Check, ChevronDown, Clock, Eye, EyeOff, FolderPlus, GripVertical, Layers, Pencil, Plus, Trash2, Video, X,
+  AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, Clock, Eye, EyeOff, FolderPlus, GripVertical, Layers, Pencil, Plus, RefreshCw, Sparkles, Trash2, Video, X,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { Button, EmptyState, Select } from "../ui";
@@ -9,6 +9,7 @@ import LessonAttachments from "./LessonAttachments";
 import { fetchVideoDuration, parseVideoUrl, videoThumbSync } from "../../utils/video";
 
 type LessonStatus = "draft" | "published";
+type IndexStatus = "pending" | "processing" | "done" | "error" | "skipped";
 
 interface Lesson {
   id: number;
@@ -19,6 +20,9 @@ interface Lesson {
   duration?: number;
   module_id: number | null;
   status: LessonStatus;
+  index_status?: IndexStatus;
+  index_error?: string | null;
+  transcript_source?: string | null;
 }
 
 interface Module {
@@ -40,6 +44,21 @@ const formatMinutes = (min?: number) => {
   const total = Math.round(min);
   return total >= 60 ? `${Math.floor(total / 60)}h ${total % 60}min` : `${total} min`;
 };
+
+/** Situação da aula na busca da pandAI. */
+function IndexBadge({ lesson }: { lesson: Lesson }) {
+  const st = lesson.index_status || "pending";
+  if (st === "done") {
+    return (
+      <span className={`lm-index lm-index--done`} title={lesson.index_error || (lesson.transcript_source?.includes("gemini") ? "Transcrita pela IA e indexada" : "Indexada pelo texto da aula")}>
+        <Sparkles size={11} /> Na busca{lesson.index_error ? " (só texto)" : ""}
+      </span>
+    );
+  }
+  if (st === "processing") return <span className="lm-index lm-index--processing"><span className="ui-spinner ui-spinner--sm" /> Transcrevendo...</span>;
+  if (st === "error") return <span className="lm-index lm-index--error" title={lesson.index_error || ""}><AlertTriangle size={11} /> Erro na busca</span>;
+  return <span className="lm-index">Fora da busca</span>;
+}
 
 /** Miniatura do vídeo do YouTube. */
 function VideoThumb({ url }: { url: string | null }) {
@@ -93,6 +112,43 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
   }, [courseId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // ---------- Indexação para a busca (pandAI) ----------
+  const [bulkIndexing, setBulkIndexing] = useState(false);
+
+  const requestIndex = async (lessonId: number) => {
+    setLessons((prev) => prev.map((l) => (l.id === lessonId ? { ...l, index_status: "processing", index_error: null } : l)));
+    const { error: fnError } = await supabase.functions.invoke("index-lesson", { body: { lesson_id: lessonId } });
+    if (fnError) {
+      setLessons((prev) => prev.map((l) => (l.id === lessonId ? { ...l, index_status: "error", index_error: "Não foi possível chamar a indexação. A função index-lesson está publicada?" } : l)));
+    }
+  };
+
+  const reindex = (lesson: Lesson) => requestIndex(lesson.id);
+
+  const indexPending = async () => {
+    setBulkIndexing(true);
+    // Uma por vez, com pausa, para não estourar o limite da API do Gemini
+    for (const l of lessons.filter((x) => x.status === "published" && (x.index_status === "pending" || x.index_status === "error"))) {
+      await requestIndex(l.id);
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    setBulkIndexing(false);
+  };
+
+  // Enquanto alguma aula estiver sendo processada, atualiza o status a cada 6 s
+  const anyProcessing = lessons.some((l) => l.index_status === "processing");
+  useEffect(() => {
+    if (!anyProcessing) return;
+    const timer = setInterval(async () => {
+      const { data } = await supabase.from("lessons").select("id, index_status, index_error, transcript_source").eq("course_id", courseId);
+      if (data) setLessons((prev) => prev.map((l) => {
+        const fresh = data.find((d: any) => d.id === l.id);
+        return fresh ? { ...l, ...fresh } : l;
+      }));
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [anyProcessing, courseId]);
   useEffect(() => { onCountChange?.(lessons.filter((l) => l.status === "published").length); }, [lessons, onCountChange]);
 
   // Grupos na ordem de exibição: "Sem módulo" primeiro (se houver aula sem módulo ou nenhum módulo)
@@ -216,7 +272,8 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
 
   // ---------- Publicação ----------
   const setStatus = async (lesson: Lesson, status: LessonStatus) => {
-    setLessons((prev) => prev.map((l) => (l.id === lesson.id ? { ...l, status } : l)));
+    // Ao publicar, o banco já dispara a transcrição/indexação para a busca
+    setLessons((prev) => prev.map((l) => (l.id === lesson.id ? { ...l, status, index_status: status === "published" ? "processing" : "skipped" } : l)));
     const payload: any = { status };
     if (status === "published") payload.published_at = new Date().toISOString();
     const { error: dbError } = await supabase.from("lessons").update(payload).eq("id", lesson.id);
@@ -326,6 +383,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
   });
 
   const publishedCount = lessons.filter((l) => l.status === "published").length;
+  const pendingIndex = lessons.filter((l) => l.status === "published" && (l.index_status === "pending" || l.index_status === "error"));
   const draftCount = lessons.length - publishedCount;
   const totalMinutes = lessons.filter((l) => l.status === "published").reduce((s, l) => s + (l.duration || 0), 0);
   const sortedModules = [...modules].sort((a, b) => a.order - b.order);
@@ -368,6 +426,11 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
           >
             Novo módulo
           </Button>
+          {pendingIndex.length > 0 && (
+            <Button variant="secondary" onClick={indexPending} loading={bulkIndexing} icon={<Sparkles size={16} />} title="Transcreve e indexa para a busca da pandAI">
+              Indexar {pendingIndex.length} pendente(s)
+            </Button>
+          )}
           <Button onClick={() => openNew()} icon={<Plus size={16} />}>Nova aula</Button>
         </div>
       </div>
@@ -447,8 +510,9 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
                               <strong>{lesson.title}</strong>
                               <span>
                                 {formatMinutes(lesson.duration)}
-                                {lesson.content ? " · com transcrição" : ""}
+                                {lesson.content ? " · com texto" : ""}
                               </span>
+                              {lesson.status === "published" && <IndexBadge lesson={lesson} />}
                             </div>
                             <button
                               type="button"
@@ -464,6 +528,9 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
                             <div className="lm-actions">
                               <button type="button" className="sb-icon-btn" onClick={() => moveLesson(gi, index, -1)} disabled={index === 0} aria-label={`Subir ${lesson.title}`}><ArrowUp size={15} /></button>
                               <button type="button" className="sb-icon-btn" onClick={() => moveLesson(gi, index, 1)} disabled={index === group.lessons.length - 1} aria-label={`Descer ${lesson.title}`}><ArrowDown size={15} /></button>
+                              {lesson.status === "published" && (
+                                <button type="button" className="sb-icon-btn" onClick={() => reindex(lesson)} disabled={lesson.index_status === "processing"} aria-label={`Reindexar ${lesson.title} para a busca`} title="Transcrever e indexar de novo para a busca"><RefreshCw size={15} /></button>
+                              )}
                               <button type="button" className="sb-icon-btn" onClick={() => openEdit(lesson)} aria-label={`Editar ${lesson.title}`}><Pencil size={15} /></button>
                               <button type="button" className="sb-icon-btn sb-logout" onClick={() => handleDelete(lesson)} aria-label={`Excluir ${lesson.title}`}><Trash2 size={15} /></button>
                             </div>

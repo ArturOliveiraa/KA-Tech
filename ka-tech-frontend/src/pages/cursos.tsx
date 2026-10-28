@@ -19,11 +19,16 @@ interface Category {
 }
 
 interface AiLessonResult {
+  lesson_id: number;
   lesson_title: string;
+  course_title: string;
   course_slug: string;
+  start_seconds: number;
   content: string;
   similarity: number;
 }
+
+const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 const getCategoryIcon = (name: string) => {
   const lowerName = name.toLowerCase();
@@ -83,14 +88,10 @@ function Cursos() {
     setAiError(null);
 
     try {
-      const response = await fetch("https://pandai.discloud.app/search-lessons", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-      if (!response.ok) throw new Error("Falha na comunicação com a IA");
-      const data = await response.json();
-      setAiResults(data.results || []);
+      // Busca semântica no Supabase (Edge Function search-lessons): só traz aulas que o aluno pode ver
+      const { data, error } = await supabase.functions.invoke("search-lessons", { body: { query } });
+      if (error) throw error;
+      setAiResults(data?.results || []);
     } catch (error) {
       console.error("Erro na busca IA:", error);
       setAiResults([]);
@@ -163,14 +164,19 @@ function Cursos() {
               ) : aiResults.length > 0 ? (
                 <div className="ui-grid" style={{ ["--ui-grid-min" as any]: "280px" }}>
                   {aiResults.map((item, index) => (
-                    <Link key={index} to={`/curso/${item.course_slug}`} className="ui-card ui-card--interactive trl-result">
+                    <Link
+                      key={`${item.lesson_id}-${index}`}
+                      to={`/curso/${item.course_slug}?aula=${item.lesson_id}&t=${item.start_seconds || 0}`}
+                      className="ui-card ui-card--interactive trl-result"
+                    >
                       <div className="trl-result__head">
                         <span className="trl-result__icon"><PlayCircle size={18} /></span>
-                        <span className="ui-badge ui-badge--success">{(item.similarity * 100).toFixed(0)}% relevante</span>
+                        {item.start_seconds > 0 && <span className="ui-badge">a partir de {mmss(item.start_seconds)}</span>}
                       </div>
                       <h3 className="trl-result__title">{item.lesson_title}</h3>
+                      <span className="ui-hint" style={{ marginTop: -6 }}>{item.course_title}</span>
                       <p className="trl-result__snippet">{item.content.substring(0, 150)}…</p>
-                      <span className="trl-result__cta">Ir para a aula <ArrowRight size={15} /></span>
+                      <span className="trl-result__cta">{item.start_seconds > 0 ? `Assistir a partir de ${mmss(item.start_seconds)}` : "Ir para a aula"} <ArrowRight size={15} /></span>
                     </Link>
                   ))}
                 </div>
