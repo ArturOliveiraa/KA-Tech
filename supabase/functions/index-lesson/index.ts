@@ -171,8 +171,15 @@ async function processLesson(lessonId: number) {
 
 /** Aceita o segredo do gatilho ou um admin/instrutor logado. */
 async function authorized(req: Request) {
-  const secret = req.headers.get("x-index-secret");
-  if (INDEX_SECRET && secret && secret === INDEX_SECRET) return true;
+  // Espaços ou quebra de linha copiados junto com o segredo não devem barrar a chamada
+  const secret = (req.headers.get("x-index-secret") || "").trim();
+  const expected = INDEX_SECRET.trim();
+  if (secret) {
+    if (expected && secret === expected) return true;
+    // Só os tamanhos vão para o log, nunca o valor do segredo
+    console.warn(`index-lesson: segredo recusado (recebido ${secret.length} caracteres, configurado ${expected.length})`);
+    return false;
+  }
 
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return false;
