@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, Clock, Eye, EyeOff, FolderPlus, GripVertical, Layers, Pencil, Plus, RefreshCw, Sparkles, Trash2, Video, X,
+  AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, Clock, Eye, EyeOff, FileText, FolderPlus, GripVertical, Layers, Pencil, Plus, RefreshCw, Sparkles, Trash2, Video, X,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { Button, EmptyState, Select } from "../ui";
 import Drawer from "./Drawer";
 import LessonAttachments from "./LessonAttachments";
+import TranscriptDrawer from "./TranscriptDrawer";
 import { fetchVideoDuration, parseVideoUrl, videoThumbSync } from "../../utils/video";
 
 type LessonStatus = "draft" | "published";
@@ -115,6 +116,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
 
   // ---------- Indexação para a busca (pandAI) ----------
   const [bulkIndexing, setBulkIndexing] = useState(false);
+  const [transcriptLesson, setTranscriptLesson] = useState<{ id: number; title: string } | null>(null);
 
   const requestIndex = async (lessonId: number) => {
     setLessons((prev) => prev.map((l) => (l.id === lessonId ? { ...l, index_status: "processing", index_error: null } : l)));
@@ -531,6 +533,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
                               {lesson.status === "published" && (
                                 <button type="button" className="sb-icon-btn" onClick={() => reindex(lesson)} disabled={lesson.index_status === "processing"} aria-label={`Reindexar ${lesson.title} para a busca`} title="Transcrever e indexar de novo para a busca"><RefreshCw size={15} /></button>
                               )}
+                              <button type="button" className="sb-icon-btn" onClick={() => setTranscriptLesson({ id: lesson.id, title: lesson.title })} aria-label={`Ver transcrição de ${lesson.title}`} title="Ver e corrigir a transcrição"><FileText size={15} /></button>
                               <button type="button" className="sb-icon-btn" onClick={() => openEdit(lesson)} aria-label={`Editar ${lesson.title}`}><Pencil size={15} /></button>
                               <button type="button" className="sb-icon-btn sb-logout" onClick={() => handleDelete(lesson)} aria-label={`Excluir ${lesson.title}`}><Trash2 size={15} /></button>
                             </div>
@@ -551,6 +554,13 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
         <input id="new-module-input" className="ui-input" placeholder="Novo módulo (ex.: Módulo 1 · Primeiros passos)" value={newModuleTitle} onChange={(e) => setNewModuleTitle(e.target.value)} aria-label="Nome do novo módulo" />
         <Button type="submit" variant="secondary" loading={addingModule} disabled={!newModuleTitle.trim()}>Criar módulo</Button>
       </form>
+
+      <TranscriptDrawer
+        lessonId={transcriptLesson?.id ?? null}
+        lessonTitle={transcriptLesson?.title}
+        onClose={() => setTranscriptLesson(null)}
+        onReindexRequested={(id) => setLessons((prev) => prev.map((l) => (l.id === id ? { ...l, index_status: "processing", index_error: null } : l)))}
+      />
 
       <Drawer
         open={drawerOpen}

@@ -47,6 +47,24 @@ function toChunks(segments: Segment[]) {
   return chunks;
 }
 
+/** Lê a transcrição salva ("[mm:ss] texto" por linha); linhas sem minuto herdam o anterior. */
+function parseTranscript(text: string): Segment[] {
+  let last = 0;
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^\[(?:(\d+):)?(\d{1,2}):(\d{2})\]\s*(.*)$/);
+      if (m) {
+        last = (Number(m[1] || 0) * 3600) + Number(m[2]) * 60 + Number(m[3]);
+        return { start: last, text: m[4].trim() };
+      }
+      return { start: last, text: line };
+    })
+    .filter((s) => s.text.length > 0);
+}
+
 /** Texto escrito pelo admin vira trechos sem minuto (começo da aula). */
 function textToSegments(text: string): Segment[] {
   return text
@@ -63,7 +81,7 @@ async function setStatus(lessonId: number, fields: Record<string, unknown>) {
 async function processLesson(lessonId: number) {
   const { data: lesson, error } = await admin
     .from("lessons")
-    .select('id, title, "videoUrl", content, course_id, status')
+    .select("*") // tolera colunas novas ainda não criadas (ex.: transcript_edited)
     .eq("id", lessonId)
     .maybeSingle();
   if (error || !lesson) return;
@@ -82,7 +100,14 @@ async function processLesson(lessonId: number) {
     let source = "";
     let transcribeError = "";
 
-    const vid = youtubeId(lesson.videoUrl);
+    // Transcrição revisada pela equipe no admin: é a fonte oficial, não chama a IA de novo
+    const edited = lesson.transcript_edited === true && String(lesson.transcript || "").trim().length > 0;
+    if (edited) {
+      segments = parseTranscript(lesson.transcript);
+      source = "editada";
+    }
+
+    const vid = edited ? null : youtubeId(lesson.videoUrl);
     if (vid) {
       try {
         segments = await transcribeYouTube(`https://www.youtube.com/watch?v=${vid}`, lesson.title);
@@ -93,7 +118,7 @@ async function processLesson(lessonId: number) {
     }
 
     // Texto do admin complementa (ou substitui, se o vídeo não pôde ser transcrito)
-    const manual = (lesson.content || "").trim();
+    const manual = edited ? "" : (lesson.content || "").trim();
     if (manual.length >= 40) {
       segments = [...textToSegments(manual), ...segments];
       source = source ? `${source}+texto` : "texto";
@@ -133,11 +158,10 @@ async function processLesson(lessonId: number) {
       .join("\n");
 
     await setStatus(lessonId, {
+      ...(edited ? {} : { transcript, transcript_source: source }),
       index_status: "done",
       index_error: transcribeError && source === "texto" ? `Vídeo não transcrito; indexado só pelo texto (${transcribeError})`.slice(0, 500) : null,
       indexed_at: new Date().toISOString(),
-      transcript,
-      transcript_source: source,
     });
   } catch (e) {
     console.error("index-lesson", lessonId, e);

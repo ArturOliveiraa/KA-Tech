@@ -623,3 +623,13 @@
 .lm-index--processing { background: var(--color-info-soft); color: var(--color-info); }
 .lm-index--error { background: var(--color-danger-soft); color: var(--color-danger-text); cursor: help; }
 .lm-info { display: flex; flex-direction: column; }
+
+/* Painel de transcrição */
+.tr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.tr-text {
+  min-height: calc(100vh - 470px) !important;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  resize: vertical;
+}

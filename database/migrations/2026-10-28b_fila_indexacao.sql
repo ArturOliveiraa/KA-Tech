@@ -1,5 +1,5 @@
 -- =============================================================================
--- KA Tech — Fila de indexação das aulas (busca semântica)
+-- KA Tech — Fila de indexação das aulas (busca semântica) + transcrição revisada
 -- RASCUNHO: ainda NÃO aplicado. Rodar no SQL Editor, num bloco só, DEPOIS de
 -- 2026-10-28_busca_semantica_aulas.sql.
 --
@@ -21,7 +21,10 @@ create extension if not exists pg_cron;
 
 alter table public.lessons
   add column if not exists index_attempts integer not null default 0,
-  add column if not exists index_requested_at timestamptz;
+  add column if not exists index_requested_at timestamptz,
+  -- true quando a equipe revisou a transcrição no admin: a indexação passa a
+  -- usar esse texto e não transcreve o vídeo de novo (não perde a correção)
+  add column if not exists transcript_edited boolean not null default false;
 
 -- Ao marcar para indexar (publicar/editar), zera as tentativas e anota a hora.
 -- A hora evita que a fila chame de novo uma aula que o gatilho acabou de chamar.
@@ -148,5 +151,6 @@ commit;
 -- drop function if exists public.index_lessons_queue(integer);
 -- alter table public.lessons drop column if exists index_requested_at, drop column if exists index_attempts;
 -- commit;
+-- alter table public.lessons drop column if exists transcript_edited;
 -- (o gatilho lessons_mark_for_index continua funcionando sem essas colunas
 --  apenas se for recriado pela versão de 2026-10-28_busca_semantica_aulas.sql)
