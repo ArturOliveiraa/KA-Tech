@@ -28,23 +28,35 @@ async function call(path: string, body: unknown): Promise<any> {
   return data;
 }
 
+const mm = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
 /**
  * Transcreve um vídeo público do YouTube em blocos com o segundo de início.
  * Vídeos privados ou não listados não são aceitos pelo Gemini.
+ * Com `clip`, transcreve só esse trecho (lives longas são feitas em partes);
+ * os segundos devolvidos são sempre contados do início do vídeo inteiro.
  */
-export async function transcribeYouTube(watchUrl: string, lessonTitle: string): Promise<Segment[]> {
+export async function transcribeYouTube(
+  watchUrl: string,
+  lessonTitle: string,
+  clip?: { start: number; end: number },
+): Promise<Segment[]> {
   const prompt = [
     "Transcreva integralmente a fala deste vídeo em português do Brasil, sem resumir.",
     `O vídeo é a aula "${lessonTitle}" de um curso sobre sistemas da Softcom.`,
+    clip ? `Transcreva só o trecho de ${mm(clip.start)} a ${mm(clip.end)} do vídeo.` : "",
     "Divida a transcrição em blocos de 30 a 60 segundos.",
     "Para cada bloco informe 'start' (segundo em que o bloco começa, número inteiro) e 'text' (a fala transcrita).",
     "Ignore música, silêncio e vinhetas. Não invente conteúdo que não foi falado.",
-  ].join(" ");
+  ].filter(Boolean).join(" ");
+
+  const video: Record<string, unknown> = { file_data: { file_uri: watchUrl } };
+  if (clip) video.video_metadata = { start_offset: `${clip.start}s`, end_offset: `${clip.end}s` };
 
   const data = await call(`models/${TRANSCRIBE_MODEL}:generateContent`, {
     contents: [{
       parts: [
-        { file_data: { file_uri: watchUrl } },
+        video,
         { text: prompt },
       ],
     }],
@@ -77,10 +89,17 @@ export async function transcribeYouTube(watchUrl: string, lessonTitle: string): 
     throw new Error("Gemini devolveu uma transcrição em formato inválido (talvez o vídeo seja longo demais).");
   }
 
-  return (Array.isArray(parsed) ? parsed : [])
+  const segments = (Array.isArray(parsed) ? parsed : [])
     .map((s: any) => ({ start: Math.max(0, Math.floor(Number(s?.start) || 0)), text: String(s?.text || "").trim() }))
     .filter((s) => s.text.length > 0)
     .sort((a, b) => a.start - b.start);
+
+  // Num trecho, o Gemini às vezes conta os segundos a partir do começo do trecho:
+  // se todos ficaram antes do trecho, desloca para o tempo do vídeo inteiro
+  if (clip && clip.start > 0 && segments.length && segments[segments.length - 1].start < clip.start) {
+    for (const s of segments) s.start += clip.start;
+  }
+  return segments;
 }
 
 const isEmbedding2 = () => EMBED_MODEL.startsWith("gemini-embedding-2");

@@ -182,8 +182,11 @@ export default function TranscriptDrawer({ lessonId, lessonTitle, onClose, onRei
           </div>
 
           <div className="ui-alert">
-            Ao salvar, esta versão passa a ser a <strong>&nbsp;oficial</strong>: a busca e o quiz da aula usam este texto,
-            e a IA não transcreve o vídeo de novo por cima das suas correções.
+            {/* Um único filho: o alerta é flex e quebraria o texto em colunas */}
+            <span>
+              Ao salvar, esta versão passa a ser a <strong>oficial</strong>: a busca e o quiz da aula usam este texto,
+              e a IA não transcreve o vídeo de novo por cima das suas correções.
+            </span>
           </div>
 
           {notice && <div className={`ui-alert ui-alert--${notice.tone}`} role="status">{notice.text}</div>}

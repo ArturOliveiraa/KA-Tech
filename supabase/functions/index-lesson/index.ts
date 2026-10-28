@@ -18,6 +18,10 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession:
 
 const CHUNK_MAX_CHARS = 1200;
 const CHUNK_MAX_SECONDS = 120;
+// Vídeos acima disso (lives) são transcritos em partes, cada uma numa execução,
+// para não passar do limite de tempo da Edge Function
+const LONG_VIDEO_SECONDS = 35 * 60;
+const PART_SECONDS = 30 * 60;
 
 const youtubeId = (url: string | null) => {
   if (!url) return null;
@@ -78,6 +82,20 @@ async function setStatus(lessonId: number, fields: Record<string, unknown>) {
   await admin.from("lessons").update(fields).eq("id", lessonId);
 }
 
+/** Chama a própria função para a próxima parte de uma live (responde 202 na hora). */
+async function continueLater(lessonId: number) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/index-lesson`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-index-secret": INDEX_SECRET.trim() },
+      body: JSON.stringify({ lesson_id: lessonId }),
+    });
+  } catch (e) {
+    // A fila do banco retoma a aula parada em "processing" depois de 15 min, da parte em que estava
+    console.error("index-lesson: não consegui pedir a próxima parte", lessonId, e);
+  }
+}
+
 async function processLesson(lessonId: number) {
   const { data: lesson, error } = await admin
     .from("lessons")
@@ -99,6 +117,7 @@ async function processLesson(lessonId: number) {
     let segments: Segment[] = [];
     let source = "";
     let transcribeError = "";
+    let finishedParts = false;
 
     // Transcrição revisada pela equipe no admin: é a fonte oficial, não chama a IA de novo
     const edited = lesson.transcript_edited === true && String(lesson.transcript || "").trim().length > 0;
@@ -108,7 +127,37 @@ async function processLesson(lessonId: number) {
     }
 
     const vid = edited ? null : youtubeId(lesson.videoUrl);
-    if (vid) {
+    const total = Math.ceil(Number(lesson.duration || 0) * 60);
+    if (vid && total > LONG_VIDEO_SECONDS) {
+      // Live: uma parte por execução; o progresso fica salvo e sobrevive a erro de cota
+      const saved = lesson.transcript_progress;
+      const prog: { video: string; next: number; segments: Segment[] } =
+        saved?.video === vid ? saved : { video: vid, next: 0, segments: [] };
+      try {
+        let end = prog.next + PART_SECONDS;
+        const last = end >= total;
+        if (last) end = total + 60; // a duração cadastrada pode ser um pouco menor que a do vídeo
+        const part = await transcribeYouTube(`https://www.youtube.com/watch?v=${vid}`, lesson.title, { start: prog.next, end });
+        const all = [...prog.segments, ...part.filter((s) => s.start >= prog.next)];
+        if (!last) {
+          // Sem o progresso salvo, a próxima execução repetiria esta parte para sempre
+          const { error: progError } = await admin
+            .from("lessons")
+            .update({ transcript_progress: { video: vid, next: end, segments: all } })
+            .eq("id", lessonId);
+          if (progError) throw new Error(`não foi possível salvar o andamento (${progError.message}); a migração 2026-10-28d já foi aplicada?`);
+          await continueLater(lessonId);
+          return;
+        }
+        segments = all;
+        source = "gemini";
+        finishedParts = true;
+      } catch (e) {
+        const done = Math.round(prog.next / 60), mins = Math.round(total / 60);
+        // O andamento vai na frente: a mensagem é cortada em 500 caracteres
+        transcribeError = `live com ${done} de ${mins} min transcritos; ${(e as Error).message}`;
+      }
+    } else if (vid) {
       try {
         segments = await transcribeYouTube(`https://www.youtube.com/watch?v=${vid}`, lesson.title);
         source = "gemini";
@@ -159,6 +208,7 @@ async function processLesson(lessonId: number) {
 
     await setStatus(lessonId, {
       ...(edited ? {} : { transcript, transcript_source: source }),
+      ...(finishedParts ? { transcript_progress: null } : {}),
       index_status: "done",
       index_error: transcribeError && source === "texto" ? `Vídeo não transcrito; indexado só pelo texto (${transcribeError})`.slice(0, 500) : null,
       indexed_at: new Date().toISOString(),
