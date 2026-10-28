@@ -2,7 +2,7 @@ import './index.css';
 import './App.css';
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from './components/UserContext';
@@ -12,7 +12,6 @@ import MeetPage from './pages/MeetPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // --- LAZY LOADING ---
-const QuizList = lazy(() => import('./pages/QuizList'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const CompleteProfile = lazy(() => import('./pages/CompleteProfile'));
@@ -29,10 +28,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const LivePage = lazy(() => import('./pages/LivePage'));
 const LiveSetup = lazy(() => import('./pages/LiveSetup'));
 const LiveHub = lazy(() => import('./pages/LiveHub'));
-const ContentManagement = lazy(() => import('./pages/ContentManagement'));
 const Reports = lazy(() => import('./pages/Reports'));
 const MeetingHub = lazy(() => import('./pages/MeetingHub'));
-const QuizView = lazy(() => import('./components/QuizPlayer'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
 const AdminCourseEditor = lazy(() => import('./pages/AdminCourseEditor'));
@@ -81,8 +78,8 @@ root.render(
                 <Route path="/rankings" element={<ProtectedRoute><Rankings /></ProtectedRoute>} />
                 <Route path="/configuracoes" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 
-                {/* ROTA DO QUIZ PELO SLUG */}
-                <Route path="/quizzes/:slug" element={<ProtectedRoute><QuizView /></ProtectedRoute>} />
+                {/* Links antigos de quiz avulso: o quiz agora fica dentro da aula */}
+                <Route path="/quizzes/:slug" element={<Navigate to="/cursos" replace />} />
 
                 {/* --- ROTAS DE LIVES E REUNIÕES --- */}
                 <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
@@ -91,10 +88,10 @@ root.render(
                 <Route path="/meet/:roomId?" element={<ProtectedRoute><MeetPage /></ProtectedRoute>} />
 
                 {/* --- ROTAS ADMINISTRATIVAS --- */}
-                <Route path="/admin/gestao-conteudo" element={<ProtectedRoute><ContentManagement /></ProtectedRoute>} />
+                <Route path="/admin/gestao-conteudo" element={<Navigate to="/admin/cursos" replace />} />
                 <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                 <Route path="/live-setup" element={<ProtectedRoute><LiveSetup /></ProtectedRoute>} />
-                <Route path="/admin/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
+                <Route path="/admin/quizzes" element={<Navigate to="/admin/cursos" replace />} />
                 <Route path="/admin/usuarios" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
                 <Route path="/admin/cursos" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
                 <Route path="/admin/cursos/:id" element={<ProtectedRoute><AdminCourseEditor /></ProtectedRoute>} />

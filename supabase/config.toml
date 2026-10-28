@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.search-lessons]
 verify_jwt = true
+
+[functions.generate-quiz]
+verify_jwt = true

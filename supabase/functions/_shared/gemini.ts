@@ -102,6 +102,101 @@ export async function transcribeYouTube(
   return segments;
 }
 
+export const QUIZ_MODEL = Deno.env.get("GEMINI_QUIZ_MODEL") ?? TRANSCRIBE_MODEL;
+
+export interface QuizDraft {
+  title: string;
+  questions: {
+    content: string;
+    options: { content: string; is_correct: boolean }[];
+    explanation: string;
+    start_seconds: number | null;
+  }[];
+}
+
+/**
+ * Cria perguntas de múltipla escolha a partir da transcrição da aula.
+ * Linhas da transcrição com "[mm:ss]" permitem apontar o minuto da resposta.
+ */
+export async function generateQuiz(
+  lessonTitle: string,
+  transcript: string,
+  opts: { questions: number; options: number },
+): Promise<QuizDraft> {
+  const prompt = [
+    `Você cria quizzes para a aula "${lessonTitle}" de um curso sobre os sistemas da Softcom.`,
+    `Com base SOMENTE na transcrição abaixo, crie ${opts.questions} perguntas de múltipla escolha em português do Brasil,`,
+    `cada uma com exatamente ${opts.options} alternativas e só 1 correta.`,
+    "Pergunte sobre o que a aula ensina de prático (onde fica cada menu, o que cada campo faz, a ordem dos passos, regras e cuidados),",
+    "não sobre detalhes irrelevantes como o nome do apresentador ou frases de abertura.",
+    "As alternativas erradas devem ser plausíveis, do mesmo tamanho e estilo da certa; evite \"todas as anteriores\" e \"nenhuma das anteriores\".",
+    "Varie a posição da alternativa correta.",
+    "Em 'explanation', explique em 1 ou 2 frases por que a resposta está certa, como a aula explica.",
+    "Em 'start_seconds', informe o segundo do vídeo em que a resposta aparece, usando as marcações [mm:ss] ou [h:mm:ss] da transcrição; se não houver marcação, use null.",
+    "Em 'correct_index', informe a posição (começando em 0) da alternativa correta.",
+    "",
+    "TRANSCRIÇÃO:",
+    transcript,
+  ].join("\n");
+
+  const data = await call(`models/${QUIZ_MODEL}:generateContent`, {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 16384,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          questions: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                question: { type: "STRING" },
+                options: { type: "ARRAY", items: { type: "STRING" } },
+                correct_index: { type: "INTEGER" },
+                explanation: { type: "STRING" },
+                start_seconds: { type: "INTEGER", nullable: true },
+              },
+              required: ["question", "options", "correct_index", "explanation"],
+            },
+          },
+        },
+        required: ["title", "questions"],
+      },
+    },
+  });
+
+  const raw = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const reason = data?.candidates?.[0]?.finishReason || "formato inválido";
+    throw new Error(`Gemini não devolveu o quiz (${reason}). Tente gerar de novo.`);
+  }
+
+  const questions = (Array.isArray(parsed?.questions) ? parsed.questions : [])
+    .map((q: any) => {
+      const options = (Array.isArray(q?.options) ? q.options : []).map((o: any) => String(o || "").trim()).filter(Boolean);
+      const correct = Number(q?.correct_index);
+      if (!String(q?.question || "").trim() || options.length < 2 || !(correct >= 0 && correct < options.length)) return null;
+      const start = Number(q?.start_seconds);
+      return {
+        content: String(q.question).trim(),
+        options: options.map((content: string, i: number) => ({ content, is_correct: i === correct })),
+        explanation: String(q?.explanation || "").trim(),
+        start_seconds: Number.isFinite(start) && start >= 0 ? Math.floor(start) : null,
+      };
+    })
+    .filter(Boolean);
+
+  if (!questions.length) throw new Error("Gemini não gerou perguntas válidas. Tente gerar de novo.");
+  return { title: String(parsed?.title || `Quiz: ${lessonTitle}`).trim(), questions };
+}
+
 const isEmbedding2 = () => EMBED_MODEL.startsWith("gemini-embedding-2");
 
 function normalize(v: number[]) {

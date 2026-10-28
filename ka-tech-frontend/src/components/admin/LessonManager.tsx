@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, Clock, Eye, EyeOff, FileText, FolderPlus, GripVertical, Layers, Pencil, Plus, RefreshCw, Sparkles, Trash2, Video, X,
+  AlertTriangle, ArrowDown, ArrowUp, BrainCircuit, Check, ChevronDown, Clock, Eye, EyeOff, FileText, FolderPlus, GripVertical, Layers, Pencil, Plus, RefreshCw, Sparkles, Trash2, Video, X,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { Button, EmptyState, Select } from "../ui";
 import Drawer from "./Drawer";
 import LessonAttachments from "./LessonAttachments";
 import TranscriptDrawer from "./TranscriptDrawer";
+import QuizDrawer, { type QuizStatus } from "./QuizDrawer";
 import { fetchVideoDuration, parseVideoUrl, videoThumbSync } from "../../utils/video";
 
 type LessonStatus = "draft" | "published";
@@ -98,6 +99,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewThumb, setPreviewThumb] = useState<string | null>(null);
+  const [quizStatus, setQuizStatus] = useState<Record<number, QuizStatus>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +112,13 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
     setLessons((lessonsRes.data || []).map((l: any) => ({ ...l, status: l.status || "published", module_id: l.module_id ?? null })));
     setModules(modulesRes.data || []);
     setLoading(false);
+
+    // Situação do quiz de cada aula (falha em silêncio se a migração do quiz não rodou)
+    const ids = (lessonsRes.data || []).map((l: any) => l.id);
+    if (ids.length) {
+      const { data: quizzes } = await supabase.from("quizzes").select("lesson_id, status").in("lesson_id", ids);
+      setQuizStatus(Object.fromEntries((quizzes || []).map((q: any) => [q.lesson_id, q.status as QuizStatus])));
+    }
   }, [courseId]);
 
   useEffect(() => { load(); }, [load]);
@@ -117,6 +126,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
   // ---------- Indexação para a busca (pandAI) ----------
   const [bulkIndexing, setBulkIndexing] = useState(false);
   const [transcriptLesson, setTranscriptLesson] = useState<{ id: number; title: string } | null>(null);
+  const [quizLesson, setQuizLesson] = useState<{ id: number; title: string } | null>(null);
 
   const requestIndex = async (lessonId: number) => {
     setLessons((prev) => prev.map((l) => (l.id === lessonId ? { ...l, index_status: "processing", index_error: null } : l)));
@@ -514,7 +524,14 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
                                 {formatMinutes(lesson.duration)}
                                 {lesson.content ? " · com texto" : ""}
                               </span>
-                              {lesson.status === "published" && <IndexBadge lesson={lesson} />}
+                              <span className="lm-badges">
+                                {lesson.status === "published" && <IndexBadge lesson={lesson} />}
+                                {quizStatus[lesson.id] && (
+                                  <span className={`lm-index ${quizStatus[lesson.id] === "published" ? "lm-index--done" : ""}`}>
+                                    <BrainCircuit size={11} /> {quizStatus[lesson.id] === "published" ? "Quiz publicado" : "Quiz em rascunho"}
+                                  </span>
+                                )}
+                              </span>
                             </div>
                             <button
                               type="button"
@@ -534,6 +551,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
                                 <button type="button" className="sb-icon-btn" onClick={() => reindex(lesson)} disabled={lesson.index_status === "processing"} aria-label={`Reindexar ${lesson.title} para a busca`} title="Transcrever e indexar de novo para a busca"><RefreshCw size={15} /></button>
                               )}
                               <button type="button" className="sb-icon-btn" onClick={() => setTranscriptLesson({ id: lesson.id, title: lesson.title })} aria-label={`Ver transcrição de ${lesson.title}`} title="Ver e corrigir a transcrição"><FileText size={15} /></button>
+                              <button type="button" className="sb-icon-btn" onClick={() => setQuizLesson({ id: lesson.id, title: lesson.title })} aria-label={`Quiz de ${lesson.title}`} title="Gerar e revisar o quiz da aula"><BrainCircuit size={15} /></button>
                               <button type="button" className="sb-icon-btn" onClick={() => openEdit(lesson)} aria-label={`Editar ${lesson.title}`}><Pencil size={15} /></button>
                               <button type="button" className="sb-icon-btn sb-logout" onClick={() => handleDelete(lesson)} aria-label={`Excluir ${lesson.title}`}><Trash2 size={15} /></button>
                             </div>
@@ -560,6 +578,17 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
         lessonTitle={transcriptLesson?.title}
         onClose={() => setTranscriptLesson(null)}
         onReindexRequested={(id) => setLessons((prev) => prev.map((l) => (l.id === id ? { ...l, index_status: "processing", index_error: null } : l)))}
+      />
+
+      <QuizDrawer
+        lessonId={quizLesson?.id ?? null}
+        lessonTitle={quizLesson?.title}
+        onClose={() => setQuizLesson(null)}
+        onChanged={(id, st) => setQuizStatus((prev) => {
+          const next = { ...prev };
+          if (st) next[id] = st; else delete next[id];
+          return next;
+        })}
       />
 
       <Drawer

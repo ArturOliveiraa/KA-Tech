@@ -7,12 +7,12 @@ import LessonSidebar from "../components/LessonSidebar";
 import LessonMaterials from "../components/LessonMaterials";
 import { listAttachments } from "../utils/attachments";
 import SEO from "../components/SEO"; 
-import QuizPlayer from "../components/QuizPlayer";
+import LessonQuiz from "../components/LessonQuiz";
 import { Course, Lesson, LessonNote, Badge, UserProgress } from "../types";
 import { Button, LoadingScreen, ProgressBar } from "../components/ui";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize,
-  BrainCircuit, FileText, GraduationCap, ListVideo, Paperclip, Trash2, PlayCircle, Trophy
+  BrainCircuit, FileText, ListVideo, Paperclip, Trash2, PlayCircle, Trophy
 } from "lucide-react";
 import "./Player.css";
 
@@ -38,8 +38,8 @@ export default function Player() {
     const [theaterMode, setTheaterMode] = useState(false); 
     
     // Estados do Quiz
-    const [showQuiz, setShowQuiz] = useState(false);
-    const [showLessonQuiz, setShowLessonQuiz] = useState(false); 
+    const [showLessonQuiz, setShowLessonQuiz] = useState(false);
+    const [hasLessonQuiz, setHasLessonQuiz] = useState(false);
 
     // Gamificação/Notas
     const [stats, setStats] = useState({ completed: 0, total: 0, percent: 0 });
@@ -52,6 +52,22 @@ export default function Player() {
     const [newNote, setNewNote] = useState("");
     const [currentVideoTime, setCurrentVideoTime] = useState(0);
     const [seekTo, setSeekTo] = useState<number | null>(null);
+    // Zera antes de pular: pedir o mesmo segundo duas vezes também move o vídeo
+    const jumpTo = (seconds: number) => {
+        setSeekTo(null);
+        requestAnimationFrame(() => setSeekTo(seconds));
+    };
+
+    // O botão "Quiz da aula" só aparece quando a aula tem quiz publicado
+    useEffect(() => {
+        setHasLessonQuiz(false);
+        setShowLessonQuiz(false);
+        if (!activeLessonId) return;
+        let alive = true;
+        supabase.from("quizzes").select("id").eq("lesson_id", activeLessonId).eq("status", "published").maybeSingle()
+            .then(({ data }) => { if (alive) setHasLessonQuiz(!!data); });
+        return () => { alive = false; };
+    }, [activeLessonId]);
 
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
 
@@ -307,12 +323,11 @@ export default function Player() {
                     </div>
 
                     <div className="ply-toolbar" role="toolbar" aria-label="Ações da aula">
-                        <button className="ply-toolbar__btn" onClick={() => setShowLessonQuiz(true)}>
-                            <BrainCircuit size={16} aria-hidden="true" /> Quiz da aula
-                        </button>
-                        <button className="ply-toolbar__btn" onClick={() => setShowQuiz(true)}>
-                            <GraduationCap size={16} aria-hidden="true" /> Prova do módulo
-                        </button>
+                        {hasLessonQuiz && (
+                            <button className="ply-toolbar__btn" onClick={() => setShowLessonQuiz(true)}>
+                                <BrainCircuit size={16} aria-hidden="true" /> Quiz da aula
+                            </button>
+                        )}
                         {!isMobile && (
                             <button
                                 className="ply-toolbar__btn ply-toolbar__btn--icon"
@@ -429,15 +444,13 @@ export default function Player() {
                 </div>
             </main>
 
-            {showQuiz && realCourseId && (
-                <div className="ply-quiz-overlay">
-                    <QuizPlayer courseId={realCourseId} onExit={() => setShowQuiz(false)} />
-                </div>
-            )}
-
             {showLessonQuiz && activeLessonId && (
-                <div className="ply-quiz-overlay">
-                    <QuizPlayer lessonId={activeLessonId} onExit={() => setShowLessonQuiz(false)} />
+                <div className="ply-quiz-overlay" role="dialog" aria-modal="true" aria-label="Quiz da aula">
+                    <LessonQuiz
+                        lessonId={activeLessonId}
+                        onExit={() => setShowLessonQuiz(false)}
+                        onSeek={(s) => { setShowLessonQuiz(false); jumpTo(s); }}
+                    />
                 </div>
             )}
 
