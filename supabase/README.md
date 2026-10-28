@@ -32,7 +32,9 @@ Faça os passos **nesta ordem**. A CLI do Supabase roda com `npx`, sem instalar 
    npx supabase functions deploy index-lesson --no-verify-jwt
    npx supabase functions deploy search-lessons
    ```
-7. **Indexar o que já existe:** no admin, abra cada curso → seção Aulas → **Indexar N pendente(s)**.
+7. **Fila automática:** rode `database/migrations/2026-10-28b_fila_indexacao.sql`. A cada minuto o banco
+   envia até 2 aulas pendentes para transcrição e tenta de novo as que falharam por limite do Gemini.
+   O botão **Indexar N pendente(s)** do admin continua disponível para adiantar um curso.
 
 > As Edge Functions **não** são publicadas pelo Cloudflare nem pelo `git push`. Depois de mudar algo
 > em `supabase/functions`, rode o `deploy` de novo.

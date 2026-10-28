@@ -74,7 +74,8 @@ async function processLesson(lessonId: number) {
     return;
   }
 
-  await setStatus(lessonId, { index_status: "processing", index_error: null });
+  // A hora do pedido evita que a fila do banco (index_lessons_queue) chame esta aula de novo
+  await setStatus(lessonId, { index_status: "processing", index_error: null, index_requested_at: new Date().toISOString() });
 
   try {
     let segments: Segment[] = [];
