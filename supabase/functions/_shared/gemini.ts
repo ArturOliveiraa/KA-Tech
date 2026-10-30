@@ -197,6 +197,106 @@ export async function generateQuiz(
   return { title: String(parsed?.title || `Quiz: ${lessonTitle}`).trim(), questions };
 }
 
+// Modelos leves para reordenar a busca (uma chamada por pergunta, então precisa de cota diária alta).
+// Tenta na ordem: o configurado, o apelido do Lite mais novo e o 2.5 Lite.
+export const RERANK_MODELS = [
+  Deno.env.get("GEMINI_RERANK_MODEL"),
+  "gemini-flash-lite-latest",
+  "gemini-2.5-flash-lite",
+].filter((m): m is string => !!m);
+
+/** Chama o primeiro modelo leve que responder. */
+async function callLite(body: unknown): Promise<any> {
+  let lastError: unknown;
+  for (const model of RERANK_MODELS) {
+    try {
+      return await call(`models/${model}:generateContent`, body);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Resumo do assunto da aula, para o vetor da aula inteira na busca.
+ * Diz o tema geral e, se houver, o caso específico (ex.: venda com PIX).
+ */
+export async function summarizeLesson(lessonTitle: string, courseTitle: string, text: string): Promise<string> {
+  const prompt = [
+    `Resuma em português do Brasil, em 2 a 4 frases, o assunto da aula "${lessonTitle}" do curso "${courseTitle}" (sistemas da Softcom).`,
+    "Diga qual tarefa do sistema a aula ensina, em qual módulo ou tela, e se ela trata de um caso específico",
+    "(por exemplo uma forma de pagamento, pré-venda, um tipo de nota) ou do assunto de forma geral.",
+    "Use os termos que um aluno usaria para procurar essa aula. Não cite o apresentador nem saudações.",
+    "",
+    "CONTEÚDO DA AULA:",
+    text.slice(0, 30_000),
+  ].join("\n");
+
+  const data = await callLite({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+  });
+  const summary = (data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "").trim();
+  if (!summary) throw new Error("Gemini não devolveu o resumo da aula.");
+  return summary;
+}
+
+/**
+ * Dá uma nota de 0 a 10 para cada aula candidata conforme ela responde a pergunta.
+ * Devolve as notas na mesma ordem dos candidatos.
+ */
+export async function rerankLessons(
+  query: string,
+  candidates: { title: string; course: string; text: string }[],
+): Promise<number[]> {
+  const list = candidates
+    .map((c, i) => `[${i}] Aula: ${c.title} | Curso: ${c.course}\nConteúdo: ${c.text.replace(/\s+/g, " ").slice(0, 900)}`)
+    .join("\n\n");
+  const prompt = [
+    "Você ajuda alunos a achar a aula certa num catálogo de treinamentos dos sistemas da Softcom (Softcomshop, PDV, NF-e, NFC-e, MDF-e, estoque, financeiro etc.).",
+    `Pergunta do aluno: "${query}"`,
+    "Para cada aula abaixo, dê uma nota de 0 a 10 para o quanto ela ensina exatamente o que o aluno pediu.",
+    "10 = a aula é sobre isso; 6 = ensina boa parte; 3 = só toca no assunto; 0 = outro assunto.",
+    "Use o que você sabe dos sistemas: no PDV a venda ao consumidor gera NFC-e, então cancelar uma venda no PDV é cancelar a NFC-e;",
+    "NF-e é a nota de venda fora do caixa. Não dê nota alta só porque a aula repete palavras da pergunta.",
+    "Se a pergunta é geral, a aula que ensina o assunto de forma geral ganha a maior nota; aulas sobre um caso específico",
+    "que o aluno não citou (uma forma de pagamento como PIX, pré-venda, um tipo de cliente) ficam pelo menos 2 pontos abaixo.",
+    "Se o aluno citou o caso específico, a aula desse caso é a melhor.",
+    "Não dê a mesma nota para duas aulas: desempate pela que responde mais diretamente.",
+    "",
+    list,
+  ].join("\n");
+
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1024,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: { index: { type: "INTEGER" }, score: { type: "NUMBER" } },
+          required: ["index", "score"],
+        },
+      },
+    },
+  };
+
+  const data = await callLite(body);
+
+  const raw = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
+  const parsed = JSON.parse(raw);
+  const scores = candidates.map(() => 0);
+  for (const s of Array.isArray(parsed) ? parsed : []) {
+    const i = Number(s?.index);
+    if (Number.isInteger(i) && i >= 0 && i < scores.length) scores[i] = Math.min(10, Math.max(0, Number(s?.score) || 0));
+  }
+  return scores;
+}
+
 const isEmbedding2 = () => EMBED_MODEL.startsWith("gemini-embedding-2");
 
 function normalize(v: number[]) {

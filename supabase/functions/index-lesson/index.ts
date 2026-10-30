@@ -1,5 +1,7 @@
 // Indexa uma aula para a busca semântica:
 // transcreve o vídeo (Gemini) → divide em trechos com o minuto → gera vetores → grava em lesson_chunks.
+// Depois resume o assunto e grava o vetor da aula inteira (lessons.summary_embedding).
+// Com { only: "summary" }, refaz só o resumo, usando a transcrição salva.
 //
 // Chamada de duas formas:
 //   • pelo gatilho do banco (pg_net), com o cabeçalho x-index-secret;
@@ -8,7 +10,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
-import { embedDocuments, Segment, transcribeYouTube } from "../_shared/gemini.ts";
+import { embedDocuments, Segment, summarizeLesson, transcribeYouTube } from "../_shared/gemini.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -94,6 +96,27 @@ async function continueLater(lessonId: number) {
     // A fila do banco retoma a aula parada em "processing" depois de 15 min, da parte em que estava
     console.error("index-lesson: não consegui pedir a próxima parte", lessonId, e);
   }
+}
+
+/** Resumo do assunto + vetor da aula inteira. Se falhar, a fila "resumir-aulas" tenta de novo. */
+async function updateSummary(lesson: any, text: string) {
+  try {
+    const { data: course } = await admin.from("courses").select("title").eq("id", lesson.course_id).maybeSingle();
+    const courseTitle = String(course?.title || "");
+    const summary = await summarizeLesson(lesson.title, courseTitle, text);
+    const [vector] = await embedDocuments([`Curso: ${courseTitle}. Aula: ${lesson.title}. ${summary}`], lesson.title);
+    await setStatus(lesson.id, { summary, summary_embedding: JSON.stringify(vector), summary_attempts: 0 });
+  } catch (e) {
+    console.error("index-lesson: resumo da aula", lesson.id, String((e as Error)?.message || e));
+  }
+}
+
+async function summaryOnly(lessonId: number) {
+  const { data: lesson } = await admin.from("lessons").select("*").eq("id", lessonId).maybeSingle();
+  if (!lesson || lesson.status !== "published") return;
+  const text = [String(lesson.content || "").trim(), String(lesson.transcript || "").trim()].filter(Boolean).join("\n\n");
+  if (!text && !lesson.title) return;
+  await updateSummary(lesson, text || lesson.title);
 }
 
 async function processLesson(lessonId: number) {
@@ -212,7 +235,12 @@ async function processLesson(lessonId: number) {
       index_status: "done",
       index_error: transcribeError && source === "texto" ? `Vídeo não transcrito; indexado só pelo texto (${transcribeError})`.slice(0, 500) : null,
       indexed_at: new Date().toISOString(),
+      // O resumo antigo pode não valer mais; a fila refaz se a linha abaixo falhar
+      summary: null,
+      summary_embedding: null,
+      summary_attempts: 0,
     });
+    await updateSummary(lesson, [edited ? "" : (lesson.content || "").trim(), transcript].filter(Boolean).join("\n\n"));
   } catch (e) {
     console.error("index-lesson", lessonId, e);
     await setStatus(lessonId, { index_status: "error", index_error: String((e as Error)?.message || e).slice(0, 500) });
@@ -251,6 +279,6 @@ Deno.serve(async (req) => {
 
   // Responde na hora e continua em segundo plano (transcrever leva de segundos a minutos)
   // @ts-ignore EdgeRuntime existe no ambiente do Supabase
-  EdgeRuntime.waitUntil(processLesson(lessonId));
+  EdgeRuntime.waitUntil(body?.only === "summary" ? summaryOnly(lessonId) : processLesson(lessonId));
   return json({ ok: true, lesson_id: lessonId, status: "processing" }, 202);
 });

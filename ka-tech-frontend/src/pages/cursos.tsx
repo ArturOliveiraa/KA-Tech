@@ -38,7 +38,7 @@ const getCategoryIcon = (name: string) => {
   return <Library size={26} />;
 };
 
-const AI_SUGGESTIONS = ["Como cancelar uma venda no PDV?", "Configurar uma live", "Cadastrar produto na loja"];
+const AI_SUGGESTIONS = ["Como cancelar uma venda no PDV?", "Como realizar uma venda no PDV", "Entrada de notas fiscais"];
 
 function Cursos() {
   const [categories, setCategories] = useState<Category[]>([]);

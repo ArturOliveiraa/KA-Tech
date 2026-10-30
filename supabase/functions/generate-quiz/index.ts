@@ -54,7 +54,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const draft = await generateQuiz(lesson.title, source.slice(0, MAX_TRANSCRIPT_CHARS), { questions, options });
+    const text = source.slice(0, MAX_TRANSCRIPT_CHARS);
+    const draft = await generateQuiz(lesson.title, text, { questions, options });
+
+    // O minuto só vale se a transcrição tem marcações [mm:ss]; sem elas (aula só com texto)
+    // a IA chuta 00:00. Com elas, o minuto vai para o começo do bloco em que cai.
+    const marks = [...text.matchAll(/^\[(?:(\d+):)?(\d{1,2}):(\d{2})\]/gm)]
+      .map((m) => Number(m[1] || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]))
+      .sort((a, b) => a - b);
+    for (const q of draft.questions) {
+      const s = q.start_seconds;
+      if (s == null || !marks.length || s > marks[marks.length - 1] + 120) {
+        q.start_seconds = null;
+        continue;
+      }
+      q.start_seconds = marks.filter((m) => m <= s).pop() ?? marks[0];
+    }
     return json({ quiz: draft });
   } catch (e) {
     const message = String((e as Error)?.message || e);

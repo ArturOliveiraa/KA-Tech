@@ -234,6 +234,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
   // ---------- Módulos ----------
   const addModule = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // o gerenciador fica dentro do formulário do curso: não salvar o curso junto
     if (!newModuleTitle.trim()) return;
     setAddingModule(true);
     const nextOrder = modules.length ? Math.max(...modules.map((m) => m.order)) + 1 : 1;
@@ -315,6 +316,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    e?.stopPropagation();
     if (!title.trim()) return setError("Dê um título para a aula.");
     if (moduleChoice === NEW_MODULE) return setError("Crie o módulo (botão Criar) ou escolha outro.");
     if (!videoUrl.trim()) return setError("Cole o link do vídeo no YouTube.");
@@ -477,7 +479,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
                       <ChevronDown size={16} style={{ transform: isCollapsed ? "rotate(-90deg)" : "none" }} />
                     </button>
                     {group.module && editingModuleId === group.module.id ? (
-                      <form className="lm-group__rename" onSubmit={(e) => { e.preventDefault(); renameModule(group.module!); }}>
+                      <form className="lm-group__rename" onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); renameModule(group.module!); }}>
                         <input className="ui-input" value={moduleTitleDraft} onChange={(e) => setModuleTitleDraft(e.target.value)} autoFocus onBlur={() => renameModule(group.module!)} aria-label="Nome do módulo" />
                         <button type="submit" className="sb-icon-btn" aria-label="Salvar nome"><Check size={15} /></button>
                       </form>
