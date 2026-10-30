@@ -9,6 +9,15 @@ import { Button, CourseThumb, EmptyState, PageHeader, ProgressBar, Skeleton } fr
 import { AlertTriangle, BookOpen, Compass, Flame, Heart, Play, PlayCircle, Search, Target, TrendingUp, X } from "lucide-react";
 import "./dashboard.css";
 
+// Capa automática igual à da trilha e do admin (sem o selo da trilha, que não aparece aqui)
+const coverProps = (c: DashboardCourse) => ({
+  title: c.title,
+  category: c.category_name,
+  choice: c,
+  categoryChoice: { cover_icon: c.category_cover_icon, cover_color: c.category_cover_color },
+  showLabel: false,
+});
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return "Bom dia";
@@ -28,7 +37,7 @@ function CourseCard({ course, isFav, onToggleFav, index }: CourseCardProps) {
     <article className="ui-card ui-card--interactive ui-course-card ui-fade-up" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>
       <Link to={`/curso/${course.slug}`} className="dash-card-link" aria-label={`Abrir ${course.title}`} />
       <div className="ui-course-card__thumb">
-        <CourseThumb src={course.thumbnailUrl} title={course.title} />
+        <CourseThumb src={course.thumbnailUrl} {...coverProps(course)} />
         <div className="ui-course-card__play"><PlayCircle size={44} /></div>
       </div>
       <button
@@ -179,7 +188,7 @@ export default function Dashboard() {
         {showFeatured && (
           <section className="dash-hero ui-fade-up" aria-label="Continuar assistindo">
             <div className="dash-hero__media">
-              <CourseThumb src={featuredCourse.thumbnailUrl} title={featuredCourse.title} loading="eager" />
+              <CourseThumb src={featuredCourse.thumbnailUrl} {...coverProps(featuredCourse)} loading="eager" />
             </div>
             <div className="dash-hero__body">
               <span className="ui-badge ui-badge--danger"><Flame size={13} /> Continuar assistindo</span>

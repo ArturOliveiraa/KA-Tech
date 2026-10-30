@@ -4,17 +4,19 @@ import { BookOpen, Copy, Eye, LayoutGrid, Layers, List, Pencil, Plus, Search, Sh
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, CourseThumb, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import { Button, CourseCover, CourseThumb, CoverChoice, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
 import TagPicker, { TagOption } from "../components/admin/TagPicker";
 import ActionMenu, { ActionItem } from "../components/admin/ActionMenu";
 import CourseWizard from "../components/admin/CourseWizard";
 import Drawer from "../components/admin/Drawer";
+import CoverPicker from "../components/admin/CoverPicker";
+import ImageUpload from "../components/admin/ImageUpload";
 
 const VIEW_KEY = "ka-admin-courses-view";
 
-interface Category { id: number; name: string; slug: string; }
+interface Category extends CoverChoice { id: number; name: string; slug: string; image_url?: string | null; }
 
-interface Course {
+interface Course extends CoverChoice {
   id: number;
   title: string;
   description: string;
@@ -22,7 +24,7 @@ interface Course {
   thumbnailUrl?: string;
   category_id?: number;
   xp_weight: number;
-  categories?: { name: string };
+  categories?: { name: string } & CoverChoice;
   course_tags?: { tag_id: string; tags: { name: string } }[];
   lessons?: { count: number }[];
 }
@@ -57,6 +59,14 @@ const AdminCourses: React.FC = () => {
   const [savingSectors, setSavingSectors] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
 
+  // Capa da trilha (ícone/cor exigem a migração 2026-10-30c; a imagem não)
+  const [coverCat, setCoverCat] = useState<Category | null>(null);
+  const [catCover, setCatCover] = useState<CoverChoice>({});
+  const [catImage, setCatImage] = useState("");
+  const [savingCatCover, setSavingCatCover] = useState(false);
+  const [catCoverError, setCatCoverError] = useState<string | null>(null);
+  const catCoverSupported = categories.length > 0 && "cover_icon" in categories[0];
+
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
@@ -77,7 +87,7 @@ const AdminCourses: React.FC = () => {
         supabase.from("tags").select("id, name, type").order("name", { ascending: true }),
         supabase
           .from("courses")
-          .select(`*, categories:category_id (name), course_tags (tag_id, tags (name)), lessons (count)`)
+          .select(`*, categories:category_id (*), course_tags (tag_id, tags (name)), lessons (count)`)
           .order("createdAt", { ascending: false }),
       ]);
       let courseData = courseRes.data as Course[] | null;
@@ -85,7 +95,7 @@ const AdminCourses: React.FC = () => {
         // Sem relação lessons -> courses exposta: busca sem a contagem de aulas
         const retry = await supabase
           .from("courses")
-          .select(`*, categories:category_id (name), course_tags (tag_id, tags (name))`)
+          .select(`*, categories:category_id (*), course_tags (tag_id, tags (name))`)
           .order("createdAt", { ascending: false });
         if (retry.error) throw retry.error;
         courseData = retry.data as Course[];
@@ -237,6 +247,30 @@ const AdminCourses: React.FC = () => {
   }, [courses, searchTerm, categoryFilter, tagFilter]);
 
   const coursesPerCategory = (catId: number) => courses.filter((c) => c.category_id === catId).length;
+
+  const openCatCover = (cat: Category) => {
+    setCoverCat(cat);
+    setCatCover({ cover_icon: cat.cover_icon ?? null, cover_color: cat.cover_color ?? null });
+    setCatImage(cat.image_url || "");
+    setCatCoverError(null);
+  };
+
+  const saveCatCover = async () => {
+    if (!coverCat) return;
+    setSavingCatCover(true);
+    setCatCoverError(null);
+    const patch = {
+      image_url: catImage.trim() || null,
+      ...(catCoverSupported ? { cover_icon: catCover.cover_icon || null, cover_color: catCover.cover_color || null } : {}),
+    };
+    const { error } = await supabase.from("categories").update(patch).eq("id", coverCat.id);
+    setSavingCatCover(false);
+    if (error) { setCatCoverError("Não foi possível salvar: " + error.message); return; }
+    setCategories((prev) => prev.map((c) => (c.id === coverCat.id ? { ...c, ...patch } : c)));
+    setCourses((prev) => prev.map((c) => (c.category_id === coverCat.id && c.categories ? { ...c, categories: { ...c.categories, ...patch } } : c)));
+    setCoverCat(null);
+    setNotice({ tone: "success", text: `Capa da trilha ${coverCat.name} salva.` });
+  };
   const filteredTags = tags.filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()));
   const totalLessons = courses.reduce((s, c) => s + (c.lessons?.[0]?.count || 0), 0);
 
@@ -305,7 +339,7 @@ const AdminCourses: React.FC = () => {
                     return (
                       <article key={course.id} className="ui-card ac-card">
                         <div className="ac-card__thumb">
-                          <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} />
+                          <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} choice={course} categoryChoice={course.categories} />
                           <div className="ac-card__menu"><ActionMenu items={actionsFor(course)} label={`Mais ações para ${course.title}`} /></div>
                         </div>
                         <div className="ac-card__body">
@@ -353,7 +387,7 @@ const AdminCourses: React.FC = () => {
                           <tr key={course.id} className="is-clickable" onClick={() => navigate(`/admin/cursos/${course.id}`)}>
                             <td>
                               <div className="adm-cell-main">
-                                <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} className="adm-thumb" />
+                                <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} choice={course} categoryChoice={course.categories} className="adm-thumb" />
                                 <div style={{ minWidth: 0 }}>
                                   <strong>{course.title}</strong>
                                   <small>{course.description}</small>
@@ -390,9 +424,11 @@ const AdminCourses: React.FC = () => {
                 </form>
                 <ul className="adm-plain-list">
                   {categories.map((cat) => (
-                    <li key={cat.id}>
-                      <span>{cat.name}</span>
+                    <li key={cat.id} className="adm-cat-row">
+                      <CourseCover title={cat.name} choice={cat} iconSrc={cat.image_url || null} showLabel={false} className="adm-thumb" />
+                      <span className="adm-cat-row__name">{cat.name}</span>
                       <span className="ui-hint">{coursesPerCategory(cat.id)} curso(s)</span>
+                      <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => openCatCover(cat)} aria-label={`Editar capa da trilha ${cat.name}`}>Capa</Button>
                     </li>
                   ))}
                 </ul>
@@ -445,6 +481,40 @@ const AdminCourses: React.FC = () => {
           <TagPicker id="quick-sectors" label="Setores com acesso" options={tags} value={sectorIds} onChange={setSectorIds} onCreate={createTag} placeholder="Buscar ou criar setor" inline listHeight="calc(100vh - 380px)" />
           {sectorIds.length === 0 && <div className="ui-alert">Sem setores, o curso não aparece para os alunos.</div>}
         </div>
+      </Drawer>
+
+      <Drawer
+        open={!!coverCat}
+        onClose={() => !savingCatCover && setCoverCat(null)}
+        title="Capa da trilha"
+        subtitle={coverCat?.name}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCoverCat(null)} disabled={savingCatCover}>Cancelar</Button>
+            <Button onClick={saveCatCover} loading={savingCatCover}>Salvar capa</Button>
+          </>
+        }
+      >
+        {coverCat && (
+          <div className="adm-form">
+            {catCoverError && <div className="ui-alert ui-alert--danger" role="alert">{catCoverError}</div>}
+            {catCoverSupported ? (
+              <CoverPicker title={coverCat.name} value={catCover} onChange={setCatCover} iconSrc={catImage || null} />
+            ) : (
+              <div className="ui-alert">Para escolher ícone e cor, rode a migração 2026-10-30c_capa_icone_cor.sql no SQL Editor.</div>
+            )}
+            <ImageUpload
+              value={catImage}
+              onChange={setCatImage}
+              bucket="course-thumbs"
+              label="Ícone próprio (opcional)"
+              hint="Imagem quadrada, PNG com fundo transparente. Substitui o ícone escolhido acima."
+            />
+            <p className="ui-hint" style={{ margin: 0 }}>
+              Os cursos desta trilha usam este ícone e esta cor quando o título deles não indica um assunto e eles não têm escolha própria.
+            </p>
+          </div>
+        )}
       </Drawer>
     </div>
   );

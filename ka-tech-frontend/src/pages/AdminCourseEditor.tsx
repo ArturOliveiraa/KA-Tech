@@ -4,13 +4,14 @@ import { ArrowLeft, Eye, FileText, Image as ImageIcon, Layers, Lock, Save, Shiel
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, CourseCover, LoadingScreen, PageHeader, Select, isGenericCover, ownCoverUrl } from "../components/ui";
+import { Button, CourseCover, CoverChoice, LoadingScreen, PageHeader, Select, isGenericCover, ownCoverUrl } from "../components/ui";
 import TagPicker, { TagOption } from "../components/admin/TagPicker";
 import ImageUpload from "../components/admin/ImageUpload";
+import CoverPicker from "../components/admin/CoverPicker";
 import LessonManager from "../components/admin/LessonManager";
 import Drawer from "../components/admin/Drawer";
 
-interface Category { id: number; name: string; slug: string; }
+interface Category extends CoverChoice { id: number; name: string; slug: string; }
 
 const generateSlug = (text: string) =>
   text.toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -43,6 +44,9 @@ export default function AdminCourseEditor() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState("");
+  const [cover, setCover] = useState<CoverChoice>({ cover_icon: null, cover_color: null });
+  // Ícone/cor dependem da migração 2026-10-30c; sem ela, o editor só mostra a prévia
+  const [coverSupported, setCoverSupported] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [xpWeight, setXpWeight] = useState(1);
@@ -59,12 +63,14 @@ export default function AdminCourseEditor() {
 
   useEffect(() => {
     async function load() {
-      const [catRes, tagRes] = await Promise.all([
+      const [catRes, tagRes, probe] = await Promise.all([
         supabase.from("categories").select("*").order("name", { ascending: true }),
         supabase.from("tags").select("id, name, type").order("name", { ascending: true }),
+        supabase.from("courses").select("cover_icon").limit(1),
       ]);
       setCategories(catRes.data || []);
       setTags(tagRes.data || []);
+      setCoverSupported(!probe.error);
 
       if (courseId) {
         const [{ data: course, error: courseError }, { data: cTags }] = await Promise.all([
@@ -77,6 +83,7 @@ export default function AdminCourseEditor() {
           setTitle(course.title || "");
           setDescription(course.description || "");
           setThumbnail(course.thumbnailUrl || "");
+          setCover({ cover_icon: course.cover_icon ?? null, cover_color: course.cover_color ?? null });
           setCategoryId(course.category_id ? String(course.category_id) : "");
           setXpWeight(course.xp_weight || 1);
           setSlug(course.slug || "");
@@ -137,6 +144,7 @@ export default function AdminCourseEditor() {
       xp_weight: Number(xpWeight) || 1,
       slug: newSlug,
       updatedAt: new Date().toISOString(),
+      ...(coverSupported ? { cover_icon: cover.cover_icon || null, cover_color: cover.cover_color || null } : {}),
     };
 
     try {
@@ -195,7 +203,8 @@ export default function AdminCourseEditor() {
     aulas: lessonCount > 0,
   };
   const selectedTagNames = tagIds.map((tid) => tags.find((t) => t.id === tid)?.name).filter(Boolean) as string[];
-  const categoryName = categories.find((c) => String(c.id) === categoryId)?.name;
+  const selectedCategory = categories.find((c) => String(c.id) === categoryId);
+  const categoryName = selectedCategory?.name;
 
   return (
     <div className="ui-shell">
@@ -253,14 +262,29 @@ export default function AdminCourseEditor() {
                   <p>Aparece no catálogo, no dashboard e no relatório.</p>
                 </div>
                 <ImageUpload value={thumbnail} onChange={touch(setThumbnail)} bucket="course-thumbs" />
-                {!ownCoverUrl(thumbnail) && (
+                {ownCoverUrl(thumbnail) ? (
+                  <p className="ui-hint ce-autocover__note">Com uma imagem enviada, ela é a capa. Remova a imagem para usar a capa automática com ícone e cor.</p>
+                ) : (
                   <div className="ce-autocover">
-                    <CourseCover title={title || "Curso"} category={categoryName} className="ce-autocover__img" />
-                    <p className="ui-hint">
+                    <p className="ui-hint ce-autocover__note">
                       {isGenericCover(thumbnail)
-                        ? "A imagem acima é a capa genérica antiga e não aparece para os alunos. Eles veem esta capa automática, com o ícone do assunto do curso. Remova a imagem ou envie uma capa própria."
-                        : "Sem capa própria, os alunos veem esta capa automática, com o ícone do assunto do curso."}
+                        ? "A imagem acima é a capa genérica antiga e não aparece para os alunos. Eles veem a capa automática abaixo. Remova a imagem ou envie uma capa própria."
+                        : "Sem imagem enviada, os alunos veem a capa automática abaixo."}
                     </p>
+                    {coverSupported ? (
+                      <CoverPicker
+                        title={title}
+                        category={categoryName}
+                        value={cover}
+                        onChange={touch(setCover)}
+                        categoryChoice={selectedCategory}
+                      />
+                    ) : (
+                      <>
+                        <CourseCover title={title || "Curso"} category={categoryName} categoryChoice={selectedCategory} className="ce-autocover__img" />
+                        <p className="ui-hint ce-autocover__note">Para escolher ícone e cor, rode a migração 2026-10-30c_capa_icone_cor.sql no SQL Editor.</p>
+                      </>
+                    )}
                   </div>
                 )}
               </section>
@@ -328,7 +352,7 @@ export default function AdminCourseEditor() {
                   <div><dt>Aulas publicadas</dt><dd>{lessonCount}</dd></div>
                   <div><dt>Setores</dt><dd>{tagIds.length}</dd></div>
                   <div><dt>Peso de XP</dt><dd>{xpWeight}x</dd></div>
-                  <div><dt>Capa</dt><dd>{ownCoverUrl(thumbnail) ? "Própria" : "Automática"}</dd></div>
+                  <div><dt>Capa</dt><dd>{ownCoverUrl(thumbnail) ? "Própria" : cover.cover_icon || cover.cover_color ? "Automática (ajustada)" : "Automática"}</dd></div>
                 </dl>
               </section>
             </aside>

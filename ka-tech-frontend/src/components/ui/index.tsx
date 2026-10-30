@@ -118,4 +118,5 @@ export function Skeleton({ width = "100%", height = 16, radius }: { width?: numb
 
 export { default as Select } from "./Select";
 export type { SelectOption } from "./Select";
-export { CourseCover, CourseThumb, isGenericCover, ownCoverUrl } from "./CourseCover";
+export { CourseCover, CourseThumb, COVER_COLORS, COVER_ICONS, isGenericCover, ownCoverUrl, resolveCover } from "./CourseCover";
+export type { CoverChoice } from "./CourseCover";

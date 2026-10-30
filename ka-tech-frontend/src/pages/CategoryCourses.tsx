@@ -4,10 +4,10 @@ import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock, Layers, Play, Pla
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, CourseThumb, EmptyState, ProgressBar, Skeleton } from "../components/ui";
+import { Button, CourseThumb, CoverChoice, EmptyState, ProgressBar, Skeleton } from "../components/ui";
 import "./CategoryCourses.css";
 
-interface Course {
+interface Course extends CoverChoice {
   id: number;
   title: string;
   description: string;
@@ -16,7 +16,7 @@ interface Course {
   lessons?: { id: number; duration: number }[];
 }
 
-interface Category {
+interface Category extends CoverChoice {
   id: number;
   name: string;
   description: string;
@@ -60,7 +60,7 @@ export default function CategoryCourses() {
 
       const { data: catData, error: catError } = await supabase
         .from("categories")
-        .select("id, name, description")
+        .select("*")
         .eq("slug", slug)
         .single();
 
@@ -198,7 +198,7 @@ export default function CategoryCourses() {
                     return (
                       <article key={course.id} className={`ui-card cc-card cc-card--${s.status} ui-fade-up`} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
                         <div className="cc-card__thumb">
-                          <CourseThumb src={course.thumbnailUrl} title={course.title} category={category?.name} />
+                          <CourseThumb src={course.thumbnailUrl} title={course.title} category={category?.name} choice={course} categoryChoice={category} />
                           <span className={`cc-status cc-status--${s.status}`}>
                             {s.status === "done" && <CheckCircle2 size={12} />}
                             {STATUS_LABEL[s.status]}

@@ -614,18 +614,6 @@ select.ui-input { appearance: none; padding-right: var(--space-10); background-i
   background: var(--cover-bg);
 }
 :root[data-theme="dark"] .ui-cover { filter: brightness(0.9); }
-.ui-cover--violet  { --cover-tile: #c4b5fd; }
-.ui-cover--indigo  { --cover-tile: #a5b4fc; }
-.ui-cover--blue    { --cover-tile: #93c5fd; }
-.ui-cover--cyan    { --cover-tile: #67e8f9; }
-.ui-cover--teal    { --cover-tile: #5eead4; }
-.ui-cover--emerald { --cover-tile: #6ee7b7; }
-.ui-cover--green   { --cover-tile: #86efac; }
-.ui-cover--amber   { --cover-tile: #f2b705; }
-.ui-cover--orange  { --cover-tile: #fb923c; }
-.ui-cover--rose    { --cover-tile: #fda4af; }
-.ui-cover--pink    { --cover-tile: #f9a8d4; }
-.ui-cover--slate   { --cover-tile: #ffffff; }
 
 .ui-cover__pattern {
   position: absolute;

@@ -3,14 +3,14 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, CourseCover, EmptyState, PageHeader, Skeleton } from "../components/ui";
+import { Button, CourseCover, CoverChoice, EmptyState, PageHeader, Skeleton } from "../components/ui";
 import {
   AlertTriangle, ArrowRight, BookOpen, BrainCircuit, Compass,
   PlayCircle, Search, Sparkles, X,
 } from "lucide-react";
 import "./cursos.css";
 
-interface Category {
+interface Category extends CoverChoice {
   id: number;
   name: string;
   slug: string;
@@ -230,7 +230,7 @@ function Cursos() {
                     className="ui-card ui-card--interactive trl-card ui-fade-up"
                     style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
                   >
-                    <CourseCover title={cat.name} iconSrc={cat.image_url || null} className="trl-card__cover" />
+                    <CourseCover title={cat.name} choice={cat} iconSrc={cat.image_url || null} className="trl-card__cover" />
                     <div className="trl-card__body">
                       <h3 className="trl-card__title">{name}</h3>
                       {count !== undefined && (

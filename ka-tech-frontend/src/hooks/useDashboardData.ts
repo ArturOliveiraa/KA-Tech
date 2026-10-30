@@ -10,6 +10,12 @@ export interface DashboardCourse {
   progress: number;
   totalDuration: number;
   enrolledAt: string;
+  // Escolhas da capa automática (migração 2026-10-30c; antes dela vêm vazias)
+  cover_icon?: string | null;
+  cover_color?: string | null;
+  category_name?: string | null;
+  category_cover_icon?: string | null;
+  category_cover_color?: string | null;
 }
 
 export function useDashboardData() {
