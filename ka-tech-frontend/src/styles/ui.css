@@ -601,3 +601,92 @@ select.ui-input { appearance: none; padding-right: var(--space-10); background-i
   transition: background-color 9999s ease-out 0s;
 }
 .ui-input:-webkit-autofill:focus { box-shadow: 0 0 0 1000px var(--color-surface-1) inset, var(--focus-ring); }
+
+/* Capa de curso gerada (CourseCover): marca KA Academy, flat com contorno preto */
+:where(.ui-cover) { position: relative; width: 100%; height: 100%; }
+.ui-cover {
+  --cover-bg: #ede021;
+  --cover-ink: #111111;
+  --cover-tile: #ffffff;
+  overflow: hidden;
+  container-type: inline-size;
+  color: var(--cover-ink);
+  background: var(--cover-bg);
+}
+:root[data-theme="dark"] .ui-cover { filter: brightness(0.9); }
+.ui-cover--violet  { --cover-tile: #c4b5fd; }
+.ui-cover--indigo  { --cover-tile: #a5b4fc; }
+.ui-cover--blue    { --cover-tile: #93c5fd; }
+.ui-cover--cyan    { --cover-tile: #67e8f9; }
+.ui-cover--teal    { --cover-tile: #5eead4; }
+.ui-cover--emerald { --cover-tile: #6ee7b7; }
+.ui-cover--green   { --cover-tile: #86efac; }
+.ui-cover--amber   { --cover-tile: #f2b705; }
+.ui-cover--orange  { --cover-tile: #fb923c; }
+.ui-cover--rose    { --cover-tile: #fda4af; }
+.ui-cover--pink    { --cover-tile: #f9a8d4; }
+.ui-cover--slate   { --cover-tile: #ffffff; }
+
+.ui-cover__pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image: radial-gradient(currentColor 1.3px, transparent 1.7px);
+  background-size: 16px 16px;
+  mask-image: linear-gradient(110deg, transparent 35%, #000 90%);
+}
+.ui-cover__brand {
+  position: absolute;
+  left: 7%;
+  bottom: 10%;
+  right: 44%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.ui-cover__mark { width: 38px; flex-shrink: 0; overflow: visible; }
+.ui-cover__mark path { stroke: var(--cover-ink); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
+.ui-cover__icon {
+  position: absolute;
+  right: 10%;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32%;
+  aspect-ratio: 1;
+  border-radius: 22%;
+  background: var(--cover-tile);
+  border: 3px solid var(--cover-ink);
+  box-shadow: 6px 6px 0 var(--cover-ink);
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+.ui-cover__icon svg { width: 54%; height: 54%; }
+.ui-cover__icon img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+/* ícones enviados no admin costumam ser brancos: fundo escuro */
+.ui-cover__icon:has(img) { background: var(--cover-ink); overflow: hidden; }
+@container (min-width: 480px) { .ui-cover__mark { width: 56px; } }
+.ui-course-card:hover .ui-cover__icon,
+.cc-card:hover .ui-cover__icon,
+.trl-card:hover .ui-cover__icon { transform: translateY(-50%) rotate(-4deg) scale(1.05); }
+.ui-cover__label {
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--cover-ink);
+  color: var(--cover-bg);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Miniaturas pequenas (tabela do admin, assistente): só o ícone, centralizado */
+@container (max-width: 180px) {
+  .ui-cover__brand, .ui-cover__pattern { display: none; }
+  .ui-cover__icon { right: 50%; transform: translate(50%, -50%); width: 52%; border-width: 2px; box-shadow: 2px 2px 0 var(--cover-ink); }
+  .ui-cover__icon svg { width: 62%; height: 62%; }
+}

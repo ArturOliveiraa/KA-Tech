@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, FileText, Shield, Trophy } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { Button, Select } from "../ui";
+import { Button, CourseThumb, Select } from "../ui";
 import Drawer from "./Drawer";
 import TagPicker, { TagOption } from "./TagPicker";
 import ImageUpload from "./ImageUpload";
@@ -168,7 +168,7 @@ export default function CourseWizard({ open, onClose, categories, tags, onCreate
             <div className="wz-review">
               <p className="adm-section-label">Resumo</p>
               <div className="wz-review__card">
-                {thumbnail ? <img src={thumbnail} alt="" /> : <div className="wz-review__noimg">Sem capa</div>}
+                <CourseThumb src={thumbnail} title={title || "Curso"} category={categoryName} className="wz-review__cover" />
                 <div>
                   <strong>{title || "Sem título"}</strong>
                   <span>{categoryName || "Sem trilha"} · {tagIds.length} setor(es) · XP {xpWeight}x</span>

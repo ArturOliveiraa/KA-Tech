@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, FileText, Image as ImageIcon, Layers, Lock, Save, Shiel
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, LoadingScreen, PageHeader, Select } from "../components/ui";
+import { Button, CourseCover, LoadingScreen, PageHeader, Select, isGenericCover, ownCoverUrl } from "../components/ui";
 import TagPicker, { TagOption } from "../components/admin/TagPicker";
 import ImageUpload from "../components/admin/ImageUpload";
 import LessonManager from "../components/admin/LessonManager";
@@ -190,7 +190,7 @@ export default function AdminCourseEditor() {
 
   const done: Record<string, boolean> = {
     info: !!title.trim() && !!description.trim(),
-    capa: !!thumbnail,
+    capa: true, // sem capa própria o site gera uma automática
     organizacao: !!categoryId,
     aulas: lessonCount > 0,
   };
@@ -253,6 +253,16 @@ export default function AdminCourseEditor() {
                   <p>Aparece no catálogo, no dashboard e no relatório.</p>
                 </div>
                 <ImageUpload value={thumbnail} onChange={touch(setThumbnail)} bucket="course-thumbs" />
+                {!ownCoverUrl(thumbnail) && (
+                  <div className="ce-autocover">
+                    <CourseCover title={title || "Curso"} category={categoryName} className="ce-autocover__img" />
+                    <p className="ui-hint">
+                      {isGenericCover(thumbnail)
+                        ? "A imagem acima é a capa genérica antiga e não aparece para os alunos. Eles veem esta capa automática, com o ícone do assunto do curso. Remova a imagem ou envie uma capa própria."
+                        : "Sem capa própria, os alunos veem esta capa automática, com o ícone do assunto do curso."}
+                    </p>
+                  </div>
+                )}
               </section>
 
               <section id="aulas" className="ui-card ce-section">
@@ -318,7 +328,7 @@ export default function AdminCourseEditor() {
                   <div><dt>Aulas publicadas</dt><dd>{lessonCount}</dd></div>
                   <div><dt>Setores</dt><dd>{tagIds.length}</dd></div>
                   <div><dt>Peso de XP</dt><dd>{xpWeight}x</dd></div>
-                  <div><dt>Capa</dt><dd>{thumbnail ? "Definida" : "Faltando"}</dd></div>
+                  <div><dt>Capa</dt><dd>{ownCoverUrl(thumbnail) ? "Própria" : "Automática"}</dd></div>
                 </dl>
               </section>
             </aside>

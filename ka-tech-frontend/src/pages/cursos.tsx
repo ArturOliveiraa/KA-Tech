@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, EmptyState, PageHeader, Skeleton } from "../components/ui";
+import { Button, CourseCover, EmptyState, PageHeader, Skeleton } from "../components/ui";
 import {
-  AlertTriangle, ArrowRight, BrainCircuit, Compass, CreditCard, Library,
-  PlayCircle, Search, Sparkles, Store, Tv, X,
+  AlertTriangle, ArrowRight, BookOpen, BrainCircuit, Compass,
+  PlayCircle, Search, Sparkles, X,
 } from "lucide-react";
 import "./cursos.css";
 
@@ -16,6 +16,7 @@ interface Category {
   slug: string;
   description: string;
   image_url: string;
+  courses?: { count: number }[];
 }
 
 interface AiLessonResult {
@@ -30,13 +31,9 @@ interface AiLessonResult {
 
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-const getCategoryIcon = (name: string) => {
-  const lowerName = name.toLowerCase();
-  if (lowerName.includes("live")) return <Tv size={26} />;
-  if (lowerName.includes("pdv")) return <CreditCard size={26} />;
-  if (lowerName.includes("shop")) return <Store size={26} />;
-  return <Library size={26} />;
-};
+// "PDV" e siglas ficam como estão; nomes em caixa alta viram "Softcomshop".
+const displayName = (name: string) =>
+  name.length > 4 && name === name.toUpperCase() ? name.charAt(0) + name.slice(1).toLowerCase() : name;
 
 const AI_SUGGESTIONS = ["Como cancelar uma venda no PDV?", "Como realizar uma venda no PDV", "Entrada de notas fiscais"];
 
@@ -57,10 +54,14 @@ function Cursos() {
       try {
         setLoading(true);
         setLoadError(false);
-        const { data: categoriesRes, error } = await supabase
+        // Com a contagem de cursos; se a relação falhar, carrega só as trilhas.
+        let { data: categoriesRes, error } = await supabase
           .from("categories")
-          .select("*")
+          .select("*, courses(count)")
           .order("name", { ascending: true });
+        if (error) {
+          ({ data: categoriesRes, error } = await supabase.from("categories").select("*").order("name", { ascending: true }));
+        }
 
         if (error) throw error;
         setCategories(categoriesRes || []);
@@ -207,7 +208,7 @@ function Cursos() {
 
           {loading ? (
             <div className="ui-grid" style={{ ["--ui-grid-min" as any]: "280px" }}>
-              {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} height={220} radius={16} />)}
+              {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} height={300} radius={16} />)}
             </div>
           ) : loadError ? (
             <EmptyState
@@ -219,23 +220,32 @@ function Cursos() {
             />
           ) : filteredCategories.length > 0 ? (
             <div className="ui-grid" style={{ ["--ui-grid-min" as any]: "280px" }}>
-              {filteredCategories.map((cat, index) => (
-                <Link
-                  key={cat.id}
-                  to={`/categoria/${cat.slug}`}
-                  className="ui-card ui-card--interactive trl-card ui-fade-up"
-                  style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-                >
-                  <div className="trl-card__icon">
-                    {cat.image_url ? <img src={cat.image_url} alt="" loading="lazy" /> : getCategoryIcon(cat.name)}
-                  </div>
-                  <h3 className="trl-card__title">{cat.name}</h3>
-                  <p className="trl-card__desc">
-                    {cat.description || "Domine o assunto passo a passo com cursos selecionados."}
-                  </p>
-                  <span className="trl-card__cta">Ver cursos <ArrowRight size={16} /></span>
-                </Link>
-              ))}
+              {filteredCategories.map((cat, index) => {
+                const name = displayName(cat.name);
+                const count = cat.courses?.[0]?.count;
+                return (
+                  <Link
+                    key={cat.id}
+                    to={`/categoria/${cat.slug}`}
+                    className="ui-card ui-card--interactive trl-card ui-fade-up"
+                    style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+                  >
+                    <CourseCover title={cat.name} iconSrc={cat.image_url || null} className="trl-card__cover" />
+                    <div className="trl-card__body">
+                      <h3 className="trl-card__title">{name}</h3>
+                      {count !== undefined && (
+                        <span className="trl-card__count">
+                          <BookOpen size={14} /> {count === 0 ? "Em breve" : `${count} ${count === 1 ? "curso" : "cursos"}`}
+                        </span>
+                      )}
+                      <p className="trl-card__desc">
+                        {cat.description || `Os cursos de ${name} em sequência, do básico ao avançado.`}
+                      </p>
+                      <span className="trl-card__cta">Ver cursos <ArrowRight size={16} /></span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           ) : (
             <EmptyState

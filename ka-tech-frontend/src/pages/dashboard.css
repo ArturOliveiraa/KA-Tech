@@ -142,3 +142,4 @@
   .dash-hero__actions { width: 100%; }
   .dash-hero__actions .ui-btn:first-child { flex: 1; }
 }
+.dash-hero__media .ui-cover { position: absolute; inset: 0; }

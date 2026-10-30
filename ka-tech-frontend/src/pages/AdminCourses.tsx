@@ -4,12 +4,11 @@ import { BookOpen, Copy, Eye, LayoutGrid, Layers, List, Pencil, Plus, Search, Sh
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import { Button, CourseThumb, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
 import TagPicker, { TagOption } from "../components/admin/TagPicker";
 import ActionMenu, { ActionItem } from "../components/admin/ActionMenu";
 import CourseWizard from "../components/admin/CourseWizard";
 import Drawer from "../components/admin/Drawer";
-import logo from "../assets/ka-tech-logo.png";
 
 const VIEW_KEY = "ka-admin-courses-view";
 
@@ -306,7 +305,7 @@ const AdminCourses: React.FC = () => {
                     return (
                       <article key={course.id} className="ui-card ac-card">
                         <div className="ac-card__thumb">
-                          <img src={course.thumbnailUrl || logo} alt="" loading="lazy" />
+                          <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} />
                           <div className="ac-card__menu"><ActionMenu items={actionsFor(course)} label={`Mais ações para ${course.title}`} /></div>
                         </div>
                         <div className="ac-card__body">
@@ -354,7 +353,7 @@ const AdminCourses: React.FC = () => {
                           <tr key={course.id} className="is-clickable" onClick={() => navigate(`/admin/cursos/${course.id}`)}>
                             <td>
                               <div className="adm-cell-main">
-                                <img src={course.thumbnailUrl || logo} alt="" className="adm-thumb" loading="lazy" />
+                                <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} className="adm-thumb" />
                                 <div style={{ minWidth: 0 }}>
                                   <strong>{course.title}</strong>
                                   <small>{course.description}</small>

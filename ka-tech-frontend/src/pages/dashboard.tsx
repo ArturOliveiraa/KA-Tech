@@ -3,16 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useUser } from "../components/UserContext";
 import { supabase } from "../supabaseClient";
-import logo from "../assets/ka-tech-logo.png";
 import SEO from "../components/SEO";
 import { useDashboardData, DashboardCourse } from "../hooks/useDashboardData";
-import { Button, EmptyState, PageHeader, ProgressBar, Skeleton } from "../components/ui";
+import { Button, CourseThumb, EmptyState, PageHeader, ProgressBar, Skeleton } from "../components/ui";
 import { AlertTriangle, BookOpen, Compass, Flame, Heart, Play, PlayCircle, Search, Target, TrendingUp, X } from "lucide-react";
 import "./dashboard.css";
-
-const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  e.currentTarget.src = logo;
-};
 
 function greeting() {
   const h = new Date().getHours();
@@ -33,7 +28,7 @@ function CourseCard({ course, isFav, onToggleFav, index }: CourseCardProps) {
     <article className="ui-card ui-card--interactive ui-course-card ui-fade-up" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>
       <Link to={`/curso/${course.slug}`} className="dash-card-link" aria-label={`Abrir ${course.title}`} />
       <div className="ui-course-card__thumb">
-        <img src={course.thumbnailUrl || logo} alt="" loading="lazy" onError={handleImageError} />
+        <CourseThumb src={course.thumbnailUrl} title={course.title} />
         <div className="ui-course-card__play"><PlayCircle size={44} /></div>
       </div>
       <button
@@ -184,7 +179,7 @@ export default function Dashboard() {
         {showFeatured && (
           <section className="dash-hero ui-fade-up" aria-label="Continuar assistindo">
             <div className="dash-hero__media">
-              <img src={featuredCourse.thumbnailUrl || logo} alt="" onError={handleImageError} />
+              <CourseThumb src={featuredCourse.thumbnailUrl} title={featuredCourse.title} loading="eager" />
             </div>
             <div className="dash-hero__body">
               <span className="ui-badge ui-badge--danger"><Flame size={13} /> Continuar assistindo</span>

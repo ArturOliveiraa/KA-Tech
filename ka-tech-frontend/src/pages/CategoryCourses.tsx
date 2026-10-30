@@ -4,8 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock, Layers, Play, Pla
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, EmptyState, ProgressBar, Skeleton } from "../components/ui";
-import logo from "../assets/ka-tech-logo.png";
+import { Button, CourseThumb, EmptyState, ProgressBar, Skeleton } from "../components/ui";
 import "./CategoryCourses.css";
 
 interface Course {
@@ -199,7 +198,7 @@ export default function CategoryCourses() {
                     return (
                       <article key={course.id} className={`ui-card cc-card cc-card--${s.status} ui-fade-up`} style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
                         <div className="cc-card__thumb">
-                          <img src={course.thumbnailUrl || logo} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = logo; }} />
+                          <CourseThumb src={course.thumbnailUrl} title={course.title} category={category?.name} />
                           <span className={`cc-status cc-status--${s.status}`}>
                             {s.status === "done" && <CheckCircle2 size={12} />}
                             {STATUS_LABEL[s.status]}
