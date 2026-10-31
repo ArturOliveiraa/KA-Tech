@@ -45,6 +45,7 @@ function Cursos() {
 
   const [aiSearchTerm, setAiSearchTerm] = useState("");
   const [aiResults, setAiResults] = useState<AiLessonResult[]>([]);
+  const [searchId, setSearchId] = useState<number | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [showAiResults, setShowAiResults] = useState(false);
@@ -93,6 +94,7 @@ function Cursos() {
       const { data, error } = await supabase.functions.invoke("search-lessons", { body: { query } });
       if (error) throw error;
       setAiResults(data?.results || []);
+      setSearchId(data?.search_id ?? null);
     } catch (error) {
       console.error("Erro na busca IA:", error);
       setAiResults([]);
@@ -167,6 +169,10 @@ function Cursos() {
                   {aiResults.map((item, index) => (
                     <Link
                       key={`${item.lesson_id}-${index}`}
+                      onClick={() => {
+                        // Conta o clique para o relatório de buscas sem resposta (não espera)
+                        if (searchId) supabase.rpc("log_search_click", { p_search_id: searchId, p_lesson_id: item.lesson_id }).then(() => {});
+                      }}
                       to={`/curso/${item.course_slug}?aula=${item.lesson_id}&t=${item.start_seconds || 0}`}
                       className="ui-card ui-card--interactive trl-result"
                     >

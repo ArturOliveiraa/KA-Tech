@@ -49,28 +49,49 @@ Deno.serve(async (req) => {
     });
     if (error) throw error;
     const candidates = (data ?? []) as any[];
-    if (!candidates.length) return json({ results: [] });
 
-    try {
-      const scores = await withTimeout(
-        rerankLessons(query, candidates.map((c) => ({ title: c.lesson_title, course: c.course_title, text: c.lesson_summary ? `Resumo da aula: ${c.lesson_summary} Trecho: ${c.content}` : c.content }))),
-        RERANK_TIMEOUT_MS,
-      );
-      const results = candidates
-        .map((c, i) => ({ ...c, score: scores[i] }))
-        .filter((c) => c.score >= MIN_SCORE)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, MAX_RESULTS);
-      return json({ results, ranked_by: "ia" });
-    } catch (e) {
-      // Sem a IA (cota, demora): fica a ordem do banco
-      console.error("search-lessons rerank", String((e as Error)?.message || e));
-      const top = Math.max(...candidates.map((c) => Number(c.similarity) || 0));
-      const results = candidates
-        .filter((c) => (Number(c.similarity) || 0) >= top - FALLBACK_SIM_GAP)
-        .slice(0, MAX_RESULTS);
-      return json({ results, ranked_by: "banco", rerank_error: String((e as Error)?.message || e).slice(0, 200) });
+    let results: any[] = [];
+    let rankedBy = "vazio";
+    let rerankError: string | undefined;
+    if (candidates.length) {
+      try {
+        const scores = await withTimeout(
+          rerankLessons(query, candidates.map((c) => ({ title: c.lesson_title, course: c.course_title, text: c.lesson_summary ? `Resumo da aula: ${c.lesson_summary} Trecho: ${c.content}` : c.content }))),
+          RERANK_TIMEOUT_MS,
+        );
+        results = candidates
+          .map((c, i) => ({ ...c, score: scores[i] }))
+          .filter((c) => c.score >= MIN_SCORE)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, MAX_RESULTS);
+        rankedBy = "ia";
+      } catch (e) {
+        // Sem a IA (cota, demora): fica a ordem do banco
+        rerankError = String((e as Error)?.message || e).slice(0, 200);
+        console.error("search-lessons rerank", rerankError);
+        const top = Math.max(...candidates.map((c) => Number(c.similarity) || 0));
+        results = candidates
+          .filter((c) => (Number(c.similarity) || 0) >= top - FALLBACK_SIM_GAP)
+          .slice(0, MAX_RESULTS);
+        rankedBy = "banco";
+      }
     }
+
+    // Registro para o relatório "Buscas sem resposta"; se falhar, a busca segue
+    const { data: log, error: logError } = await supabase
+      .from("search_logs")
+      .insert({
+        user_id: user.id,
+        query,
+        result_count: results.length,
+        lesson_ids: results.map((r) => r.lesson_id),
+        ranked_by: rankedBy,
+      })
+      .select("id")
+      .maybeSingle();
+    if (logError) console.warn("search-lessons log", logError.message);
+
+    return json({ results, ranked_by: rankedBy, rerank_error: rerankError, search_id: log?.id ?? null });
   } catch (e) {
     console.error("search-lessons", e);
     return json({ error: "Não foi possível buscar agora. Tente novamente em instantes." }, 500);

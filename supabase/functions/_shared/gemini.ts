@@ -21,11 +21,30 @@ async function call(path: string, body: unknown): Promise<any> {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
+  const model = path.match(/^models\/([^:]+)/)?.[1] ?? path;
   if (!res.ok) {
     const msg = data?.error?.message || `HTTP ${res.status}`;
+    if (res.status === 429) await countUsage(model, true);
     throw new Error(`Gemini: ${msg}`);
   }
+  await countUsage(model, false);
   return data;
+}
+
+/** Soma a chamada no painel "Busca e indexação" (gemini_usage). Falhar aqui não atrapalha a função. */
+async function countUsage(model: string, quotaError: boolean) {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return;
+  try {
+    await fetch(`${url}/rest/v1/rpc/bump_gemini_usage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: key, Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ p_model: model, p_quota_error: quotaError }),
+    });
+  } catch (e) {
+    console.warn("gemini_usage", String((e as Error)?.message || e));
+  }
 }
 
 const mm = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;

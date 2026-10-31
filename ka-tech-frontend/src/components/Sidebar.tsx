@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
-  BarChart3, BookOpen, ChevronDown, Compass, LayoutDashboard, LogOut, Medal, Menu,
+  BarChart3, BookOpen, BrainCircuit, ChevronDown, Compass, LayoutDashboard, LogOut, Medal, Menu,
   MessageSquare, Moon, Settings, ShieldCheck, Sun, Trophy, X,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
@@ -25,6 +25,7 @@ const COMMUNITY: NavItem[] = [
 const ADMIN: NavItem[] = [
   { to: "/admin/usuarios", label: "Usuários", icon: ShieldCheck },
   { to: "/admin/cursos", label: "Cursos e trilhas", icon: BookOpen },
+  { to: "/admin/busca", label: "Busca e indexação", icon: BrainCircuit },
   { to: "/admin/gamificacao", label: "Gamificação", icon: Trophy },
   { to: "/admin/feedbacks", label: "Feedbacks", icon: MessageSquare },
   { to: "/admin/relatorio-alunos", label: "Relatório de alunos", icon: BarChart3 },
