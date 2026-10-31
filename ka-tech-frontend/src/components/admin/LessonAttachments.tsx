@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, FileText, Paperclip, Trash2, UploadCloud } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useConfirm } from "../ui";
 import {
   LessonAttachment, MATERIALS_BUCKET, MAX_ATTACHMENT_MB, fileKind, formatBytes, listAttachments, openAttachment,
 } from "../../utils/attachments";
@@ -9,6 +10,7 @@ const ACCEPT = ".pdf,.zip,.docx,.xlsx,.pptx,.txt,.csv,.png,.jpg,.jpeg,.webp";
 
 /** Materiais de apoio de uma aula: enviar (arrastar ou clicar), baixar e remover. */
 export default function LessonAttachments({ lessonId, courseId }: { lessonId: number; courseId: number }) {
+  const confirm = useConfirm();
   const [items, setItems] = useState<LessonAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export default function LessonAttachments({ lessonId, courseId }: { lessonId: nu
   };
 
   const remove = async (att: LessonAttachment) => {
-    if (!window.confirm(`Remover "${att.name}"?`)) return;
+    if (!(await confirm({ title: "Remover material?", message: `"${att.name}" sai da aula e o arquivo é apagado.`, tone: "danger", confirmLabel: "Remover" }))) return;
     const { error: dbError } = await supabase.from("lesson_attachments").delete().eq("id", att.id);
     if (dbError) return setError("Não foi possível remover o material.");
     await supabase.storage.from(MATERIALS_BUCKET).remove([att.file_path]);

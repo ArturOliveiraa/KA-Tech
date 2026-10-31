@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { PlaySquare, Radio } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
@@ -79,20 +80,20 @@ export default function LivePage() {
 
   return (
     <div className={styles.container}>
-      <SEO title={isReplay ? "Replay da Aula" : "Ao Vivo"} description="Participe da transmissão." />
+      <SEO title={isReplay ? "Replay da live" : "Ao vivo"} description="Participe da transmissão." />
       <Sidebar />
       
       <main className={styles.mainContent}>
         
         <header className={styles.header}>
           <h2 className={styles.title}>
-            {isReplay ? "📚 Replay da Aula" : "🔴 Transmissão ao Vivo"}
+            {isReplay ? <><PlaySquare size={22} aria-hidden="true" /> Replay da live</> : <><Radio size={22} aria-hidden="true" /> Transmissão ao vivo</>}
           </h2>
 
           {!isReplay && (
             <div className={styles.liveBadgeContainer}>
               <div className={styles.viewerCount}>
-                <span className={styles.pulseIcon}>●</span> 
+                <span className={styles.pulseIcon} aria-hidden="true">●</span> 
                 {viewerCount} assistindo
               </div>
               <div className={styles.liveTag}>AO VIVO</div>
@@ -112,10 +113,9 @@ export default function LivePage() {
               {currentUser ? (
                 <LiveChat user={currentUser} youtubeVideoId={videoId} />
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-text-muted)', fontWeight: 600, flexDirection: 'column', gap: '10px' }}>
-                  <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <div className="ui-loading-inline" style={{ height: "100%", justifyContent: "center", flexDirection: "column" }}>
+                  <div className="ui-spinner ui-spinner--sm" />
                   <span>Conectando ao chat...</span>
-                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                 </div>
               )}
             </div>

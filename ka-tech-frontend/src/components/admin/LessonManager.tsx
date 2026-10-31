@@ -3,7 +3,7 @@ import {
   AlertTriangle, ArrowDown, ArrowUp, BrainCircuit, Check, ChevronDown, Clock, Eye, EyeOff, FileText, FolderPlus, GripVertical, Layers, Pencil, Plus, RefreshCw, Sparkles, Trash2, Video, X,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { Button, EmptyState, Select } from "../ui";
+import { Button, EmptyState, Select, useConfirm, useToast } from "../ui";
 import Drawer from "./Drawer";
 import LessonAttachments from "./LessonAttachments";
 import TranscriptDrawer from "./TranscriptDrawer";
@@ -74,6 +74,8 @@ function VideoThumb({ url }: { url: string | null }) {
  * continua só ordenando por "order".
  */
 export default function LessonManager({ courseId, onCountChange }: LessonManagerProps) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +196,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
       if (failed) throw failed.error;
     } catch (err) {
       console.error("Erro ao salvar ordem:", err);
-      alert("Não foi possível salvar a nova ordem. Recarregando a grade.");
+      toast.error("Não foi possível salvar a nova ordem. Recarregando a grade.");
       load();
     } finally {
       setSavingOrder(false);
@@ -240,7 +242,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
     const nextOrder = modules.length ? Math.max(...modules.map((m) => m.order)) + 1 : 1;
     const { data, error: dbError } = await supabase.from("course_modules").insert([{ course_id: courseId, title: newModuleTitle.trim(), order: nextOrder }]).select("id, title, order").single();
     setAddingModule(false);
-    if (dbError || !data) return alert("Não foi possível criar o módulo: " + (dbError?.message || ""));
+    if (dbError || !data) return toast.error("Não foi possível criar o módulo: " + (dbError?.message || ""));
     setModules((prev) => [...prev, data]);
     setNewModuleTitle("");
   };
@@ -251,16 +253,19 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
     if (!t || t === module.title) return;
     setModules((prev) => prev.map((m) => (m.id === module.id ? { ...m, title: t } : m)));
     const { error: dbError } = await supabase.from("course_modules").update({ title: t }).eq("id", module.id);
-    if (dbError) { alert("Não foi possível renomear o módulo."); load(); }
+    if (dbError) { toast.error("Não foi possível renomear o módulo."); load(); }
   };
 
   const deleteModule = async (module: Module, count: number) => {
-    const msg = count
-      ? `Excluir o módulo "${module.title}"? As ${count} aula(s) dele não serão apagadas: vão para "Sem módulo".`
-      : `Excluir o módulo "${module.title}"?`;
-    if (!window.confirm(msg)) return;
+    const ok = await confirm({
+      title: `Excluir o módulo "${module.title}"?`,
+      message: count ? `As ${count} aula(s) dele não serão apagadas: vão para "Sem módulo".` : undefined,
+      tone: "danger",
+      confirmLabel: "Excluir módulo",
+    });
+    if (!ok) return;
     const { error: dbError } = await supabase.from("course_modules").delete().eq("id", module.id);
-    if (dbError) return alert("Não foi possível excluir o módulo.");
+    if (dbError) return toast.error("Não foi possível excluir o módulo.");
     load();
   };
 
@@ -273,7 +278,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
     const renumbered = sorted.map((m, idx) => ({ ...m, order: idx + 1 }));
     setModules(renumbered);
     const results = await Promise.all(renumbered.map((m) => supabase.from("course_modules").update({ order: m.order }).eq("id", m.id)));
-    if (results.some((r) => r.error)) { alert("Não foi possível mover o módulo."); load(); return; }
+    if (results.some((r) => r.error)) { toast.error("Não foi possível mover o módulo."); load(); return; }
     // Reaplica a ordem global das aulas seguindo a nova ordem dos módulos
     const loose = lessons.filter((l) => l.module_id === null).sort((a, b) => a.order - b.order);
     const arr = [
@@ -290,7 +295,7 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
     const payload: any = { status };
     if (status === "published") payload.published_at = new Date().toISOString();
     const { error: dbError } = await supabase.from("lessons").update(payload).eq("id", lesson.id);
-    if (dbError) { alert("Não foi possível mudar o status: " + dbError.message); load(); }
+    if (dbError) { toast.error("Não foi possível mudar o status: " + dbError.message); load(); }
   };
 
   // ---------- Formulário ----------
@@ -384,9 +389,9 @@ export default function LessonManager({ courseId, onCountChange }: LessonManager
   };
 
   const handleDelete = async (lesson: Lesson) => {
-    if (!window.confirm(`Excluir a aula "${lesson.title}"? O progresso dos alunos nela será perdido.`)) return;
+    if (!(await confirm({ title: `Excluir a aula "${lesson.title}"?`, message: "O progresso dos alunos nela será perdido.", tone: "danger", confirmLabel: "Excluir aula" }))) return;
     const { error: dbError } = await supabase.from("lessons").delete().eq("id", lesson.id);
-    if (dbError) return alert("Não foi possível excluir a aula.");
+    if (dbError) return toast.error("Não foi possível excluir a aula.");
     setLessons((prev) => prev.filter((l) => l.id !== lesson.id));
   };
 

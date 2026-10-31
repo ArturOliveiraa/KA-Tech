@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, EmptyState, PageHeader, ProgressBar, Skeleton } from "../components/ui";
+import { Button, EmptyState, PageHeader, ProgressBar, Skeleton, useToast } from "../components/ui";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Award, BookOpen, Calendar, CheckCircle2, Clock, Compass, Download, Hourglass, Lock, Play, Trophy, Zap } from "lucide-react";
@@ -35,6 +35,7 @@ const hoursText = (minutes: number) => {
 };
 
 export default function Achievements() {
+  const toast = useToast();
   const [items, setItems] = useState<AchievementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -170,7 +171,7 @@ export default function Achievements() {
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       element.style.display = "none";
-      alert("Ocorreu um erro ao gerar seu certificado. Tente novamente.");
+      toast.error("Não foi possível gerar o certificado. Tente novamente.");
     } finally {
       setGeneratingPdfId(null);
     }

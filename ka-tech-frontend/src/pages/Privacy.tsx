@@ -21,14 +21,14 @@ function Privacy() {
         .privacy-container h1 { font-size: 2rem; margin-bottom: 20px; color: var(--color-text); }
         .privacy-container h2 { font-size: 1.25rem; margin-top: 30px; margin-bottom: 10px; color: var(--color-primary-text); }
         .privacy-container p { line-height: 1.6; color: var(--color-text-muted); margin-bottom: 15px; }
-        .back-link { cursor: pointer; color: var(--color-primary-text); display: flex; align-items: center; gap: 8px; margin-bottom: 30px; }
+        .back-link { cursor: pointer; background: none; border: none; padding: 0; font: inherit; color: var(--color-primary-text); display: flex; align-items: center; gap: 8px; margin-bottom: 30px; }
         .back-link:hover { text-decoration: underline; }
       `}</style>
 
       <div className="privacy-container">
-        <div className="back-link" onClick={() => navigate("/login")}>
-           ← Voltar para o Login
-        </div>
+        <button type="button" className="back-link" onClick={() => navigate("/login")}>
+           ← Voltar para o login
+        </button>
         
         <header style={{ textAlign: "center", marginBottom: "40px" }}>
           <img src={logoKaTech} alt="KA Tech" style={{ height: "60px", marginBottom: "20px" }} />

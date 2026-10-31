@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { BookOpen, Copy, Eye, LayoutGrid, Layers, List, Pencil, Plus, Search, Shield, Tag as TagIcon, Trash2, Video, X } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, CourseCover, CourseThumb, CoverChoice, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import { Button, CourseCover, CourseThumb, CoverChoice, EmptyState, PageHeader, Select, Skeleton, useConfirm, useToast } from "../components/ui";
 import TagPicker, { TagOption } from "../components/admin/TagPicker";
 import ActionMenu, { ActionItem } from "../components/admin/ActionMenu";
 import CourseWizard from "../components/admin/CourseWizard";
@@ -34,6 +34,8 @@ const generateSlug = (text: string) =>
     .replace(/\s+/g, "-").replace(/[^\w-]+/g, "").replace(/--+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
 
 const AdminCourses: React.FC = () => {
+  const confirm = useConfirm();
+  const toast = useToast();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"cursos" | "catalogo">("cursos");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -116,7 +118,7 @@ const AdminCourses: React.FC = () => {
     setBusy("category");
     const { data, error } = await supabase.from("categories").insert([{ name: newCategoryName.trim(), slug: generateSlug(newCategoryName) }]).select().single();
     setBusy(null);
-    if (error) return alert("Erro ao adicionar trilha: " + error.message);
+    if (error) return toast.error("Não foi possível adicionar a trilha: " + error.message);
     setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setNewCategoryName("");
   };
@@ -127,20 +129,20 @@ const AdminCourses: React.FC = () => {
     setBusy("tag");
     const { data, error } = await supabase.from("tags").insert([{ name: newTagName.trim().toUpperCase() }]).select("id, name, type").single();
     setBusy(null);
-    if (error) return alert("Erro ao adicionar setor: " + error.message);
+    if (error) return toast.error("Não foi possível adicionar o setor: " + error.message);
     setTags((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setNewTagName("");
   };
 
   const handleDeleteCourse = async (course: Course) => {
-    if (!window.confirm(`Excluir o curso "${course.title}"? Essa ação não pode ser desfeita.`)) return;
+    if (!(await confirm({ title: `Excluir o curso "${course.title}"?`, message: "Essa ação não pode ser desfeita.", tone: "danger", confirmLabel: "Excluir curso" }))) return;
     try {
       await supabase.from("course_tags").delete().eq("course_id", course.id);
       const { error } = await supabase.from("courses").delete().eq("id", course.id);
       if (error) throw error;
       setCourses((prev) => prev.filter((c) => c.id !== course.id));
     } catch {
-      alert("Erro ao excluir curso. Verifique se ele ainda tem aulas ou matrículas.");
+      toast.error("Não foi possível excluir o curso. Verifique se ele ainda tem aulas ou matrículas.");
     }
   };
 
@@ -179,7 +181,7 @@ const AdminCourses: React.FC = () => {
 
   // Duplica curso, setores e aulas (sem progresso dos alunos)
   const duplicateCourse = async (course: Course) => {
-    if (!window.confirm(`Criar uma cópia de "${course.title}" com as mesmas aulas e setores?`)) return;
+    if (!(await confirm({ title: "Duplicar curso?", message: `Cria uma cópia de "${course.title}" com as mesmas aulas e setores.`, confirmLabel: "Duplicar" }))) return;
     setBusy(`dup-${course.id}`);
     try {
       const { data: full, error: fullError } = await supabase.from("courses").select("*").eq("id", course.id).single();
@@ -389,7 +391,7 @@ const AdminCourses: React.FC = () => {
                               <div className="adm-cell-main">
                                 <CourseThumb src={course.thumbnailUrl} title={course.title} category={course.categories?.name} choice={course} categoryChoice={course.categories} className="adm-thumb" />
                                 <div style={{ minWidth: 0 }}>
-                                  <strong>{course.title}</strong>
+                                  <strong><Link to={`/admin/cursos/${course.id}`} className="adm-row-link" onClick={(e) => e.stopPropagation()}>{course.title}</Link></strong>
                                   <small>{course.description}</small>
                                 </div>
                               </div>

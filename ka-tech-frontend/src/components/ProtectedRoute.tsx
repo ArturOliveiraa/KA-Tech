@@ -3,8 +3,11 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { LoadingScreen } from "./ui";
+import { useUser } from "./UserContext";
 
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+/** staff: só admin e instrutores; o aluno que abrir o endereço volta para o início. */
+export const ProtectedRoute = ({ children, staff = false }: { children: React.ReactNode; staff?: boolean }) => {
+  const { userRole, loading: userLoading } = useUser();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [isProfileComplete, setIsProfileComplete] = useState(true);
@@ -52,6 +55,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // Se estiver logado mas falta a equipe, força a tela de completar perfil
   if (!isProfileComplete) {
     return <Navigate to="/completar-perfil" replace />;
+  }
+
+  if (staff) {
+    if (userLoading) return <LoadingScreen label="Verificando acesso..." />;
+    if (!["admin", "teacher", "professor"].includes((userRole || "").toLowerCase())) return <Navigate to="/dashboard" replace />;
   }
 
   // Se passou por tudo, libera a rota

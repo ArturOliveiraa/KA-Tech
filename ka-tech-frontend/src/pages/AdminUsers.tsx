@@ -5,7 +5,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import { Button, EmptyState, PageHeader, Select, Skeleton, useConfirm } from "../components/ui";
 import TagPicker, { TagOption } from "../components/admin/TagPicker";
 import Drawer from "../components/admin/Drawer";
 
@@ -53,6 +53,7 @@ const formatDate = (dateString: string) =>
   dateString ? new Date(dateString).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 
 const AdminUsers: React.FC = () => {
+  const confirm = useConfirm();
   const [users, setUsers] = useState<Profile[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
   const [courses, setCourses] = useState<CourseAccess[]>([]);
@@ -158,7 +159,7 @@ const AdminUsers: React.FC = () => {
 
   const handleResetPassword = async (user: Profile) => {
     if (!user.email) return setNotice({ tone: "danger", text: "Esse usuário não tem e-mail cadastrado." });
-    if (!window.confirm(`Enviar um link de redefinição de senha para ${user.email}?`)) return;
+    if (!(await confirm({ title: "Enviar redefinição de senha?", message: `${user.email} recebe um e-mail com o link para criar uma nova senha.`, confirmLabel: "Enviar link" }))) return;
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: window.location.origin + "/update-password" });
     setNotice(error
       ? { tone: "danger", text: "Não foi possível enviar o e-mail: " + error.message }

@@ -1,680 +1,509 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { supabase } from "../supabaseClient";
-import Sidebar from "../components/Sidebar";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, BookOpen, CheckCircle2, FileDown, FileSpreadsheet, Layers, LineChart, Radio, Tag as TagIcon, Users } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from 'xlsx'; 
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell
-} from 'recharts';
+import * as XLSX from "xlsx";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
+import { supabase } from "../supabaseClient";
+import Sidebar from "../components/Sidebar";
+import SEO from "../components/SEO";
+import Avatar from "../components/Avatar";
+import { useTheme } from "../components/ThemeContext";
+import { Button, EmptyState, PageHeader, Select, Skeleton, useToast } from "../components/ui";
 
-// --- INTERFACES ---
-interface PlatformStats {
-  totalStudents: number;
-  totalCourses: number;
-  totalLessonsFinished: number;
-}
-
-interface TagData {
-  name: string;
-  alunos: number;
-}
-
-interface Course {
-  id: number;
-  title: string;
-}
-
-interface Live {
-    id: string;
-    title: string;
-    scheduled_at: string;
-}
-
-interface Tag {
-    id: string;
-    name: string;
-}
+interface PlatformStats { totalStudents: number; totalCourses: number; totalLessonsFinished: number }
+interface TagData { name: string; alunos: number }
+interface Course { id: number; title: string }
+interface Live { id: string; title: string; scheduled_at: string }
+interface Tag { id: string; name: string }
 
 interface Student {
+  userId: string;
   full_name: string;
   role: string;
-  avatar_url?: string; 
-  is_completed?: boolean; 
-  userId?: string; 
-  minutes_watched?: number; 
-  last_seen_at?: string;    
+  avatar_url?: string;
+  /** Curso: aulas concluídas / aulas publicadas */
+  done_lessons?: number;
+  is_completed?: boolean;
+  /** Live: minutos assistidos e último sinal */
+  minutes_watched?: number;
+  last_seen_at?: string;
 }
 
-// --- ICONS ---
-const Icons = {
-  TrendUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
-  Users: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
-  Layers: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>,
-  Download: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
-  Excel: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
-  Video: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>,
-  Book: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>,
-  Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+type ReportType = "COURSE" | "LIVE";
+
+const ROLE_LABEL: Record<string, string> = { admin: "Admin", teacher: "Instrutor", professor: "Instrutor", student: "Aluno", aluno: "Aluno" };
+const roleLabel = (r: string) => ROLE_LABEL[(r || "").toLowerCase()] ?? (r || "Aluno");
+
+const formatWatchTime = (minutes: number) => {
+  if (!minutes) return "0 min";
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m} min`;
 };
 
+/** Cor de um token do tema (os gráficos do Recharts não leem var() do CSS). */
+const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888";
+
+const getBase64ImageFromUrl = async (imageUrl: string): Promise<string | null> => {
+  try {
+    const blob = await (await fetch(imageUrl)).blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
+
+/** Progresso dos alunos por curso e presença nas lives, com exportação. */
 export default function Reports() {
-  const [loading, setLoading] = useState<boolean>(true);
-  const [reportType, setReportType] = useState<'COURSE' | 'LIVE'>('COURSE');
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); 
+  const toast = useToast();
+  const { theme } = useTheme();
+  const [loading, setLoading] = useState(true);
+  const [reportType, setReportType] = useState<ReportType>("COURSE");
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const [platformStats, setPlatformStats] = useState<PlatformStats>({ totalStudents: 0, totalCourses: 0, totalLessonsFinished: 0 });
   const [tagPopularity, setTagPopularity] = useState<TagData[]>([]);
-  
   const [courses, setCourses] = useState<Course[]>([]);
   const [lives, setLives] = useState<Live[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  
-  const [selectedCourseId, setSelectedCourseId] = useState<string>("");
-  const [selectedLiveId, setSelectedLiveId] = useState<string>("");
-  const [selectedTagFilter, setSelectedTagFilter] = useState<string>("");
-  
-  const [tableData, setTableData] = useState<Student[]>([]);
-  const [absentTags, setAbsentTags] = useState<string[]>([]); 
-  const [loadingFilter, setLoadingFilter] = useState<boolean>(false);
 
-  // --- CARGA INICIAL ---
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [selectedLiveId, setSelectedLiveId] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
+  const [courseLessons, setCourseLessons] = useState(0);
+
+  const [tableData, setTableData] = useState<Student[]>([]);
+  const [absentTags, setAbsentTags] = useState<string[]>([]);
+  const [loadingFilter, setLoadingFilter] = useState(false);
+
+  // Cores dos gráficos, relidas quando o tema muda
+  const colors = useMemo(() => ({
+    primary: cssVar("--color-primary"),
+    success: cssVar("--color-success"),
+    muted: cssVar("--color-text-muted"),
+    track: cssVar("--color-surface-3"),
+    grid: cssVar("--color-border"),
+  }), [theme]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
+    (async () => {
       try {
         const [profilesRes, coursesRes, progressRes, listCoursesRes, listLivesRes, listTagsRes, tagPopRes] = await Promise.all([
-          supabase.from("profiles").select("id", { count: 'exact', head: true }),
-          supabase.from("courses").select("id", { count: 'exact', head: true }),
-          supabase.from("user_progress").select("id", { count: 'exact', head: true }).eq("is_completed", true),
+          supabase.from("profiles").select("id", { count: "exact", head: true }),
+          supabase.from("courses").select("id", { count: "exact", head: true }),
+          supabase.from("user_progress").select("id", { count: "exact", head: true }).eq("is_completed", true),
           supabase.from("courses").select("id, title").order("title"),
           supabase.from("lives").select("id, title, scheduled_at").order("scheduled_at", { ascending: false }),
           supabase.from("tags").select("id, name").order("name"),
-          supabase.from("tag_popularity_report").select("*").limit(5)
+          supabase.from("tag_popularity_report").select("*").limit(6),
         ]);
-
         setPlatformStats({
           totalStudents: profilesRes.count || 0,
           totalCourses: coursesRes.count || 0,
-          totalLessonsFinished: progressRes.count || 0
+          totalLessonsFinished: progressRes.count || 0,
         });
-
-        if (listCoursesRes.data) setCourses(listCoursesRes.data);
-        if (listLivesRes.data) setLives(listLivesRes.data);
-        if (listTagsRes.data) setTags(listTagsRes.data);
-        
-        if (tagPopRes.data) {
-          const formattedTags: TagData[] = tagPopRes.data.map((t: any) => ({
-            name: t.tag_name,
-            alunos: t.total_enrollments
-          }));
-          setTagPopularity(formattedTags);
-        }
-
+        setCourses(listCoursesRes.data || []);
+        setLives(listLivesRes.data || []);
+        setTags(listTagsRes.data || []);
+        setTagPopularity((tagPopRes.data || []).map((t: any) => ({ name: t.tag_name, alunos: t.total_enrollments })));
+      } catch (e) {
+        console.error("Relatórios", e);
+        toast.error("Não foi possível carregar os relatórios.");
       } finally {
         setLoading(false);
       }
-    }
-    loadData();
-  }, []);
+    })();
+  }, [toast]);
 
-  // --- HELPER: CALCULAR TAGS AUSENTES ---
-  const calculateAbsentTags = async (activeStudentIds: string[]) => {
-    if (activeStudentIds.length === 0) {
-        setAbsentTags(tags.map(t => t.name));
-        return;
-    }
-
-    const { data: presentTagsData } = await supabase
-        .from("profile_tags")
-        .select("tag_id")
-        .in("profile_id", activeStudentIds);
-
-    const presentTagIds = new Set(presentTagsData?.map((t: any) => t.tag_id));
-
-    const missing = tags
-        .filter(t => !presentTagIds.has(t.id))
-        .map(t => t.name);
-
-    setAbsentTags(missing);
+  /** Setores sem nenhum aluno no recorte atual. */
+  const calculateAbsentTags = async (userIds: string[]) => {
+    if (!userIds.length) return setAbsentTags(tags.map((t) => t.name));
+    const { data } = await supabase.from("profile_tags").select("tag_id").in("profile_id", userIds);
+    const present = new Set((data || []).map((t: any) => t.tag_id));
+    setAbsentTags(tags.filter((t) => !present.has(t.id)).map((t) => t.name));
   };
 
-  // --- FILTROS ---
-  const handleApplyCourseFilter = async (courseId: string) => {
-    if (!courseId) return;
-    setLoadingFilter(true);
+  const applyCourse = async (courseId: string) => {
     setSelectedCourseId(courseId);
     setTableData([]);
     setAbsentTags([]);
-
-    const [enrollRes, progressRes] = await Promise.all([
-      supabase.from("course_enrollments").select(`userId, profiles:userId (full_name, role, avatar_url)`).eq("courseId", Number(courseId)),
-      supabase.from("user_progress").select("user_id, is_completed").eq("course_id", Number(courseId))
+    if (!courseId) return;
+    setLoadingFilter(true);
+    const id = Number(courseId);
+    const [enrollRes, progressRes, lessonsRes] = await Promise.all([
+      supabase.from("course_enrollments").select("userId, profiles:userId (full_name, role, avatar_url)").eq("courseId", id),
+      supabase.from("user_progress").select("user_id, lesson_id, is_completed").eq("course_id", id).eq("is_completed", true),
+      supabase.from("lessons").select("id", { count: "exact", head: true }).eq("course_id", id).eq("status", "published"),
     ]);
-
-    if (enrollRes.data) {
-      const progressMap = new Map(progressRes.data?.map(p => [p.user_id, p.is_completed]) || []);
-      const formattedStudents: Student[] = enrollRes.data
-        .filter((item: any) => item.profiles) 
-        .map((item: any) => ({
+    const total = lessonsRes.count || 0;
+    setCourseLessons(total);
+    // Aulas concluídas por aluno (antes valia só a última linha de progresso de cada um)
+    const done = new Map<string, Set<number>>();
+    for (const p of progressRes.data || []) {
+      if (!done.has(p.user_id)) done.set(p.user_id, new Set());
+      done.get(p.user_id)!.add(p.lesson_id);
+    }
+    const students: Student[] = (enrollRes.data || [])
+      .filter((item: any) => item.profiles)
+      .map((item: any) => {
+        const n = done.get(item.userId)?.size || 0;
+        return {
+          userId: item.userId,
           full_name: item.profiles.full_name,
           role: item.profiles.role,
           avatar_url: item.profiles.avatar_url,
-          is_completed: progressMap.get(item.userId) || false,
-          userId: item.userId
-        }));
-      setTableData(formattedStudents);
-      
-      const userIds = formattedStudents.map(s => s.userId!).filter(Boolean);
-      await calculateAbsentTags(userIds);
-    }
+          done_lessons: n,
+          is_completed: total > 0 && n >= total,
+        };
+      })
+      .sort((a, b) => (b.done_lessons || 0) - (a.done_lessons || 0));
+    setTableData(students);
+    await calculateAbsentTags(students.map((s) => s.userId));
     setLoadingFilter(false);
   };
 
-  const handleApplyLiveFilter = async (liveId: string, tagId: string = "") => {
-    if (!liveId) return;
-    setLoadingFilter(true);
+  const applyLive = async (liveId: string, tagId = "") => {
     setSelectedLiveId(liveId);
-    setSelectedTagFilter(tagId);
+    setSelectedTag(tagId);
     setTableData([]);
     setAbsentTags([]);
+    if (!liveId) return;
+    setLoadingFilter(true);
 
-    let query = supabase.from("live_attendance").select(`minutes_watched, last_seen_at, user_id, profiles:user_id (full_name, role, avatar_url)`).eq("live_id", liveId);
-
+    let query = supabase.from("live_attendance").select("minutes_watched, last_seen_at, user_id, profiles:user_id (full_name, role, avatar_url)").eq("live_id", liveId);
     if (tagId) {
-        const { data: taggedUsers } = await supabase.from("profile_tags").select("profile_id").eq("tag_id", tagId);
-        if (taggedUsers) {
-            const validUserIds = taggedUsers.map(u => u.profile_id);
-            if (validUserIds.length > 0) query = query.in("user_id", validUserIds);
-            else { 
-                setTableData([]); 
-                setAbsentTags(tags.map(t => t.name));
-                setLoadingFilter(false); 
-                return; 
-            }
-        }
+      const { data: tagged } = await supabase.from("profile_tags").select("profile_id").eq("tag_id", tagId);
+      const ids = (tagged || []).map((u: any) => u.profile_id);
+      if (!ids.length) {
+        setAbsentTags(tags.map((t) => t.name));
+        setLoadingFilter(false);
+        return;
+      }
+      query = query.in("user_id", ids);
     }
-
     const { data } = await query;
-    if (data) {
-        const formattedStudents: Student[] = data
-            .filter((item: any) => item.profiles)
-            .map((item: any) => ({
-                full_name: item.profiles.full_name,
-                role: item.profiles.role,
-                avatar_url: item.profiles.avatar_url,
-                minutes_watched: item.minutes_watched,
-                last_seen_at: item.last_seen_at,
-                userId: item.user_id
-            }))
-            .sort((a, b) => (b.minutes_watched || 0) - (a.minutes_watched || 0));
-        setTableData(formattedStudents);
-
-        const userIds = formattedStudents.map(s => s.userId!).filter(Boolean);
-        await calculateAbsentTags(userIds);
-    }
+    const students: Student[] = (data || [])
+      .filter((item: any) => item.profiles)
+      .map((item: any) => ({
+        userId: item.user_id,
+        full_name: item.profiles.full_name,
+        role: item.profiles.role,
+        avatar_url: item.profiles.avatar_url,
+        minutes_watched: item.minutes_watched,
+        last_seen_at: item.last_seen_at,
+      }))
+      .sort((a, b) => (b.minutes_watched || 0) - (a.minutes_watched || 0));
+    setTableData(students);
+    await calculateAbsentTags(students.map((s) => s.userId));
     setLoadingFilter(false);
   };
 
-  const formatWatchTime = (minutes: number) => {
-      if (!minutes) return "0min";
-      const h = Math.floor(minutes / 60);
-      const m = minutes % 60;
-      return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  const switchType = (type: ReportType) => {
+    setReportType(type);
+    setTableData([]);
+    setAbsentTags([]);
   };
 
-  // --- TOTAIS ---
+  const isLive = reportType === "LIVE";
   const totalStudents = tableData.length;
-  const totalMinutesWatched = useMemo(() => tableData.reduce((acc, curr) => acc + (curr.minutes_watched || 0), 0), [tableData]);
-  const averageMinutes = useMemo(() => totalStudents > 0 ? Math.floor(totalMinutesWatched / totalStudents) : 0, [totalMinutesWatched, totalStudents]);
-  const completionRate = totalStudents > 0 ? Math.round((tableData.filter(s => s.is_completed).length / totalStudents) * 100) : 0;
+  const totalMinutes = useMemo(() => tableData.reduce((acc, s) => acc + (s.minutes_watched || 0), 0), [tableData]);
+  const avgMinutes = totalStudents ? Math.floor(totalMinutes / totalStudents) : 0;
+  const completed = tableData.filter((s) => s.is_completed).length;
+  const completionRate = totalStudents ? Math.round((completed / totalStudents) * 100) : 0;
 
-  // --- EXCEL ---
+  const contextTitle = isLive
+    ? lives.find((l) => l.id === selectedLiveId)?.title || "Relatório da live"
+    : courses.find((c) => c.id === Number(selectedCourseId))?.title || "Relatório do curso";
+  const contextFilter = isLive ? `Setor: ${tags.find((t) => t.id === selectedTag)?.name || "todos"}` : "Progresso no curso";
+
   const generateExcel = () => {
-    const isLiveReport = reportType === 'LIVE';
-    const titleText = isLiveReport 
-        ? lives.find(l => l.id === selectedLiveId)?.title || "Relatorio_Live"
-        : courses.find(c => c.id === Number(selectedCourseId))?.title || "Relatorio_Curso";
-
-    const contextText = isLiveReport
-        ? `Filtro: ${tags.find(t => t.id === selectedTagFilter)?.name || "Geral"}`
-        : "Lista de Alunos";
-
-    const absentString = absentTags.length > 0 ? absentTags.join(", ") : "Nenhuma (Todas presentes)";
-
-    const headerInfo = [
-        ["RELATÓRIO DE DESEMPENHO - KA ACADEMY"],
-        ["Gerado em:", new Date().toLocaleString()],
-        ["Contexto:", titleText],
-        ["Filtro:", contextText],
-        [""],
-        ["RESUMO ESTATÍSTICO:"],
-        [isLiveReport ? "Total de Espectadores:" : "Total de Alunos:", totalStudents],
-        isLiveReport ? ["Tempo Total Consumido:", formatWatchTime(totalMinutesWatched)] : [],
-        [isLiveReport ? "Tempo Médio por Aluno:" : "Taxa de Conclusão:", isLiveReport ? formatWatchTime(averageMinutes) : `${completionRate}%`],
-        [""],
-        ["TAGS AUSENTES (0% Presença):", absentString], 
-        [""]
+    const header = [
+      ["RELATÓRIO - KA ACADEMY"],
+      ["Gerado em:", new Date().toLocaleString("pt-BR")],
+      ["Contexto:", contextTitle],
+      ["Filtro:", contextFilter],
+      [""],
+      [isLive ? "Espectadores:" : "Alunos matriculados:", totalStudents],
+      ...(isLive ? [["Tempo total:", formatWatchTime(totalMinutes)], ["Tempo médio por aluno:", formatWatchTime(avgMinutes)]] : [["Concluíram o curso:", `${completed} (${completionRate}%)`]]),
+      [""],
+      ["Setores sem ninguém:", absentTags.join(", ") || "Nenhum"],
+      [""],
     ];
-
-    let excelBody = [];
-    if (isLiveReport) {
-        excelBody.push(["Nome do Aluno", "Cargo", "Minutos (Raw)", "Tempo Formatado", "Última Interação"]);
-        tableData.forEach(s => {
-            excelBody.push([s.full_name, s.role?.toUpperCase(), s.minutes_watched || 0, formatWatchTime(s.minutes_watched || 0), s.last_seen_at ? new Date(s.last_seen_at).toLocaleString('pt-BR') : '-']);
-        });
-    } else {
-        excelBody.push(["Nome do Aluno", "Cargo", "Status", "ID Usuário"]);
-        tableData.forEach(s => {
-            excelBody.push([s.full_name, s.role?.toUpperCase(), s.is_completed ? "CONCLUÍDO" : "PENDENTE", s.userId]);
-        });
-    }
-
-    const worksheet = XLSX.utils.aoa_to_sheet([...headerInfo, ...excelBody]); 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
-    const fileName = `KA_${titleText.replace(/\s+/g, '_')}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    const body = isLive
+      ? [["Aluno", "Perfil", "Minutos", "Tempo", "Último sinal"], ...tableData.map((s) => [s.full_name, roleLabel(s.role), s.minutes_watched || 0, formatWatchTime(s.minutes_watched || 0), s.last_seen_at ? new Date(s.last_seen_at).toLocaleString("pt-BR") : "-"])]
+      : [["Aluno", "Perfil", "Aulas concluídas", "Situação"], ...tableData.map((s) => [s.full_name, roleLabel(s.role), `${s.done_lessons || 0} de ${courseLessons}`, s.is_completed ? "Concluído" : "Cursando"])];
+    const sheet = XLSX.utils.aoa_to_sheet([...header, ...body]);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, "Dados");
+    XLSX.writeFile(book, `KA_${contextTitle.replace(/\s+/g, "_")}.xlsx`);
   };
 
-  const getBase64ImageFromUrl = async (imageUrl: string): Promise<string | null> => {
+  const generatePdf = async () => {
+    setGeneratingPdf(true);
     try {
-      const res = await fetch(imageUrl);
-      const blob = await res.blob();
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-    } catch { return null; }
-  };
-
-  // --- PDF ---
-  const generatePremiumPDF = async () => {
-    setIsGeneratingPdf(true);
-    const doc = new jsPDF();
-    const isLiveReport = reportType === 'LIVE';
-    
-    const avatars: {[key: number]: string} = {};
-    await Promise.all(tableData.map(async (student, index) => {
-      if (student.avatar_url) {
-        const base64 = await getBase64ImageFromUrl(student.avatar_url);
-        if (base64) avatars[index] = base64;
-      }
-    }));
-
-    const titleText = isLiveReport ? lives.find(l => l.id === selectedLiveId)?.title || "Relatório" : courses.find(c => c.id === Number(selectedCourseId))?.title || "Relatório";
-    const contextText = isLiveReport ? `Tag: ${tags.find(t => t.id === selectedTagFilter)?.name || "Geral"}` : "Status";
-
-    doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 50, 'F'); 
-    doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.setFont("helvetica", "bold"); doc.text("KA ACADEMY", 14, 20);
-    doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.text("LISTA DE PRESENÇA", 14, 27);
-    doc.setTextColor(148, 163, 184); doc.text(new Date().toLocaleDateString(), 195, 20, { align: 'right' });
-
-    doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.setTextColor(139, 92, 246); doc.text(titleText.toUpperCase(), 14, 40);
-    doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.text(contextText, 14, 46);
-
-    // --- BLOCO TOTAIS ---
-    doc.setFillColor(241, 245, 249);
-    doc.roundedRect(14, 52, 182, 18, 2, 2, 'F');
-    doc.setFont("helvetica", "bold"); doc.setTextColor(15, 23, 42); doc.setFontSize(10);
-    
-    const labelTotal = isLiveReport ? `Alunos: ${totalStudents}` : `Total de Alunos: ${totalStudents}`;
-    doc.text(labelTotal, 20, 63);
-
-    if (isLiveReport) {
-        doc.text(`Tempo Total: ${formatWatchTime(totalMinutesWatched)}`, 80, 63);
-        doc.setTextColor(139, 92, 246);
-        doc.text(`Média/Aluno: ${formatWatchTime(averageMinutes)}`, 150, 63);
-    } else {
-        doc.setTextColor(16, 185, 129);
-        doc.text(`Taxa Conclusão: ${completionRate}%`, 150, 63);
-    }
-    
-    // --- BLOCO: TAGS AUSENTES NO PDF ---
-    let tableStartY = 80;
-    if (absentTags.length > 0) {
-        doc.setFontSize(9);
-        doc.setTextColor(239, 68, 68); 
-        doc.text("TAGS COM 0% DE PRESENÇA:", 14, 76);
-        
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 116, 139);
-        const tagsText = doc.splitTextToSize(absentTags.join(", "), 180);
-        doc.text(tagsText, 14, 82);
-        tableStartY = 85 + (tagsText.length * 4);
-    }
-
-    const head = isLiveReport ? [['Foto', 'Aluno', 'Cargo', 'Tempo', 'Último Acesso']] : [['Foto', 'Aluno', 'Cargo', 'Status']];
-    const body = tableData.map(s => {
-        if (isLiveReport) return ['', s.full_name, s.role?.toUpperCase(), formatWatchTime(s.minutes_watched || 0), s.last_seen_at ? new Date(s.last_seen_at).toLocaleTimeString().slice(0,5) : '-'];
-        else return ['', s.full_name, s.role?.toUpperCase(), s.is_completed ? 'CONCLUÍDO' : 'PENDENTE'];
-    });
-
-    autoTable(doc, {
-        startY: tableStartY, head, body,
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
-        bodyStyles: { minCellHeight: 15, valign: 'middle', fontSize: 9 },
-        columnStyles: { 0: { cellWidth: 15 } },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        didDrawCell: (data) => {
-            if (data.section === 'body' && data.column.index === 0) {
-                const img = avatars[data.row.index];
-                if (img) doc.addImage(img, 'JPEG', data.cell.x + 2, data.cell.y + 2, 10, 10);
-            }
+      const doc = new jsPDF();
+      const avatars: Record<number, string> = {};
+      await Promise.all(tableData.map(async (s, i) => {
+        if (s.avatar_url) {
+          const img = await getBase64ImageFromUrl(s.avatar_url);
+          if (img) avatars[i] = img;
         }
-    });
+      }));
 
-    doc.save(`KA_Report.pdf`);
-    setIsGeneratingPdf(false);
+      doc.setFillColor(24, 24, 27); doc.rect(0, 0, 210, 50, "F");
+      doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.setFont("helvetica", "bold"); doc.text("KA ACADEMY", 14, 20);
+      doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.text(isLive ? "PRESENÇA NA LIVE" : "PROGRESSO NO CURSO", 14, 27);
+      doc.setTextColor(163, 163, 171); doc.text(new Date().toLocaleDateString("pt-BR"), 195, 20, { align: "right" });
+      doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.setTextColor(167, 139, 250); doc.text(contextTitle.toUpperCase(), 14, 40);
+      doc.setFontSize(10); doc.setTextColor(163, 163, 171); doc.text(contextFilter, 14, 46);
+
+      doc.setFillColor(244, 244, 245); doc.roundedRect(14, 52, 182, 18, 2, 2, "F");
+      doc.setFont("helvetica", "bold"); doc.setTextColor(24, 24, 27); doc.setFontSize(10);
+      doc.text(`${isLive ? "Espectadores" : "Alunos"}: ${totalStudents}`, 20, 63);
+      if (isLive) {
+        doc.text(`Tempo total: ${formatWatchTime(totalMinutes)}`, 80, 63);
+        doc.text(`Média por aluno: ${formatWatchTime(avgMinutes)}`, 145, 63);
+      } else {
+        doc.text(`Concluíram: ${completed} (${completionRate}%)`, 120, 63);
+      }
+
+      let startY = 80;
+      if (absentTags.length) {
+        doc.setFontSize(9); doc.setTextColor(200, 30, 30); doc.text("SETORES SEM NINGUÉM:", 14, 76);
+        doc.setFont("helvetica", "normal"); doc.setTextColor(85, 85, 95);
+        const lines = doc.splitTextToSize(absentTags.join(", "), 180);
+        doc.text(lines, 14, 82);
+        startY = 85 + lines.length * 4;
+      }
+
+      autoTable(doc, {
+        startY,
+        head: isLive ? [["Foto", "Aluno", "Perfil", "Tempo", "Último sinal"]] : [["Foto", "Aluno", "Perfil", "Aulas", "Situação"]],
+        body: tableData.map((s) => isLive
+          ? ["", s.full_name, roleLabel(s.role), formatWatchTime(s.minutes_watched || 0), s.last_seen_at ? new Date(s.last_seen_at).toLocaleTimeString("pt-BR").slice(0, 5) : "-"]
+          : ["", s.full_name, roleLabel(s.role), `${s.done_lessons || 0}/${courseLessons}`, s.is_completed ? "Concluído" : "Cursando"]),
+        headStyles: { fillColor: [24, 24, 27], textColor: [255, 255, 255], fontStyle: "bold" },
+        bodyStyles: { minCellHeight: 15, valign: "middle", fontSize: 9 },
+        columnStyles: { 0: { cellWidth: 15 } },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
+        didDrawCell: (data) => {
+          if (data.section === "body" && data.column.index === 0 && avatars[data.row.index]) {
+            doc.addImage(avatars[data.row.index], "JPEG", data.cell.x + 2, data.cell.y + 2, 10, 10);
+          }
+        },
+      });
+      doc.save(`KA_${contextTitle.replace(/\s+/g, "_")}.pdf`);
+    } catch (e) {
+      console.error("PDF", e);
+      toast.error("Não foi possível gerar o PDF.");
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
-  const completionChartData = useMemo(() => {
-    if (reportType === 'LIVE' || tableData.length === 0) return [{ name: 'Aguardando', value: 1 }];
-    const completed = tableData.filter(s => s.is_completed).length;
-    return [ { name: 'Concluído', value: completed }, { name: 'Em Andamento', value: tableData.length - completed } ];
-  }, [tableData, reportType]);
+  const pieData = [
+    { name: "Concluíram", value: completed },
+    { name: "Cursando", value: Math.max(0, totalStudents - completed) },
+  ];
+  const tooltipStyle = { backgroundColor: "var(--color-bg-elevated)", border: "1px solid var(--color-border)", borderRadius: 8, color: "var(--color-text)" };
+  const hasSelection = isLive ? !!selectedLiveId : !!selectedCourseId;
 
   return (
-    <div className="pro-viewport">
+    <div className="ui-shell">
+      <SEO title="Progresso e presença" description="Relatórios de progresso nos cursos e presença nas lives." />
       <Sidebar />
-      {loading ? (
-        <main className="pro-main-canvas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem' }}>
-             <span className="system-status">SYSTEM INITIALIZING</span>
+      <main className="ui-main">
+        <div className="ui-main__inner">
+          <PageHeader
+            eyebrow="Gestão"
+            title="Progresso e presença"
+            subtitle="Escolha um curso para ver quem concluiu, ou uma live para ver quem assistiu e por quanto tempo."
+            actions={
+              <>
+                <Button variant="secondary" onClick={generatePdf} loading={generatingPdf} disabled={!tableData.length} icon={<FileDown size={15} />}>PDF</Button>
+                <Button variant="secondary" onClick={generateExcel} disabled={!tableData.length} icon={<FileSpreadsheet size={15} />}>Excel</Button>
+              </>
+            }
+          />
+
+          <div className="adm-stats">
+            {loading ? [0, 1, 2].map((i) => <Skeleton key={i} height={76} radius={16} />) : (
+              <>
+                <div className="ui-card adm-stat"><span className="adm-stat__icon"><Users size={18} /></span><div><strong>{platformStats.totalStudents.toLocaleString("pt-BR")}</strong><span>pessoas cadastradas</span></div></div>
+                <div className="ui-card adm-stat"><span className="adm-stat__icon"><Layers size={18} /></span><div><strong>{platformStats.totalCourses}</strong><span>cursos</span></div></div>
+                <div className="ui-card adm-stat"><span className="adm-stat__icon" style={{ background: "var(--color-success-soft)", color: "var(--color-success-text)" }}><CheckCircle2 size={18} /></span><div><strong>{platformStats.totalLessonsFinished.toLocaleString("pt-BR")}</strong><span>aulas concluídas</span></div></div>
+              </>
+            )}
           </div>
-        </main>
-      ) : (
-        <main className="pro-main-canvas">
-          <div className="dashboard-container">
-            <header className="pro-header">
-              <div className="header-content">
-                <span className="system-status"><span className="pulse-dot"></span> SYSTEM ONLINE</span>
-                <h1>A VELOCIDADE É A NOVA ESTRATÉGIA!</h1>
-                <p>Visão estratégica da <strong>KA Academy</strong></p>
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn-export excel" onClick={generateExcel}><Icons.Excel /> <span className="btn-text">Excel</span></button>
-                <button className="btn-export pdf" onClick={generatePremiumPDF} disabled={isGeneratingPdf}><Icons.Download /> <span className="btn-text">{isGeneratingPdf ? 'Gerando...' : 'PDF'}</span></button>
-              </div>
-            </header>
 
-            <section className="kpi-grid">
-              <div className="kpi-card glass-panel blue-hover">
-                <div className="kpi-header"><div className="kpi-icon-box blue"><Icons.Users /></div></div>
-                <div className="kpi-value"><h3>{platformStats.totalStudents}</h3><p>Alunos Totais</p></div>
-              </div>
-              <div className="kpi-card glass-panel purple-hover">
-                <div className="kpi-header"><div className="kpi-icon-box purple"><Icons.Layers /></div></div>
-                <div className="kpi-value"><h3>{platformStats.totalCourses}</h3><p>Cursos</p></div>
-              </div>
-              <div className="kpi-card glass-panel featured gold-hover">
-                <div className="kpi-header"><div className="kpi-icon-box gold">⚡</div></div>
-                <div className="kpi-value"><h3>{platformStats.totalLessonsFinished}</h3><p>Aulas Vistas</p></div>
-              </div>
-            </section>
-
-            <div className="content-grid">
-              <div className="main-panel glass-panel">
-                <div className="panel-header">
-                  <div>
-                    <h3>Matriz de Dados</h3>
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                        <button onClick={() => { setReportType('COURSE'); setTableData([]); setAbsentTags([]); }} className={`tab-btn ${reportType === 'COURSE' ? 'active' : ''}`}><Icons.Book /> PROGRESSO</button>
-                        <button onClick={() => { setReportType('LIVE'); setTableData([]); setAbsentTags([]); }} className={`tab-btn ${reportType === 'LIVE' ? 'active' : ''}`}><Icons.Video /> PRESENÇA LIVES</button>
-                    </div>
-                  </div>
-                  <div className="filter-control" style={{ display: 'flex', gap: '10px', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    {reportType === 'COURSE' ? (
-                        <select className="modern-select" onChange={(e) => handleApplyCourseFilter(e.target.value)} value={selectedCourseId} disabled={loadingFilter}>
-                          <option value="">Selecione uma Trilha...</option>
-                          {courses.map(c => <option key={c.id} value={c.id.toString()}>{c.title}</option>)}
-                        </select>
-                    ) : (
-                        <>
-                            <select className="modern-select" onChange={(e) => handleApplyLiveFilter(e.target.value, selectedTagFilter)} value={selectedLiveId} disabled={loadingFilter}>
-                                <option value="">Selecione a Live...</option>
-                                {lives.map(l => (<option key={l.id} value={l.id}>{new Date(l.scheduled_at).toLocaleDateString()} - {l.title}</option>))}
-                            </select>
-                            <select className="modern-select" onChange={(e) => handleApplyLiveFilter(selectedLiveId, e.target.value)} value={selectedTagFilter} disabled={loadingFilter || !selectedLiveId} style={{ borderColor: 'var(--primary)' }}>
-                                <option value="">Todas as Tags</option>
-                                {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                            </select>
-                        </>
-                    )}
-                  </div>
+          <div className="rp-grid">
+            <section className="ui-card ui-card--padded rp-main" aria-labelledby="rp-title">
+              <div className="rp-main__head">
+                <h2 id="rp-title" className="ui-section__title"><LineChart size={18} /> Relatório</h2>
+                <div className="ui-tabs" role="tablist">
+                  <button role="tab" className="ui-tab" aria-selected={!isLive} onClick={() => switchType("COURSE")}><BookOpen size={14} /> Progresso no curso</button>
+                  <button role="tab" className="ui-tab" aria-selected={isLive} onClick={() => switchType("LIVE")}><Radio size={14} /> Presença na live</button>
                 </div>
-                
-                {tableData.length > 0 && (
-                    <div className="totals-bar">
-                        <div className="total-item">
-                            <span className="label">Total {reportType === 'LIVE' ? 'Visualizações' : 'Alunos'}:</span>
-                            <span className="value">{totalStudents}</span>
-                        </div>
-                        {reportType === 'LIVE' ? (
-                            <>
-                                <div className="total-item">
-                                    <span className="label">Tempo Total:</span>
-                                    <span className="value">{formatWatchTime(totalMinutesWatched)}</span>
-                                </div>
-                                <div className="total-item">
-                                    <span className="label">Média/Aluno:</span>
-                                    <span className="value highlight">{formatWatchTime(averageMinutes)}</span>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="total-item">
-                                <span className="label">Taxa de Conclusão:</span>
-                                <span className="value highlight">{completionRate}%</span>
-                            </div>
-                        )}
-                    </div>
-                )}
+              </div>
 
-                {absentTags.length > 0 && (
-                    <div className="absent-tags-wrapper">
-                        <div className="absent-header">
-                            <Icons.Alert />
-                            <span>TAGS COM 0% DE PRESENÇA (AUSENTES):</span>
-                        </div>
-                        <div className="absent-tags-list">
-                            {absentTags.map(tag => (
-                                <span key={tag} className="absent-badge">{tag}</span>
-                            ))}
-                        </div>
-                    </div>
+              <div className="adm-toolbar">
+                {!isLive ? (
+                  <Select
+                    aria-label="Curso"
+                    value={selectedCourseId}
+                    onChange={applyCourse}
+                    placeholder="Escolha um curso"
+                    minWidth={280}
+                    disabled={loadingFilter}
+                    options={courses.map((c) => ({ value: String(c.id), label: c.title }))}
+                  />
+                ) : (
+                  <>
+                    <Select
+                      aria-label="Live"
+                      value={selectedLiveId}
+                      onChange={(v) => applyLive(v, selectedTag)}
+                      placeholder="Escolha uma live"
+                      minWidth={280}
+                      disabled={loadingFilter}
+                      options={lives.map((l) => ({ value: l.id, label: `${new Date(l.scheduled_at).toLocaleDateString("pt-BR")} · ${l.title}`, text: l.title }))}
+                    />
+                    <Select
+                      aria-label="Setor"
+                      value={selectedTag}
+                      onChange={(v) => applyLive(selectedLiveId, v)}
+                      minWidth={200}
+                      disabled={loadingFilter || !selectedLiveId}
+                      options={[{ value: "", label: "Todos os setores" }, ...tags.map((t) => ({ value: t.id, label: t.name }))]}
+                    />
+                  </>
                 )}
+              </div>
 
-                <div className="table-responsive custom-scrollbar" style={{ opacity: loadingFilter ? 0.5 : 1 }}>
-                  {tableData.length > 0 ? (
-                    <table className="modern-table">
-                      <thead>
-                        <tr>
-                          <th>Aluno</th><th>Perfil</th>
-                          {reportType === 'COURSE' ? (<th>Status</th>) : (<><th>Tempo</th><th>Último Acesso</th></>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tableData.map((s, i) => (
-                          <tr key={i} className="fade-in-item" style={{animationDelay: `${i*0.02}s`}}>
-                            <td>
-                              <div className="user-info">
-                                {s.avatar_url ? <img src={s.avatar_url} alt="" className="avatar-img" /> : <div className="avatar">{s.full_name?.[0]}</div>}
-                                <span>{s.full_name}</span>
-                              </div>
-                            </td>
-                            <td><span className={`badge ${s.role}`}>{s.role}</span></td>
-                            {reportType === 'COURSE' ? (
-                                <td><div className={`status-pill ${s.is_completed ? 'done' : 'wip'}`}>{s.is_completed ? 'Concluído' : 'Cursando'}</div></td>
-                            ) : (
-                                <>
-                                    <td><div className="watch-time-pill">{formatWatchTime(s.minutes_watched || 0)}</div></td>
-                                    <td style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{s.last_seen_at ? new Date(s.last_seen_at).toLocaleTimeString().slice(0,5) : '-'}</td>
-                                </>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {tableData.length > 0 && (
+                <div className="rp-totals">
+                  <div><span>{isLive ? "Espectadores" : "Matriculados"}</span><strong>{totalStudents}</strong></div>
+                  {isLive ? (
+                    <>
+                      <div><span>Tempo total</span><strong>{formatWatchTime(totalMinutes)}</strong></div>
+                      <div><span>Média por aluno</span><strong className="is-highlight">{formatWatchTime(avgMinutes)}</strong></div>
+                    </>
                   ) : (
-                    <div className="empty-state"><div className="empty-icon">📂</div><p>Sem dados.</p></div>
+                    <>
+                      <div><span>Aulas no curso</span><strong>{courseLessons}</strong></div>
+                      <div><span>Concluíram</span><strong className="is-highlight">{completed} ({completionRate}%)</strong></div>
+                    </>
                   )}
                 </div>
-              </div>
+              )}
 
-              <div className="side-panel">
-                <div className="chart-card glass-panel">
-                  <h3>ALUNOS POR TAG</h3>
-                  <div style={{ width: '100%', height: 200 }}>
+              {absentTags.length > 0 && hasSelection && (
+                <div className="ui-alert" role="status" style={{ marginBottom: 16, alignItems: "flex-start" }}>
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>Setores sem ninguém neste recorte</strong>
+                    <div className="adm-chips" style={{ maxWidth: "none", marginTop: 8 }}>
+                      {absentTags.map((t) => <span key={t} className="ui-badge ui-badge--neutral">{t}</span>)}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {loadingFilter ? (
+                <div style={{ display: "grid", gap: 8 }}>{[0, 1, 2, 3].map((i) => <Skeleton key={i} height={52} />)}</div>
+              ) : tableData.length === 0 ? (
+                <EmptyState
+                  icon={isLive ? <Radio size={28} /> : <BookOpen size={28} />}
+                  title={hasSelection ? "Ninguém neste recorte" : isLive ? "Escolha uma live" : "Escolha um curso"}
+                  description={hasSelection ? "Troque o filtro para ver outros alunos." : "O relatório aparece aqui, pronto para exportar."}
+                />
+              ) : (
+                <div className="adm-table-wrap rp-table">
+                  <table className="adm-table">
+                    <thead>
+                      <tr>
+                        <th>Aluno</th><th>Perfil</th>
+                        {isLive ? <><th>Tempo assistido</th><th>Último sinal</th></> : <><th>Aulas</th><th>Situação</th></>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableData.map((s) => (
+                        <tr key={s.userId}>
+                          <td>
+                            <div className="adm-cell-main">
+                              <Avatar src={s.avatar_url ?? null} name={s.full_name} size={32} />
+                              <strong>{s.full_name}</strong>
+                            </div>
+                          </td>
+                          <td data-label="Perfil"><span className="ui-badge ui-badge--neutral">{roleLabel(s.role)}</span></td>
+                          {isLive ? (
+                            <>
+                              <td data-label="Tempo"><strong>{formatWatchTime(s.minutes_watched || 0)}</strong></td>
+                              <td data-label="Último sinal">{s.last_seen_at ? new Date(s.last_seen_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td data-label="Aulas">{s.done_lessons || 0} de {courseLessons}</td>
+                              <td data-label="Situação">
+                                <span className={`ui-badge ui-badge--${s.is_completed ? "success" : "warning"}`}>{s.is_completed ? "Concluído" : "Cursando"}</span>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <aside className="rp-side">
+              <section className="ui-card ui-card--padded" aria-labelledby="rp-tags">
+                <h2 id="rp-tags" className="ui-section__title" style={{ marginBottom: 12 }}><TagIcon size={18} /> Matrículas por setor</h2>
+                {tagPopularity.length === 0 ? <p className="ui-hint">Sem dados ainda.</p> : (
+                  <div style={{ width: "100%", height: 220 }}>
                     <ResponsiveContainer>
-                      <BarChart data={tagPopularity} layout="vertical" margin={{top: 5, right: 30, left: 40, bottom: 5}}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                      <BarChart data={tagPopularity} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={colors.grid} />
                         <XAxis type="number" hide />
-                        <YAxis dataKey="name" type="category" width={80} tick={{fill: '#94a3b8', fontSize: 11}} />
-                        <RechartsTooltip contentStyle={{backgroundColor: 'var(--color-surface-1)', border: '1px solid var(--color-border)', color: 'var(--color-text)'}} />
-                        <Bar dataKey="alunos" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
+                        <YAxis dataKey="name" type="category" width={100} tick={{ fill: colors.muted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <RechartsTooltip contentStyle={tooltipStyle} cursor={{ fill: colors.track, opacity: 0.4 }} formatter={(v) => [v, "matrículas"]} />
+                        <Bar dataKey="alunos" fill={colors.primary} radius={[0, 4, 4, 0]} barSize={20} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                </div>
-                {reportType === 'COURSE' && (
-                    <div className="chart-card glass-panel">
-                    <h3>Retenção</h3>
-                    <div className="donut-chart-wrapper">
-                        <div style={{ width: '100%', height: 180 }}>
-                        <ResponsiveContainer>
-                            <PieChart>
-                            <Pie data={completionChartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                                {completionChartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : 'rgba(51, 65, 85, 0.5)'} />))}
-                            </Pie>
-                            <RechartsTooltip contentStyle={{backgroundColor: 'var(--color-surface-1)', border: '1px solid var(--color-border)', color: 'var(--color-text)'}} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        </div>
-                        <div className="chart-overlay"><span className="big-number">{completionRate}%</span></div>
-                    </div>
-                    </div>
                 )}
-              </div>
-            </div>
+              </section>
+
+              {!isLive && (
+                <section className="ui-card ui-card--padded" aria-labelledby="rp-done">
+                  <h2 id="rp-done" className="ui-section__title" style={{ marginBottom: 12 }}><CheckCircle2 size={18} /> Conclusão do curso</h2>
+                  {totalStudents === 0 ? <p className="ui-hint">Escolha um curso para ver a conclusão.</p> : (
+                    <div className="rp-donut">
+                      <div style={{ width: "100%", height: 180 }}>
+                        <ResponsiveContainer>
+                          <PieChart>
+                            <Pie data={pieData} innerRadius={58} outerRadius={78} paddingAngle={3} dataKey="value" stroke="none">
+                              <Cell fill={colors.success} />
+                              <Cell fill={colors.track} />
+                            </Pie>
+                            <RechartsTooltip contentStyle={tooltipStyle} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <span className="rp-donut__value" aria-label={`${completionRate}% concluíram`}>{completionRate}%</span>
+                    </div>
+                  )}
+                </section>
+              )}
+            </aside>
           </div>
-        </main>
-      )}
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        :root {
-          --bg-gradient: radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 40%), radial-gradient(circle at 90% 60%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
-          --glass-highlight: rgba(255, 255, 255, 0.08); --blur-strong: 20px;
-          --excel-green: #107c41; }
-        * { box-sizing: border-box; outline-color: var(--primary); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-surface-2); border-radius: 10px; }
-        body { overflow-x: hidden; }
-        .pro-viewport { display: flex; background-color: var(--bg-dark); background-image: var(--bg-gradient); min-height: 100vh; font-family: var(--font-sans); color: var(--text-main); }
-        .pro-main-canvas { flex: 1; margin-left: var(--sidebar-width); padding: 2.5rem; width: calc(100% - var(--sidebar-width)); max-width: 100%; transition: all 0.3s; }
-        .dashboard-container { max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem; animation: fadeInUp 0.8s ease; }
-        
-        /* HEADER - Ajustado para mobile */
-        .pro-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
-        .system-status { display: inline-flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--success); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; background: var(--color-success-soft); padding: 6px 12px; border-radius: 30px; border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent); }
-        .pulse-dot { width: 6px; height: 6px; background-color: var(--success); border-radius: 50%; box-shadow: var(--shadow-sm); animation: pulse-green 2s infinite; }
-        .pro-header h1 { font-size: clamp(2rem, 5vw, 2.75rem); font-weight: 800; margin: 0; letter-spacing: -0.03em; background: var(--gradient-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; }
-        .pro-header p { color: var(--text-secondary); margin-top: 0.5rem; font-size: 1.05rem; max-width: 650px; line-height: 1.6; }
-        .btn-export { color: var(--color-text); border: 1px solid var(--color-border); padding: 0.85rem 1.75rem; border-radius: 12px; font-weight: 600; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.75rem; cursor: pointer; transition: all 0.2s; }
-        .btn-export.pdf { background: linear-gradient(135deg, var(--primary) 0%, var(--color-primary) 100%); box-shadow: var(--shadow-sm); }
-        .btn-export.excel { background: linear-gradient(135deg, var(--excel-green) 0%, #0c5e31 100%); box-shadow: var(--shadow-sm); }
-        .btn-export:hover { transform: translateY(-2px); filter: brightness(1.1); } .btn-export:disabled { opacity: 0.6; cursor: wait; }
-        
-        .tab-btn { background: var(--color-surface-2); border: 1px solid var(--color-border); color: var(--text-secondary); padding: 8px 16px; border-radius: 10px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
-        .tab-btn:hover { background: var(--color-surface-2); } .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: var(--shadow-sm); }
-        
-        .glass-panel { background: var(--surface-1); backdrop-filter: blur(var(--blur-strong)); border: 1px solid var(--glass-border); border-top: 1px solid var(--glass-highlight); border-radius: 24px; padding: 2rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); transition: all 0.3s ease; opacity: 0; animation: fadeInUp 0.6s ease forwards; }
-        .glass-panel:hover { border-color: var(--color-border-strong); background: var(--surface-2); transform: translateY(-5px); box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
-        .glass-panel.blue-hover:hover { box-shadow: var(--shadow-sm); border-color: rgba(96, 165, 250, 0.3); }
-        .glass-panel.purple-hover:hover { box-shadow: var(--shadow-sm); border-color: var(--color-primary-border); }
-        .glass-panel.gold-hover:hover { box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--color-warning) 35%, transparent); }
-        
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; } .kpi-card { height: 220px; display: flex; flex-direction: column; } .kpi-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
-        .kpi-icon-box { width: 64px; height: 64px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: var(--color-surface-2); box-shadow: inset 0 0 15px rgba(255,255,255,0.05); }
-        .blue { color: var(--color-info); border: 1px solid color-mix(in srgb, var(--color-info) 35%, transparent); background: radial-gradient(circle, var(--color-info-soft) 0%, transparent 70%); }
-        .purple { color: var(--color-primary-text); border: 1px solid var(--color-primary-border); background: radial-gradient(circle, var(--color-primary-soft) 0%, transparent 70%); }
-        .gold { color: var(--color-warning-text); border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent); background: radial-gradient(circle, var(--color-warning-soft) 0%, transparent 70%); }
-        .kpi-value h3 { font-size: 3.5rem; font-weight: 800; margin: 0; color: var(--color-text); letter-spacing: -2px; margin-top: auto; line-height: 1; } .kpi-value p { margin: 8px 0 0; color: var(--text-tertiary); font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; }
-        
-        .content-grid { display: grid; grid-template-columns: 2.2fr 1fr; gap: 1.5rem; align-items: start; }
-        .panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem; } .panel-header h3 { font-size: 1.25rem; margin: 0 0 0.25rem 0; font-weight: 700; letter-spacing: -0.01em; }
-        
-        .modern-select { appearance: none; background: var(--color-surface-1); border: 1px solid var(--glass-border); color: var(--text-main); padding: 0.75rem 2.5rem 0.75rem 1.25rem; border-radius: 12px; font-family: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; transition: all 0.2s; min-width: var(--sidebar-width); }
-        .modern-select:hover { border-color: var(--color-border-strong); background-color: var(--color-surface-1); } .modern-select:focus { outline: none; border-color: var(--primary); box-shadow: var(--shadow-sm); }
-        
-        /* CORREÇÃO DO LAYOUT DA TABELA NO MOBILE (EVITA "EXTRAPOLAR") */
-        .table-responsive { 
-            overflow-x: auto; 
-            margin: 0 -2rem -2rem -2rem; 
-            padding: 0 2rem 2rem 2rem; 
-            max-height: 500px; 
-        } 
-        
-        .modern-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        .modern-table th { text-align: left; padding: 1rem; color: var(--text-tertiary); font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--glass-border); white-space: nowrap; position: sticky; top: 0; background: var(--color-surface-2); backdrop-filter: blur(10px); z-index: 10; }
-        .modern-table td { padding: 1.15rem 1rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; font-size: 0.95rem; } .modern-table tr:hover td { background: var(--color-surface-2); } .fade-in-item { opacity: 0; animation: fadeIn 0.5s ease forwards; }
-        .user-info { display: flex; align-items: center; gap: 1rem; font-weight: 500; }
-        .avatar { width: 38px; height: 38px; background: linear-gradient(135deg, var(--primary), #6366f1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; color: white; border: 2px solid var(--color-border); }
-        .avatar-img { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--color-border); object-fit: cover; }
-        .badge { padding: 5px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; background: var(--color-surface-2); color: var(--text-secondary); border: 1px solid var(--color-border); letter-spacing: 0.05em; }
-        .status-pill { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; font-weight: 700; gap: 8px; } .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; } .status-pill.done { background: var(--color-success-soft); color: var(--color-success-text); border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent); } .status-pill.wip { background: var(--color-warning-soft); color: var(--color-warning-text); border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent); }
-        .watch-time-pill { display: inline-block; background: var(--color-primary-soft); color: var(--color-primary-text); padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--color-primary-border); }
-        .side-panel { display: flex; flex-direction: column; gap: 1.5rem; } .donut-chart-wrapper { position: relative; display: flex; justify-content: center; align-items: center; padding: 1rem 0; } .chart-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; } .big-number { font-size: 2.2rem; font-weight: 800; color: var(--color-text); line-height: 1; display: block; letter-spacing: -1px; } .label { font-size: 0.8rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; } .empty-state { padding: 5rem 2rem; text-align: center; border: 2px dashed var(--color-border); border-radius: 20px; margin: 1rem; background: var(--color-surface-2); } .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; display: block; opacity: 0.3; filter: grayscale(1); }
-        
-        .totals-bar { display: flex; gap: 20px; margin-bottom: 20px; padding: 15px; background: var(--color-surface-2); border-radius: 12px; border: 1px solid var(--color-border); }
-        .total-item { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
-        .total-item .label { color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
-        .total-item .value { color: var(--color-text); font-weight: 800; font-size: 1.1rem; }
-        .total-item .value.highlight { color: var(--primary); }
-
-        /* ABSENT TAGS */
-        .absent-tags-wrapper { background: var(--color-danger-soft); border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent); border-radius: 12px; padding: 1rem; margin-bottom: 20px; }
-        .absent-header { display: flex; align-items: center; gap: 10px; color: var(--danger); font-weight: 800; font-size: 0.8rem; margin-bottom: 10px; }
-        .absent-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
-        .absent-badge { background: var(--color-danger-soft); color: var(--color-danger-text); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent); }
-
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes pulse-green { 0% { box-shadow: var(--shadow-sm); } 70% { box-shadow: var(--shadow-sm); } 100% { box-shadow: var(--shadow-sm); } }
-        
-        /* RESPONSIVIDADE POLIDA */
-        @media (max-width: 1200px) { .content-grid { grid-template-columns: 1fr; } .side-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; } } 
-        @media (max-width: 900px) { .pro-main-canvas { margin-left: 0; width: 100%; padding: 1.5rem; } .side-panel { grid-template-columns: 1fr; } } 
-        
-        /* MOBILE OTIMIZADO */
-        @media (max-width: 600px) { 
-            .pro-header { flex-direction: column; gap: 1.5rem; align-items: center; text-align: center; } 
-            .header-content { width: 100%; display: flex; flex-direction: column; align-items: center; }
-            .btn-export { width: 100%; justify-content: center; } 
-            .kpi-grid { grid-template-columns: 1fr; } 
-            
-            /* Ajuste para não quebrar alinhamento dos filtros */
-            .panel-header { flex-direction: column; align-items: stretch; gap: 1.5rem; text-align: center; } 
-            .panel-header > div { width: 100%; }
-            .panel-header div[style*="display: flex"] { justify-content: center; } /* Centraliza botões de toggle */
-            
-            .filter-control { width: 100%; align-items: stretch !important; }
-            .modern-select { width: 100%; margin-bottom: 10px; } 
-            
-            .totals-bar { flex-direction: column; gap: 12px; text-align: center; width: 100%; }
-            .total-item { justify-content: center; width: 100%; }
-            .absent-header, .absent-tags-list { justify-content: center; }
-
-            /* CORREÇÃO DO EXTRAPOLAR NO MOBILE */
-            .glass-panel { padding: 1.5rem; overflow: hidden; }
-            .table-responsive { 
-                margin: 0 -1.5rem -1.5rem -1.5rem; 
-                padding: 0 1.5rem 1.5rem 1.5rem; 
-                width: calc(100% + 3rem); /* Garante que ocupa a largura total permitida */
-            }
-        }
-      `}</style>
+        </div>
+      </main>
     </div>
   );
 }

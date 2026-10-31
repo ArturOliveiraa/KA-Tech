@@ -9,7 +9,7 @@ import { listAttachments } from "../utils/attachments";
 import SEO from "../components/SEO"; 
 import LessonQuiz from "../components/LessonQuiz";
 import { Course, Lesson, LessonNote, Badge, UserProgress } from "../types";
-import { Button, LoadingScreen, ProgressBar } from "../components/ui";
+import { Button, LoadingScreen, ProgressBar, useConfirm } from "../components/ui";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize,
   BrainCircuit, FileText, ListVideo, Paperclip, Trash2, PlayCircle, Trophy
@@ -17,6 +17,7 @@ import {
 import "./Player.css";
 
 export default function Player() {
+    const confirm = useConfirm();
     const { slug } = useParams<{ slug: string }>();
     // Vindo da busca da pandAI: ?aula=<id>&t=<segundos> abre a aula já no minuto certo
     const [searchParams] = useSearchParams();
@@ -288,7 +289,7 @@ export default function Player() {
     };
 
     const handleDeleteNote = async (id: string) => {
-        if (!window.confirm("Deseja excluir esta anotação?")) return;
+        if (!(await confirm({ title: "Excluir esta anotação?", tone: "danger", confirmLabel: "Excluir" }))) return;
         const { error } = await supabase.from("lesson_notes").delete().eq("id", id);
         if (!error) setNotes(prev => prev.filter(note => note.id !== id));
     };

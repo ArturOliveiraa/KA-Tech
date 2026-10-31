@@ -7,8 +7,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from './components/UserContext';
 import { ThemeProvider } from './components/ThemeContext';
-import { LoadingScreen } from './components/ui';
-import MeetPage from './pages/MeetPage';
+import { FeedbackProvider, LoadingScreen } from './components/ui';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // --- LAZY LOADING ---
@@ -29,12 +28,9 @@ const LivePage = lazy(() => import('./pages/LivePage'));
 const LiveSetup = lazy(() => import('./pages/LiveSetup'));
 const LiveHub = lazy(() => import('./pages/LiveHub'));
 const Reports = lazy(() => import('./pages/Reports'));
-const MeetingHub = lazy(() => import('./pages/MeetingHub'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
 const AdminCourseEditor = lazy(() => import('./pages/AdminCourseEditor'));
-const AdminLives = lazy(() => import('./pages/AdminLives'));
-const AdminGamification = lazy(() => import('./pages/AdminGamification'));
 const AdminFeedbacks = lazy(() => import('./pages/AdminFeedbacks'));
 const AdminSearchHealth = lazy(() => import('./pages/AdminSearchHealth'));
 const AdminUserReports = lazy(() => import('./pages/AdminUserReports'));
@@ -58,6 +54,7 @@ root.render(
       <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <UserProvider> 
+          <FeedbackProvider>
           <BrowserRouter>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
@@ -83,30 +80,30 @@ root.render(
                 <Route path="/quizzes/:slug" element={<Navigate to="/cursos" replace />} />
 
                 {/* --- ROTAS DE LIVES E REUNIÕES --- */}
+                <Route path="/reunioes" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
                 <Route path="/lives-hub" element={<ProtectedRoute><LiveHub /></ProtectedRoute>} />
-                <Route path="/reunioes" element={<ProtectedRoute><MeetingHub /></ProtectedRoute>} />
-                <Route path="/meet/:roomId?" element={<ProtectedRoute><MeetPage /></ProtectedRoute>} />
 
                 {/* --- ROTAS ADMINISTRATIVAS --- */}
                 <Route path="/admin/gestao-conteudo" element={<Navigate to="/admin/cursos" replace />} />
-                <Route path="/relatorios" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                <Route path="/live-setup" element={<ProtectedRoute><LiveSetup /></ProtectedRoute>} />
+                <Route path="/relatorios" element={<ProtectedRoute staff><Reports /></ProtectedRoute>} />
+                <Route path="/live-setup" element={<ProtectedRoute staff><LiveSetup /></ProtectedRoute>} />
                 <Route path="/admin/quizzes" element={<Navigate to="/admin/cursos" replace />} />
-                <Route path="/admin/usuarios" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
-                <Route path="/admin/cursos" element={<ProtectedRoute><AdminCourses /></ProtectedRoute>} />
-                <Route path="/admin/cursos/:id" element={<ProtectedRoute><AdminCourseEditor /></ProtectedRoute>} />
-                <Route path="/admin/lives" element={<ProtectedRoute><AdminLives /></ProtectedRoute>} />
-                <Route path="/admin/gamificacao" element={<ProtectedRoute><AdminGamification /></ProtectedRoute>} />
-                <Route path="/admin/feedbacks" element={<ProtectedRoute><AdminFeedbacks /></ProtectedRoute>} />
-                <Route path="/admin/busca" element={<ProtectedRoute><AdminSearchHealth /></ProtectedRoute>} />
+                <Route path="/admin/usuarios" element={<ProtectedRoute staff><AdminUsers /></ProtectedRoute>} />
+                <Route path="/admin/cursos" element={<ProtectedRoute staff><AdminCourses /></ProtectedRoute>} />
+                <Route path="/admin/cursos/:id" element={<ProtectedRoute staff><AdminCourseEditor /></ProtectedRoute>} />
+                <Route path="/admin/lives" element={<Navigate to="/live-setup" replace />} />
+                <Route path="/admin/gamificacao" element={<Navigate to="/admin/relatorio-alunos" replace />} />
+                <Route path="/admin/feedbacks" element={<ProtectedRoute staff><AdminFeedbacks /></ProtectedRoute>} />
+                <Route path="/admin/busca" element={<ProtectedRoute staff><AdminSearchHealth /></ProtectedRoute>} />
 
                 {/* --- ROTA DOS RELATÓRIOS --- */}
-                <Route path="/admin/relatorio-alunos" element={<ProtectedRoute><AdminUserReports /></ProtectedRoute>} />
+                <Route path="/admin/relatorio-alunos" element={<ProtectedRoute staff><AdminUserReports /></ProtectedRoute>} />
                 
               </Routes>
             </Suspense>
           </BrowserRouter>
+          </FeedbackProvider>
         </UserProvider>
       </QueryClientProvider>
       </ThemeProvider>

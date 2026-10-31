@@ -1,279 +1,202 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { FormEvent, useEffect, useState } from "react";
+import { CalendarClock, History, Pencil, Radio, Square, X } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
-import logo from "../assets/ka-tech-logo.png";
+import SEO from "../components/SEO";
+import { Button, EmptyState, PageHeader, useConfirm, useToast } from "../components/ui";
 
 interface Live {
-    id: string;
-    title: string;
-    video_id: string;
-    scheduled_at: string;
-    duration: string | null;
+  id: string;
+  title: string;
+  video_id: string;
+  scheduled_at: string;
+  duration: string | null;
 }
 
+const youtubeId = (urlOrId: string) => {
+  if (!urlOrId) return "";
+  if (urlOrId.length === 11 && !urlOrId.includes("/")) return urlOrId;
+  const match = urlOrId.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
+  return match ? match[1] : urlOrId;
+};
+
+/** "2026-10-31T14:00" no horário de quem está usando (o input datetime-local não tem fuso). */
+const toLocalInput = (iso: string) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** Agenda lives, publica replays de lives antigas e encerra a transmissão em andamento. */
 export default function LiveSetup() {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const [lives, setLives] = useState<Live[]>([]);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  const [lives, setLives] = useState<Live[]>([]);
+  const [title, setTitle] = useState("");
+  const [videoId, setVideoId] = useState("");
+  const [liveDate, setLiveDate] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isRetroactive, setIsRetroactive] = useState(false);
+  const [manualDuration, setManualDuration] = useState("");
 
-    const [title, setTitle] = useState("");
-    const [videoId, setVideoId] = useState("");
-    const [liveDate, setLiveDate] = useState("");
-    const [editingId, setEditingId] = useState<string | null>(null);
-    
-    // ESTADOS PARA LIVE RETROATIVA
-    const [isRetroactive, setIsRetroactive] = useState(false);
-    const [manualDuration, setManualDuration] = useState("");
+  const fetchUpcoming = async () => {
+    // Sem duração = ainda não encerrada (inclui a que está no ar agora)
+    const { data, error } = await supabase.from("lives").select("*").is("duration", null).order("scheduled_at", { ascending: true });
+    if (error) toast.error("Não foi possível carregar as lives: " + error.message);
+    setLives((data as Live[]) || []);
+  };
 
-    useEffect(() => {
-        fetchUpcomingLives();
-    }, []);
+  useEffect(() => { fetchUpcoming(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    async function fetchUpcomingLives() {
-        const now = new Date().toISOString();
-        const { data, error } = await supabase
-            .from("lives")
-            .select("*")
-            .gte("scheduled_at", now) 
-            .order("scheduled_at", { ascending: true });
-        
-        if (error) console.error("Erro ao buscar:", error.message);
-        if (data) setLives(data);
-    }
+  const resetForm = () => {
+    setTitle("");
+    setVideoId("");
+    setLiveDate("");
+    setEditingId(null);
+    setIsRetroactive(false);
+    setManualDuration("");
+  };
 
-    const getYouTubeId = (urlOrId: string) => {
-        if (!urlOrId) return "";
-        if (urlOrId.length === 11 && !urlOrId.includes("/")) return urlOrId;
-        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
-        const match = urlOrId.match(regex);
-        return match ? match[1] : urlOrId;
+  const startEdit = (live: Live) => {
+    setEditingId(live.id);
+    setTitle(live.title);
+    setVideoId(live.video_id);
+    setLiveDate(toLocalInput(live.scheduled_at));
+    setIsRetroactive(false);
+    document.getElementById("ls-title")?.focus();
+  };
+
+  const finishLive = async (live: Live) => {
+    const diff = Date.now() - new Date(live.scheduled_at).getTime();
+    if (diff <= 0) return toast.warning("Esta live ainda não começou: o horário agendado não chegou.");
+    if (!(await confirm({ title: `Encerrar "${live.title}"?`, message: "A live vira replay, com a duração contada desde o horário agendado.", tone: "danger", confirmLabel: "Encerrar live" }))) return;
+
+    const hours = Math.floor(diff / 3_600_000);
+    const minutes = Math.floor((diff % 3_600_000) / 60_000);
+    const duration = `${hours > 0 ? `${hours}h ` : ""}${minutes}min`;
+    const { error } = await supabase.from("lives").update({ duration }).eq("id", live.id);
+    if (error) return toast.error("Não foi possível encerrar: " + error.message);
+    toast.success(`Live encerrada. Duração: ${duration}.`);
+    fetchUpcoming();
+  };
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    // Replay sem hora: meio-dia evita a data voltar um dia por causa do fuso
+    const date = isRetroactive && !liveDate.includes("T") ? `${liveDate}T12:00:00` : liveDate;
+    const payload = {
+      title: title.trim(),
+      video_id: youtubeId(videoId.trim()),
+      scheduled_at: new Date(date).toISOString(),
+      duration: isRetroactive ? (manualDuration.trim() || "1h 00min") : null,
     };
+    const { error } = editingId
+      ? await supabase.from("lives").update(payload).eq("id", editingId)
+      : await supabase.from("lives").insert([payload]);
+    setSaving(false);
+    if (error) return toast.error("Não foi possível salvar: " + error.message);
+    toast.success(editingId ? "Agendamento atualizado." : isRetroactive ? "Replay publicado." : "Live agendada.");
+    resetForm();
+    fetchUpcoming();
+  };
 
-    const handleFinishLive = async (live: Live) => {
-        if (!window.confirm("Deseja encerrar esta live agora?")) return;
+  const now = Date.now();
 
-        const startTime = new Date(live.scheduled_at).getTime();
-        const endTime = new Date().getTime();
-        const diffInMs = endTime - startTime;
+  return (
+    <div className="ui-shell">
+      <SEO title="Agendar live" description="Agende lives e publique replays." />
+      <Sidebar />
+      <main className="ui-main">
+        <div className="ui-main__inner">
+          <PageHeader eyebrow={<><Radio size={14} /> Lives</>} title="Agendar live" subtitle="Marque as próximas transmissões, publique gravações antigas como replay e encerre a live quando ela acabar." />
 
-        if (diffInMs <= 0) return alert("A live ainda não atingiu o horário de início agendado!");
+          <div className="ls-grid">
+            <section className="ui-card ui-card--padded" aria-labelledby="ls-form-title">
+              <h2 id="ls-form-title" className="ui-section__title" style={{ marginBottom: 20 }}>
+                {editingId ? <><Pencil size={18} /> Editar agendamento</> : <><CalendarClock size={18} /> Nova live</>}
+              </h2>
+              <form className="adm-form" onSubmit={save}>
+                {!editingId && (
+                  <label className="ls-toggle">
+                    <input
+                      type="checkbox"
+                      checked={isRetroactive}
+                      onChange={(e) => {
+                        setIsRetroactive(e.target.checked);
+                        if (e.target.checked && liveDate.includes("T")) setLiveDate(liveDate.split("T")[0]);
+                      }}
+                    />
+                    <span>
+                      <strong>Publicar como replay</strong>
+                      <span className="ui-hint">A live já aconteceu: vai direto para a biblioteca de replays.</span>
+                    </span>
+                  </label>
+                )}
 
-        const hours = Math.floor(diffInMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
-        const finalDuration = `${hours > 0 ? hours + 'h ' : ''}${minutes}min`;
-
-        const { error } = await supabase
-            .from("lives")
-            .update({ duration: finalDuration })
-            .eq("id", live.id);
-
-        if (error) {
-            alert("Erro ao finalizar: " + error.message);
-        } else {
-            alert(`Live finalizada com sucesso! Duração: ${finalDuration}`);
-            fetchUpcomingLives(); 
-        }
-    };
-
-    const handleSaveLive = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const cleanVideoId = getYouTubeId(videoId); 
-
-        // Se for retroativo, adiciona um horário fictício (12:00) para evitar bugs de fuso horário voltando 1 dia
-        let finalDateString = liveDate;
-        if (isRetroactive && !liveDate.includes('T')) {
-            finalDateString = `${liveDate}T12:00:00`;
-        }
-        
-        const isoDate = new Date(finalDateString).toISOString();
-
-        const liveData = { 
-            title, 
-            video_id: cleanVideoId, 
-            scheduled_at: isoDate,
-            duration: isRetroactive ? (manualDuration || "1h 00min") : null
-        };
-
-        try {
-            const { error } = editingId 
-                ? await supabase.from("lives").update(liveData).eq("id", editingId)
-                : await supabase.from("lives").insert([liveData]);
-
-            if (error) throw error;
-
-            alert(editingId ? "Agendamento atualizado!" : (isRetroactive ? "Replay publicado com sucesso!" : "Live agendada com sucesso!"));
-            resetForm();
-            fetchUpcomingLives();
-        } catch (err: any) {
-            console.error("Erro detalhado:", err);
-            alert(`Erro ${err.code || 'Postgrest'}: ${err.message}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const resetForm = () => {
-        setTitle(""); 
-        setVideoId(""); 
-        setLiveDate(""); 
-        setEditingId(null);
-        setIsRetroactive(false);
-        setManualDuration("");
-    };
-
-    // Ajuste: Se o usuário trocar a checkbox, a gente limpa o horário se ele for mudar para tipo "date"
-    const handleCheckboxChange = (checked: boolean) => {
-        setIsRetroactive(checked);
-        if (checked && liveDate.includes('T')) {
-            setLiveDate(liveDate.split('T')[0]); // Corta o horário e deixa só a data
-        }
-    };
-
-    return (
-        <div className="dashboard-wrapper">
-            <Sidebar />
-            
-            <style>{`
-                .dashboard-wrapper { display: flex; width: 100%; min-height: 100vh; background: var(--bg-dark); font-family: var(--font-sans); color: var(--color-text); overflow-x: hidden; }
-                .main-content { flex: 1; margin-left: var(--sidebar-width); padding: 40px; width: calc(100% - var(--sidebar-width)); }
-                .brand-logo-mobile { display: none !important; } 
-                .header-flex { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; }
-                .header-flex h1 { font-size: 2.2rem; font-weight: 900; margin: 0; }
-                .live-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: start; }
-                .glass-card { background: var(--card-glass); backdrop-filter: blur(20px); border-radius: 30px; padding: 40px; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
-                .form-label { color: var(--color-text-muted); margin-bottom: 12px; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; display: block; }
-                .form-input { width: 100%; padding: 18px 22px; border-radius: 18px; background: var(--color-surface-2); border: 1px solid var(--border); color: var(--color-text); outline: none; font-family: var(--font-sans); }
-                
-                /* Correção para o ícone de calendário no input type="date" e "datetime-local" ficar branco */
-                ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.6; }
-                ::-webkit-calendar-picker-indicator:hover { opacity: 1; }
-
-                .btn-submit { width: 100%; padding: 20px; border-radius: 20px; border: none; background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 100%); color: white; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s; }
-                .btn-submit:hover { opacity: 0.9; transform: translateY(-2px); }
-                .course-item { padding: 25px; background: var(--color-surface-2); border-radius: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
-                .action-btn { padding: 10px 15px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
-                .action-btn.edit { background: var(--color-primary-soft); color: var(--color-primary-text); margin-right: 8px; }
-                .action-btn.finish { background: var(--color-danger); color: #fff; }
-
-                .checkbox-container { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; cursor: pointer; background: var(--color-primary-soft); padding: 15px 20px; border-radius: 16px; border: 1px solid var(--color-primary-border); transition: 0.3s; }
-                .checkbox-container:hover { background: var(--color-primary-soft); }
-                .checkbox-container input { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
-                .checkbox-container span { font-weight: 700; font-size: 0.95rem; color: var(--color-text-secondary); }
-
-                @media (max-width: 1024px) { 
-                    .main-content { margin-left: 0; padding: 20px; width: 100%; } 
-                    .brand-logo-mobile { display: flex !important; width: 100%; justify-content: center; margin-bottom: 30px; }
-                    .brand-logo-mobile img { height: 60px; filter: drop-shadow(0 0 10px var(--primary)); }
-                    .live-grid { grid-template-columns: 1fr; } 
-                }
-            `}</style>
-
-            <main className="main-content">
-                <div className="brand-logo-mobile">
-                    <img src={logo} alt="KA Tech Logo" />
+                <div className="ui-field">
+                  <label className="ui-label" htmlFor="ls-title">Título</label>
+                  <input id="ls-title" className="ui-input" placeholder="Ex.: Faturamento no Softcomshop" value={title} onChange={(e) => setTitle(e.target.value)} required />
                 </div>
 
-                <header className="header-flex">
-                    <div>
-                        <h1>Agendamento de Live</h1>
-                        <p style={{ color: 'var(--color-text-subtle)', marginTop: '5px' }}>Gerencie as transmissões e replays</p>
+                <div className="ui-field">
+                  <label className="ui-label" htmlFor="ls-video">Link ou ID do vídeo no YouTube</label>
+                  <input id="ls-video" className="ui-input" placeholder="https://youtube.com/live/..." value={videoId} onChange={(e) => setVideoId(e.target.value)} required />
+                </div>
+
+                <div className="adm-row">
+                  <div className="ui-field">
+                    <label className="ui-label" htmlFor="ls-date">{isRetroactive ? "Data em que aconteceu" : "Data e hora de início"}</label>
+                    <input id="ls-date" type={isRetroactive ? "date" : "datetime-local"} className="ui-input" value={liveDate} onChange={(e) => setLiveDate(e.target.value)} required />
+                  </div>
+                  {isRetroactive && (
+                    <div className="ui-field">
+                      <label className="ui-label" htmlFor="ls-duration">Duração</label>
+                      <input id="ls-duration" className="ui-input" placeholder="Ex.: 1h 30min" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
                     </div>
-                    <button onClick={() => navigate(-1)} className="action-btn edit" style={{ padding: '15px 30px', borderRadius: '18px', fontWeight: 900 }}>VOLTAR</button>
-                </header>
+                  )}
+                </div>
 
-                <div className="live-grid">
-                    <div className="glass-card">
-                        <h2 style={{ color: 'var(--color-text)', marginBottom: '30px', fontWeight: 900 }}>{editingId ? "✏️ Editar" : "✨ Nova Publicação"}</h2>
-                        <form onSubmit={handleSaveLive}>
-                            
-                            {!editingId && (
-                                <label className="checkbox-container">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={isRetroactive} 
-                                        onChange={(e) => handleCheckboxChange(e.target.checked)} 
-                                    />
-                                    <span>Postar como Replay (Live já concluída)</span>
-                                </label>
-                            )}
+                <div className="ls-actions">
+                  {editingId && <Button variant="ghost" onClick={resetForm} icon={<X size={15} />}>Cancelar edição</Button>}
+                  <Button type="submit" loading={saving} icon={isRetroactive ? <History size={15} /> : <CalendarClock size={15} />}>
+                    {editingId ? "Salvar alterações" : isRetroactive ? "Publicar replay" : "Agendar live"}
+                  </Button>
+                </div>
+              </form>
+            </section>
 
-                            <div style={{ marginBottom: '20px' }}>
-                                <label className="form-label">TÍTULO DA LIVE</label>
-                                <input className="form-input" placeholder="Ex: Aula de Faturamento" value={title} onChange={(e) => setTitle(e.target.value)} required />
-                            </div>
-
-                            <div style={{ marginBottom: '20px' }}>
-                                <label className="form-label">YOUTUBE VIDEO ID OU LINK</label>
-                                <input className="form-input" placeholder="Ex: https://youtube.com/live/... ou apenas o ID" value={videoId} onChange={(e) => setVideoId(e.target.value)} required />
-                            </div>
-
-                            {/* CAMPO DE DATA: Alterna entre date e datetime-local */}
-                            <div style={{ marginBottom: isRetroactive ? '20px' : '30px' }}>
-                                <label className="form-label">{isRetroactive ? "DATA EM QUE OCORREU" : "DATA E HORA DE INÍCIO"}</label>
-                                <input 
-                                    type={isRetroactive ? "date" : "datetime-local"} 
-                                    className="form-input" 
-                                    value={liveDate} 
-                                    onChange={(e) => setLiveDate(e.target.value)} 
-                                    required 
-                                />
-                            </div>
-
-                            {isRetroactive && (
-                                <div style={{ marginBottom: '30px' }}>
-                                    <label className="form-label">DURAÇÃO DO REPLAY (Opcional)</label>
-                                    <input className="form-input" placeholder="Ex: 1h 30min" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
-                                </div>
-                            )}
-
-                            <button type="submit" className="btn-submit" disabled={loading}>
-                                {loading ? "SALVANDO..." : editingId ? "SALVAR ALTERAÇÕES" : (isRetroactive ? "PUBLICAR REPLAY" : "AGENDAR LIVE")}
-                            </button>
-                            
-                            {editingId && (
-                                <button type="button" onClick={resetForm} style={{ width: '100%', marginTop: '15px', background: 'transparent', color: 'var(--color-danger-text)', border: 'none', cursor: 'pointer', fontWeight: 900 }}>CANCELAR</button>
-                            )}
-                        </form>
-                    </div>
-
-                    <div className="glass-card">
-                        <h2 style={{ color: 'var(--color-text)', marginBottom: '30px', fontWeight: 900 }}>🚀 Próximas Lives</h2>
-                        <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '5px' }}>
-                            {lives.length === 0 ? (
-                                <p style={{ color: 'var(--color-text-subtle)', textAlign: 'center', marginTop: '20px' }}>Nenhuma live agendada para o futuro.</p>
-                            ) : (
-                                lives.map(live => (
-                                    <div key={live.id} className="course-item" style={{ borderLeft: '4px solid var(--color-primary)' }}>
-                                        <div style={{ fontWeight: 900, fontSize: '1rem' }}>{live.title}</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '8px 0' }}>
-                                            📅 {new Date(live.scheduled_at).toLocaleString('pt-BR')}
-                                        </div>
-                                        <div style={{ display: 'flex' }}>
-                                            <button 
-                                                onClick={() => { 
-                                                    setEditingId(live.id); 
-                                                    setTitle(live.title); 
-                                                    setVideoId(live.video_id); 
-                                                    setLiveDate(new Date(live.scheduled_at).toISOString().slice(0, 16)); 
-                                                    setIsRetroactive(false); 
-                                                }} 
-                                                className="action-btn edit"
-                                            >EDITAR</button>
-                                            <button 
-                                                onClick={() => handleFinishLive(live)} 
-                                                className="action-btn finish"
-                                            >⏹️ ENCERRAR</button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
+            <section className="ui-card ui-card--padded" aria-labelledby="ls-list-title">
+              <h2 id="ls-list-title" className="ui-section__title" style={{ marginBottom: 16 }}><Radio size={18} /> Agendadas e no ar</h2>
+              {lives.length === 0 ? (
+                <EmptyState icon={<CalendarClock size={26} />} title="Nenhuma live agendada" description="As lives marcadas aparecem aqui até serem encerradas." />
+              ) : (
+                <ul className="adm-plain-list ls-list">
+                  {lives.map((live) => {
+                    const onAir = new Date(live.scheduled_at).getTime() <= now;
+                    return (
+                      <li key={live.id} className={`ls-item ${onAir ? "is-on-air" : ""}`}>
+                        <div className="adm-cell-text">
+                          <strong>{live.title}</strong>
+                          <span className="ui-hint">
+                            {onAir && <span className="ui-badge ui-badge--danger" style={{ marginRight: 6 }}>No ar</span>}
+                            {new Date(live.scheduled_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                          </span>
                         </div>
-                    </div>
-                </div>
-            </main>
+                        <div className="adm-actions">
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(live)} icon={<Pencil size={14} />}>Editar</Button>
+                          <Button size="sm" variant={onAir ? "danger" : "ghost"} onClick={() => finishLive(live)} icon={<Square size={13} />}>Encerrar</Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
         </div>
-    );
+      </main>
+    </div>
+  );
 }

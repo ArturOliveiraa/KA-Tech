@@ -120,3 +120,5 @@ export { default as Select } from "./Select";
 export type { SelectOption } from "./Select";
 export { CourseCover, CourseThumb, COVER_COLORS, COVER_ICONS, isGenericCover, ownCoverUrl, resolveCover } from "./CourseCover";
 export type { CoverChoice } from "./CourseCover";
+export { FeedbackProvider, useConfirm, useToast } from "./Feedback";
+export type { ConfirmOptions } from "./Feedback";

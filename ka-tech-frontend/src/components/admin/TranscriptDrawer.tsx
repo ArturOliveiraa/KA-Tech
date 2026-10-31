@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Save, Sparkles } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { Button } from "../ui";
+import { Button, useConfirm } from "../ui";
 import Drawer from "./Drawer";
 
 interface TranscriptDrawerProps {
@@ -34,6 +34,7 @@ const SOURCE_LABEL: Record<string, string> = {
  * não transcreve o vídeo de novo por cima da correção.
  */
 export default function TranscriptDrawer({ lessonId, lessonTitle, onClose, onReindexRequested }: TranscriptDrawerProps) {
+  const confirm = useConfirm();
   const [data, setData] = useState<TranscriptData | null>(null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -98,7 +99,7 @@ export default function TranscriptDrawer({ lessonId, lessonTitle, onClose, onRei
   // Volta a confiar na IA: descarta a revisão e transcreve o vídeo de novo
   const resetToAi = async () => {
     if (!lessonId) return;
-    if (!window.confirm("Descartar a revisão e transcrever o vídeo de novo com a IA? As correções feitas aqui serão perdidas.")) return;
+    if (!(await confirm({ title: "Transcrever de novo com a IA?", message: "A revisão é descartada e as correções feitas aqui serão perdidas.", tone: "danger", confirmLabel: "Descartar e transcrever" }))) return;
     setSaving("reset");
     setNotice(null);
     const { error } = await supabase.from("lessons").update({ transcript_edited: false }).eq("id", lessonId);

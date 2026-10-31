@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
-import Sidebar from "../components/Sidebar"; // Ajuste o caminho se necessário
+import { ReactNode, useEffect, useMemo, useState } from "react";
+import { Bug, CheckCircle2, Clock, HelpCircle, Inbox, Lightbulb, MessageSquare, Star, Trash2 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import SEO from "../components/SEO"; // Ajuste ou remova se não usar
-import { MessageSquare, CheckCircle, Clock, Trash2 } from "lucide-react";
+import Sidebar from "../components/Sidebar";
+import SEO from "../components/SEO";
+import { Button, EmptyState, PageHeader, Select, Skeleton, useConfirm, useToast } from "../components/ui";
 
 interface Feedback {
   id: string;
@@ -10,225 +11,151 @@ interface Feedback {
   contact_info: string;
   type: string;
   message: string;
-  status: string;
+  status: string | null;
   created_at: string;
 }
 
+const TYPES: Record<string, { label: string; icon: typeof Bug }> = {
+  bug: { label: "Problema", icon: Bug },
+  melhoria: { label: "Sugestão", icon: Lightbulb },
+  elogio: { label: "Elogio", icon: Star },
+};
+const typeOf = (t: string) => TYPES[t] ?? { label: "Dúvida", icon: HelpCircle };
+
+const STATUS: Record<string, { label: string; tone: string }> = {
+  pendente: { label: "Pendente", tone: "neutral" },
+  em_analise: { label: "Em análise", tone: "warning" },
+  resolvido: { label: "Resolvido", tone: "success" },
+};
+
+const FILTERS = [
+  { value: "abertos", label: "Abertos" },
+  { value: "pendente", label: "Pendentes" },
+  { value: "em_analise", label: "Em análise" },
+  { value: "resolvido", label: "Resolvidos" },
+  { value: "todos", label: "Todos" },
+];
+
+const statusOf = (f: Feedback) => f.status || "pendente";
+
+/** Caixa de feedbacks enviados pelos alunos (botão "Deixar feedback" da barra lateral). */
 export default function AdminFeedbacks() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchFeedbacks = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('feedbacks')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      if (data) setFeedbacks(data);
-    } catch (err) {
-      console.error("Erro ao buscar feedbacks:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [filter, setFilter] = useState("abertos");
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFeedbacks();
-  }, []);
+    (async () => {
+      const { data, error } = await supabase.from("feedbacks").select("*").order("created_at", { ascending: false });
+      if (error) toast.error("Não foi possível carregar os feedbacks.");
+      setFeedbacks((data as Feedback[]) || []);
+      setLoading(false);
+    })();
+  }, [toast]);
 
-  const updateStatus = async (id: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('feedbacks')
-        .update({ status: newStatus })
-        .eq('id', id);
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { pendente: 0, em_analise: 0, resolvido: 0 };
+    for (const f of feedbacks) c[statusOf(f)] = (c[statusOf(f)] || 0) + 1;
+    return c;
+  }, [feedbacks]);
 
-      if (error) throw error;
-      
-      // Atualiza o estado local para refletir a mudança imediatamente
-      setFeedbacks(prev => prev.map(fb => fb.id === id ? { ...fb, status: newStatus } : fb));
-    } catch (err) {
-      console.error("Erro ao atualizar status:", err);
-      alert("Falha ao atualizar o status. Verifique as permissões (RLS) no Supabase.");
-    }
+  const visible = feedbacks.filter((f) =>
+    filter === "todos" ? true : filter === "abertos" ? statusOf(f) !== "resolvido" : statusOf(f) === filter,
+  );
+
+  const updateStatus = async (fb: Feedback, status: string) => {
+    setBusy(fb.id);
+    const { error } = await supabase.from("feedbacks").update({ status }).eq("id", fb.id);
+    setBusy(null);
+    if (error) return toast.error("Não foi possível mudar a situação. Verifique as permissões do banco.");
+    setFeedbacks((prev) => prev.map((f) => (f.id === fb.id ? { ...f, status } : f)));
+    toast.success(status === "resolvido" ? "Feedback marcado como resolvido." : "Feedback marcado como em análise.");
   };
 
-  const deleteFeedback = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja deletar este feedback?")) return;
-    
-    try {
-      const { error } = await supabase.from('feedbacks').delete().eq('id', id);
-      if (error) throw error;
-      
-      setFeedbacks(prev => prev.filter(fb => fb.id !== id));
-    } catch (err) {
-      console.error("Erro ao deletar feedback:", err);
-      alert("Falha ao deletar. Verifique as permissões (RLS) no Supabase.");
-    }
+  const remove = async (fb: Feedback) => {
+    if (!(await confirm({ title: "Excluir este feedback?", message: "A mensagem é apagada de vez.", tone: "danger", confirmLabel: "Excluir" }))) return;
+    setBusy(fb.id);
+    const { error } = await supabase.from("feedbacks").delete().eq("id", fb.id);
+    setBusy(null);
+    if (error) return toast.error("Não foi possível excluir. Verifique as permissões do banco.");
+    setFeedbacks((prev) => prev.filter((f) => f.id !== fb.id));
   };
 
-  const getStatusBadge = (status: string) => {
-    if (status === 'resolvido') return <span className="badge badge-success">Resolvido</span>;
-    if (status === 'em_analise') return <span className="badge badge-warning">Em Análise</span>;
-    return <span className="badge badge-pending">Pendente</span>;
-  };
-
-  const getTypeIcon = (type: string) => {
-    if (type === 'bug') return '🐛';
-    if (type === 'melhoria') return '💡';
-    if (type === 'elogio') return '⭐';
-    return '🤔';
-  };
+  const statCard = (key: string, label: string, icon: ReactNode, tone?: string) => (
+    <button type="button" className="ui-card ui-card--interactive adm-stat" onClick={() => setFilter(key)} aria-pressed={filter === key}>
+      <span className="adm-stat__icon" style={tone ? { background: `var(--color-${tone}-soft)`, color: `var(--color-${tone}-text)` } : undefined}>{icon}</span>
+      <div style={{ textAlign: "left" }}><strong>{counts[key]}</strong><span>{label}</span></div>
+    </button>
+  );
 
   return (
-    <div className="dashboard-wrapper">
-      <SEO title="Gestão de Feedbacks" description="Administre os feedbacks dos usuários" />
+    <div className="ui-shell">
+      <SEO title="Feedbacks" description="Feedbacks enviados pelos alunos" />
       <Sidebar />
+      <main className="ui-main">
+        <div className="ui-main__inner">
+          <PageHeader eyebrow="Gestão" title="Feedbacks" subtitle="Problemas, sugestões e elogios enviados pelos alunos pelo botão “Deixar feedback”." />
 
-      <main className="dashboard-content">
-        <header style={{ marginBottom: '30px' }}>
-          <h1 style={{ fontSize: '2rem', color: 'var(--color-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <MessageSquare size={28} className="text-primary" />
-            Caixa de Feedbacks
-          </h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '8px' }}>
-            Acompanhe bugs, sugestões e elogios enviados pelos alunos.
-          </p>
-        </header>
+          <div className="adm-stats">
+            {statCard("pendente", "pendentes", <Inbox size={18} />)}
+            {statCard("em_analise", "em análise", <Clock size={18} />, "warning")}
+            {statCard("resolvido", "resolvidos", <CheckCircle2 size={18} />, "success")}
+          </div>
 
-        <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
+          <div className="adm-toolbar">
+            <Select value={filter} onChange={setFilter} options={FILTERS} aria-label="Filtrar por situação" minWidth={180} />
+            <span className="adm-filter-count">{visible.length} feedback{visible.length === 1 ? "" : "s"}</span>
+          </div>
+
           {loading ? (
-            <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '40px 0' }}>Carregando feedbacks...</div>
-          ) : feedbacks.length === 0 ? (
-            <div style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '40px 0' }}>Nenhum feedback recebido ainda.</div>
+            <div style={{ display: "grid", gap: 12 }}>{[0, 1, 2].map((i) => <Skeleton key={i} height={110} radius={16} />)}</div>
+          ) : visible.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquare size={28} />}
+              title={filter === "abertos" ? "Nenhum feedback em aberto" : "Nada nesta lista"}
+              description={filter === "abertos" ? "Tudo respondido por aqui." : "Troque o filtro para ver outros feedbacks."}
+            />
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--color-text-secondary)', minWidth: '800px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left' }}>
-                  <th style={{ padding: '15px' }}>Data</th>
-                  <th style={{ padding: '15px' }}>Usuário / Contato</th>
-                  <th style={{ padding: '15px' }}>Tipo</th>
-                  <th style={{ padding: '15px' }}>Mensagem</th>
-                  <th style={{ padding: '15px' }}>Status</th>
-                  <th style={{ padding: '15px', textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {feedbacks.map((fb) => (
-                  <tr key={fb.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: '15px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                      {new Date(fb.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td style={{ padding: '15px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{fb.user_name}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{fb.contact_info}</div>
-                    </td>
-                    <td style={{ padding: '15px' }}>
-                      {getTypeIcon(fb.type)} <span style={{ textTransform: 'capitalize' }}>{fb.type}</span>
-                    </td>
-                    <td style={{ padding: '15px', maxWidth: '300px' }}>
-                      <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.4' }}>{fb.message}</p>
-                    </td>
-                    <td style={{ padding: '15px' }}>
-                      {getStatusBadge(fb.status || 'pendente')}
-                    </td>
-                    <td style={{ padding: '15px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        {fb.status !== 'resolvido' && (
-                          <button 
-                            onClick={() => updateStatus(fb.id, 'resolvido')}
-                            title="Marcar como Resolvido"
-                            className="action-btn success-btn"
-                          >
-                            <CheckCircle size={16} />
-                          </button>
-                        )}
-                        {fb.status !== 'em_analise' && (
-                          <button 
-                            onClick={() => updateStatus(fb.id, 'em_analise')}
-                            title="Marcar Em Análise"
-                            className="action-btn warning-btn"
-                          >
-                            <Clock size={16} />
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => deleteFeedback(fb.id)}
-                          title="Deletar"
-                          className="action-btn danger-btn"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+            <ul className="fb-list">
+              {visible.map((fb) => {
+                const t = typeOf(fb.type);
+                const st = STATUS[statusOf(fb)] ?? STATUS.pendente;
+                const Icon = t.icon;
+                return (
+                  <li key={fb.id} className="ui-card fb-item">
+                    <div className="fb-item__head">
+                      <span className={`fb-item__type fb-item__type--${fb.type in TYPES ? fb.type : "duvida"}`}><Icon size={15} /> {t.label}</span>
+                      <span className={`ui-badge ui-badge--${st.tone}`}>{st.label}</span>
+                      <time className="ui-hint fb-item__date" dateTime={fb.created_at}>
+                        {new Date(fb.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </time>
+                    </div>
+                    <p className="fb-item__message">{fb.message}</p>
+                    <div className="fb-item__foot">
+                      <div className="adm-cell-text">
+                        <strong>{fb.user_name || "Sem nome"}</strong>
+                        {fb.contact_info && <span className="ui-hint">{fb.contact_info}</span>}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <div className="adm-actions">
+                        {statusOf(fb) === "pendente" && (
+                          <Button size="sm" variant="ghost" onClick={() => updateStatus(fb, "em_analise")} disabled={busy === fb.id} icon={<Clock size={14} />}>Em análise</Button>
+                        )}
+                        {statusOf(fb) !== "resolvido" && (
+                          <Button size="sm" variant="secondary" onClick={() => updateStatus(fb, "resolvido")} disabled={busy === fb.id} icon={<CheckCircle2 size={14} />}>Resolvido</Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => remove(fb)} disabled={busy === fb.id} icon={<Trash2 size={14} />}>Excluir</Button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       </main>
-
-      <style>{`
-        /* FORÇA O FUNDO ESCURO E IMPEDE O VAZAMENTO HORIZONTAL NO MOBILE */
-        .dashboard-wrapper {
-          display: flex;
-          width: 100%;
-          min-height: 100vh;
-          background-color: var(--color-bg); 
-          font-family: var(--font-sans);
-          overflow-x: hidden; 
-        }
-
-        .dashboard-content {
-          flex: 1;
-          margin-left: var(--sidebar-width); /* Espaço exato da sidebar */
-          width: calc(100% - var(--sidebar-width));
-          max-width: 100vw;
-          padding: 40px 60px;
-        }
-
-        .glass-panel {
-          background: var(--color-surface-1); 
-          border: 1px solid var(--color-border);
-          width: 100%;
-          overflow-x: auto; /* Cria barra de rolagem horizontal só na tabela */
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .text-primary { color: var(--color-primary-text); }
-
-        /* ESTILOS DAS TAGS E BOTÕES */
-        .badge {
-          padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        .badge-pending { background: rgba(148, 163, 184, 0.2); color: var(--color-text-muted); }
-        .badge-warning { background: var(--color-warning-soft); color: var(--color-warning-text); }
-        .badge-success { background: var(--color-success-soft); color: var(--color-success-text); }
-
-        .action-btn {
-          background: var(--color-surface-2); border: 1px solid var(--color-border); 
-          color: var(--color-text); width: 32px; height: 32px; border-radius: 8px;
-          display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
-          flex-shrink: 0;
-        }
-        .action-btn:hover { transform: translateY(-2px); }
-        .success-btn:hover { background: var(--color-success-soft); border-color: #34d399; color: var(--color-success-text); }
-        .warning-btn:hover { background: var(--color-warning-soft); border-color: #fcd34d; color: var(--color-warning-text); }
-        .danger-btn:hover { background: var(--color-danger-soft); border-color: #f87171; color: var(--color-danger-text); }
-        
-        /* RESPONSIVIDADE BÁSICA */
-        @media (max-width: 1024px) {
-          .dashboard-content { 
-            margin-left: 0; 
-            width: 100%; 
-            padding: 30px 15px; 
-          }
-        }
-      `}</style>
     </div>
   );
 }

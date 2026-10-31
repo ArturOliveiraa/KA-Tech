@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { Button, Select } from "../ui";
+import { Button, Select, useConfirm } from "../ui";
 import Drawer from "./Drawer";
 
 export type QuizStatus = "draft" | "published";
@@ -56,6 +56,7 @@ async function functionError(error: any) {
  * O aluno só vê o quiz publicado, sem o gabarito; a nota é calculada no banco.
  */
 export default function QuizDrawer({ lessonId, lessonTitle, onClose, onChanged }: QuizDrawerProps) {
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [exists, setExists] = useState(false);
   const [status, setStatus] = useState<QuizStatus>("draft");
@@ -111,7 +112,7 @@ export default function QuizDrawer({ lessonId, lessonTitle, onClose, onChanged }
 
   const generate = async () => {
     if (!lessonId) return;
-    if (questions.length && !window.confirm("Gerar de novo substitui as perguntas atuais (inclusive as que você editou). Continuar?")) return;
+    if (questions.length && !(await confirm({ title: "Gerar o quiz de novo?", message: "As perguntas atuais são substituídas, inclusive as que você editou.", confirmLabel: "Gerar de novo" }))) return;
     setBusy("generate");
     setNotice(null);
     const { data, error } = await supabase.functions.invoke("generate-quiz", {
@@ -179,7 +180,7 @@ export default function QuizDrawer({ lessonId, lessonTitle, onClose, onChanged }
   };
 
   const remove = async () => {
-    if (!lessonId || !window.confirm("Excluir o quiz desta aula? As notas dos alunos neste quiz também serão apagadas.")) return;
+    if (!lessonId || !(await confirm({ title: "Excluir o quiz desta aula?", message: "As notas dos alunos neste quiz também serão apagadas.", tone: "danger", confirmLabel: "Excluir quiz" }))) return;
     setBusy("delete");
     const { error } = await supabase.from("quizzes").delete().eq("lesson_id", lessonId);
     setBusy(null);
@@ -188,9 +189,9 @@ export default function QuizDrawer({ lessonId, lessonTitle, onClose, onChanged }
     onClose();
   };
 
-  const close = () => {
+  const close = async () => {
     if (busy) return;
-    if (dirty && !window.confirm("Há alterações não salvas no quiz. Fechar mesmo assim?")) return;
+    if (dirty && !(await confirm({ title: "Fechar sem salvar?", message: "As alterações feitas no quiz serão perdidas.", tone: "danger", confirmLabel: "Fechar sem salvar", cancelLabel: "Continuar editando" }))) return;
     onClose();
   };
 

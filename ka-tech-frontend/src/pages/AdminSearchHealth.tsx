@@ -4,7 +4,7 @@ import { AlertTriangle, BrainCircuit, CheckCircle2, ClipboardList, Clock, EyeOff
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
-import { Button, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import { Button, EmptyState, PageHeader, Select, Skeleton, useConfirm } from "../components/ui";
 import QuizDrawer from "../components/admin/QuizDrawer";
 
 interface IndexLesson {
@@ -107,17 +107,23 @@ const GAP_STATUS = [
   { value: "ignorada", label: "Ignoradas" },
 ];
 
-const BULK: Record<"erro" | "texto" | "resumo", { confirm: string; done: (n: number) => string }> = {
+const BULK: Record<"erro" | "texto" | "resumo", { title: string; action: string; confirm: string; done: (n: number) => string }> = {
   erro: {
-    confirm: "Colocar todas as aulas com erro na fila de novo? Cada uma gasta 1 transcrição da cota do dia; as que passarem do limite tentam de novo amanhã.",
+    title: "Transcrever todas as aulas com erro?",
+    action: "Colocar na fila",
+    confirm: "Cada aula gasta 1 transcrição da cota do dia; as que passarem do limite tentam de novo amanhã.",
     done: (n) => `${n} aula${n === 1 ? "" : "s"} com erro voltaram para a fila.`,
   },
   texto: {
-    confirm: "Tentar transcrever o vídeo de todas as aulas que estão só pelo texto? Cada uma gasta 1 transcrição da cota do dia; as que passarem do limite tentam de novo amanhã.",
+    title: "Transcrever as aulas só pelo texto?",
+    action: "Colocar na fila",
+    confirm: "Cada aula gasta 1 transcrição da cota do dia; as que passarem do limite tentam de novo amanhã.",
     done: (n) => `${n} aula${n === 1 ? "" : "s"} voltaram para a fila de transcrição.`,
   },
   resumo: {
-    confirm: "Refazer o resumo de todas as aulas? A fila faz 5 por minuto e usa o modelo leve (não gasta transcrição).",
+    title: "Refazer todos os resumos?",
+    action: "Refazer resumos",
+    confirm: "A fila faz 5 por minuto e usa o modelo leve (não gasta transcrição).",
     done: (n) => `${n} resumo${n === 1 ? "" : "s"} serão refeitos nos próximos minutos.`,
   },
 };
@@ -127,6 +133,7 @@ const BULK: Record<"erro" | "texto" | "resumo", { confirm: string; done: (n: num
  * no dia e as perguntas que os alunos fizeram sem achar a aula certa.
  */
 export default function AdminSearchHealth() {
+  const confirm = useConfirm();
   const [tab, setTab] = useState<"aulas" | "quizzes" | "buscas">("aulas");
   const [lessons, setLessons] = useState<IndexLesson[]>([]);
   const [usage, setUsage] = useState<Usage[]>([]);
@@ -170,7 +177,7 @@ export default function AdminSearchHealth() {
   useEffect(() => { if (tab === "buscas") loadGaps(); }, [tab, period, gapStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bulk = async (target: keyof typeof BULK) => {
-    if (!window.confirm(BULK[target].confirm)) return;
+    if (!(await confirm({ title: BULK[target].title, message: BULK[target].confirm, confirmLabel: BULK[target].action }))) return;
     setBusy(`bulk-${target}`);
     const { data, error: bulkError } = await supabase.rpc("admin_retry_index_bulk", { p_target: target });
     setBusy(null);
@@ -218,7 +225,7 @@ export default function AdminSearchHealth() {
   }, [lessons, filter, term]);
 
   const retry = async (lesson: IndexLesson, mode: "full" | "summary") => {
-    if (mode === "full" && !window.confirm(`Transcrever "${lesson.title}" de novo? Usa 1 transcrição da cota do dia (lives usam uma por parte de 30 min).`)) return;
+    if (mode === "full" && !(await confirm({ title: `Transcrever "${lesson.title}" de novo?`, message: "Usa 1 transcrição da cota do dia (lives usam uma por parte de 30 min).", confirmLabel: "Transcrever" }))) return;
     setBusy(`${lesson.id}-${mode}`);
     const { error: retryError } = await supabase.rpc("admin_retry_index", { p_lesson_id: lesson.id, p_mode: mode });
     setBusy(null);
@@ -345,17 +352,17 @@ export default function AdminSearchHealth() {
                                 <span className="ui-hint">{l.course_title}</span>
                               </div>
                             </td>
-                            <td>
+                            <td data-label="Estado">
                               <div className="adm-chips">
                                 <span className={`ui-badge ui-badge--${STATE_BADGE[s].tone}`}>{STATE_BADGE[s].label}</span>
                                 {noSummary && <span className="ui-badge ui-badge--warning">Sem resumo</span>}
                               </div>
                             </td>
-                            <td className="sh-detail">
+                            <td className="sh-detail" data-label="Detalhe">
                               {l.live_progress != null && s === "fila" && <span>Live: {Math.round(l.live_progress / 60)} min transcritos. </span>}
                               {l.index_error ? <span title={l.index_error}>{l.index_error}</span> : <span className="ui-hint">{l.index_attempts > 0 ? `${l.index_attempts} tentativa${l.index_attempts === 1 ? "" : "s"}` : "—"}</span>}
                             </td>
-                            <td style={{ whiteSpace: "nowrap" }}>{fmtDate(l.indexed_at)}</td>
+                            <td data-label="Indexada em" style={{ whiteSpace: "nowrap" }}>{fmtDate(l.indexed_at)}</td>
                             <td>
                               <div className="adm-actions">
                                 <Button size="sm" variant="ghost" onClick={() => retry(l, "full")} loading={busy === `${l.id}-full`} disabled={!!busy || s === "fila"} icon={<RotateCcw size={14} />}>
@@ -400,9 +407,9 @@ export default function AdminSearchHealth() {
                               <span className="ui-hint">{d.course_title}</span>
                             </div>
                           </td>
-                          <td>{d.questions}</td>
-                          <td>{d.generated_by === "ia-lote" ? "IA (automático)" : d.generated_by === "ia" ? "IA (no admin)" : "Manual"}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>{fmtDate(d.updated_at)}</td>
+                          <td data-label="Perguntas">{d.questions}</td>
+                          <td data-label="Origem">{d.generated_by === "ia-lote" ? "IA (automático)" : d.generated_by === "ia" ? "IA (no admin)" : "Manual"}</td>
+                          <td data-label="Gerado em" style={{ whiteSpace: "nowrap" }}>{fmtDate(d.updated_at)}</td>
                           <td>
                             <div className="adm-actions">
                               <Button size="sm" onClick={() => setQuizLesson({ id: d.lesson_id, title: d.lesson_title })} icon={<ListChecks size={14} />}>Revisar</Button>
@@ -440,11 +447,11 @@ export default function AdminSearchHealth() {
                       {gaps.map((g) => (
                         <tr key={g.norm}>
                           <td className="sh-query">{g.query}</td>
-                          <td>{g.searches}</td>
-                          <td>{g.people}</td>
-                          <td>{g.no_results > 0 ? <span className="ui-badge ui-badge--danger">{g.no_results}</span> : "—"}</td>
-                          <td>{g.no_click > 0 ? <span className="ui-badge ui-badge--warning">{g.no_click}</span> : "—"}</td>
-                          <td style={{ whiteSpace: "nowrap" }}>{fmtDate(g.last_at)}</td>
+                          <td data-label="Buscas">{g.searches}</td>
+                          <td data-label="Pessoas">{g.people}</td>
+                          <td data-label="Sem resultado">{g.no_results > 0 ? <span className="ui-badge ui-badge--danger">{g.no_results}</span> : "—"}</td>
+                          <td data-label="Sem clique">{g.no_click > 0 ? <span className="ui-badge ui-badge--warning">{g.no_click}</span> : "—"}</td>
+                          <td data-label="Última" style={{ whiteSpace: "nowrap" }}>{fmtDate(g.last_at)}</td>
                           <td>
                             <div className="adm-actions">
                               {g.status ? (
