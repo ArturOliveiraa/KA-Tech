@@ -782,3 +782,4 @@
 .sh-detail { max-width: 340px; font-size: var(--text-xs); }
 .sh-detail span[title] { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sh-query { color: var(--color-text); font-weight: var(--weight-semibold); min-width: 220px; }
+.sh-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }

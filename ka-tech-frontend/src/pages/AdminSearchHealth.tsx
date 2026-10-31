@@ -1,10 +1,11 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, BrainCircuit, CheckCircle2, Clock, FileText, Gauge, RotateCcw, Search, SearchX, Sparkles } from "lucide-react";
+import { AlertTriangle, BrainCircuit, CheckCircle2, ClipboardList, Clock, EyeOff, FileText, Gauge, ListChecks, RotateCcw, Search, SearchX, Sparkles, Undo2 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import Sidebar from "../components/Sidebar";
 import SEO from "../components/SEO";
 import { Button, EmptyState, PageHeader, Select, Skeleton } from "../components/ui";
+import QuizDrawer from "../components/admin/QuizDrawer";
 
 interface IndexLesson {
   id: number;
@@ -25,12 +26,25 @@ interface IndexLesson {
 interface Usage { model: string; requests: number; quota_errors: number }
 
 interface SearchGap {
+  norm: string;
   query: string;
   searches: number;
   people: number;
   no_results: number;
   no_click: number;
   last_at: string;
+  status: "pauta" | "ignorada" | null;
+}
+
+interface QuizDraftRow {
+  quiz_id: string;
+  lesson_id: number;
+  lesson_title: string;
+  course_id: number;
+  course_title: string;
+  generated_by: string | null;
+  questions: number;
+  updated_at: string;
 }
 
 type LessonState = "busca" | "texto" | "erro" | "fila" | "sem_resumo";
@@ -87,14 +101,36 @@ const PERIODS = [
   { value: "90", label: "Últimos 90 dias" },
 ];
 
+const GAP_STATUS = [
+  { value: "abertas", label: "Abertas" },
+  { value: "pauta", label: "Viraram pauta" },
+  { value: "ignorada", label: "Ignoradas" },
+];
+
+const BULK: Record<"erro" | "texto" | "resumo", { confirm: string; done: (n: number) => string }> = {
+  erro: {
+    confirm: "Colocar todas as aulas com erro na fila de novo? Cada uma gasta 1 transcrição da cota do dia; as que passarem do limite tentam de novo amanhã.",
+    done: (n) => `${n} aula${n === 1 ? "" : "s"} com erro voltaram para a fila.`,
+  },
+  texto: {
+    confirm: "Tentar transcrever o vídeo de todas as aulas que estão só pelo texto? Cada uma gasta 1 transcrição da cota do dia; as que passarem do limite tentam de novo amanhã.",
+    done: (n) => `${n} aula${n === 1 ? "" : "s"} voltaram para a fila de transcrição.`,
+  },
+  resumo: {
+    confirm: "Refazer o resumo de todas as aulas? A fila faz 5 por minuto e usa o modelo leve (não gasta transcrição).",
+    done: (n) => `${n} resumo${n === 1 ? "" : "s"} serão refeitos nos próximos minutos.`,
+  },
+};
+
 /**
  * Painel da busca da pandAI: estado da indexação de cada aula, uso do Gemini
  * no dia e as perguntas que os alunos fizeram sem achar a aula certa.
  */
 export default function AdminSearchHealth() {
-  const [tab, setTab] = useState<"aulas" | "buscas">("aulas");
+  const [tab, setTab] = useState<"aulas" | "quizzes" | "buscas">("aulas");
   const [lessons, setLessons] = useState<IndexLesson[]>([]);
   const [usage, setUsage] = useState<Usage[]>([]);
+  const [drafts, setDrafts] = useState<QuizDraftRow[]>([]);
   const [gaps, setGaps] = useState<SearchGap[]>([]);
   const [loading, setLoading] = useState(true);
   const [gapsLoading, setGapsLoading] = useState(false);
@@ -102,32 +138,55 @@ export default function AdminSearchHealth() {
   const [filter, setFilter] = useState("problemas");
   const [term, setTerm] = useState("");
   const [period, setPeriod] = useState("30");
+  const [gapStatus, setGapStatus] = useState("abertas");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: string; text: string } | null>(null);
+  const [quizLesson, setQuizLesson] = useState<{ id: number; title: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
     setError("");
-    const [lessonRes, usageRes] = await Promise.all([
+    const [lessonRes, usageRes, draftRes] = await Promise.all([
       supabase.rpc("admin_index_lessons"),
       supabase.from("gemini_usage").select("model, requests, quota_errors").eq("day", pacificToday()).order("requests", { ascending: false }),
+      supabase.rpc("admin_quiz_drafts"),
     ]);
     if (lessonRes.error) setError(lessonRes.error.message);
     setLessons((lessonRes.data as IndexLesson[]) || []);
     setUsage((usageRes.data as Usage[]) || []);
+    setDrafts((draftRes.data as QuizDraftRow[]) || []);
     setLoading(false);
   };
 
   const loadGaps = async () => {
     setGapsLoading(true);
-    const { data, error: gapError } = await supabase.rpc("admin_search_gaps", { p_days: Number(period) });
+    const { data, error: gapError } = await supabase.rpc("admin_search_gaps", { p_days: Number(period), p_status: gapStatus });
     if (gapError) setNotice({ tone: "danger", text: gapError.message });
     setGaps((data as SearchGap[]) || []);
     setGapsLoading(false);
   };
 
   useEffect(() => { load(); }, []);
-  useEffect(() => { if (tab === "buscas") loadGaps(); }, [tab, period]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tab === "buscas") loadGaps(); }, [tab, period, gapStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const bulk = async (target: keyof typeof BULK) => {
+    if (!window.confirm(BULK[target].confirm)) return;
+    setBusy(`bulk-${target}`);
+    const { data, error: bulkError } = await supabase.rpc("admin_retry_index_bulk", { p_target: target });
+    setBusy(null);
+    if (bulkError) return setNotice({ tone: "danger", text: bulkError.message });
+    setNotice({ tone: "success", text: BULK[target].done(Number(data) || 0) });
+    load();
+  };
+
+  const setGap = async (gap: SearchGap, status: "pauta" | "ignorada" | null) => {
+    setBusy(`gap-${gap.norm}`);
+    const { error: gapError } = await supabase.rpc("admin_set_gap_status", { p_norm: gap.norm, p_status: status });
+    setBusy(null);
+    if (gapError) return setNotice({ tone: "danger", text: gapError.message });
+    // Sai da lista atual: foi para outra situação
+    setGaps((gs) => gs.filter((g) => g.norm !== gap.norm));
+  };
 
   useEffect(() => {
     if (!notice) return;
@@ -231,6 +290,9 @@ export default function AdminSearchHealth() {
 
           <div className="ui-tabs" role="tablist" style={{ margin: "24px 0 16px" }}>
             <button role="tab" className="ui-tab" aria-selected={tab === "aulas"} onClick={() => setTab("aulas")}><BrainCircuit size={14} /> Aulas</button>
+            <button role="tab" className="ui-tab" aria-selected={tab === "quizzes"} onClick={() => setTab("quizzes")}>
+              <ListChecks size={14} /> Quizzes para revisar{drafts.length > 0 && <span className="ui-badge ui-badge--warning">{drafts.length}</span>}
+            </button>
             <button role="tab" className="ui-tab" aria-selected={tab === "buscas"} onClick={() => setTab("buscas")}><SearchX size={14} /> Buscas sem resposta</button>
           </div>
 
@@ -246,6 +308,19 @@ export default function AdminSearchHealth() {
                 </div>
                 <Select value={filter} onChange={setFilter} options={FILTERS} aria-label="Filtrar aulas" minWidth={190} />
                 <span className="adm-filter-count">{visible.length} aula{visible.length === 1 ? "" : "s"}</span>
+              </div>
+
+              <div className="sh-bulk" role="group" aria-label="Ações em lote">
+                <span className="ui-hint">Em lote:</span>
+                <Button size="sm" variant="secondary" onClick={() => bulk("erro")} loading={busy === "bulk-erro"} disabled={!!busy || counts.erro === 0} icon={<RotateCcw size={14} />}>
+                  Transcrever as com erro ({counts.erro})
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => bulk("texto")} loading={busy === "bulk-texto"} disabled={!!busy || counts.texto === 0} icon={<FileText size={14} />}>
+                  Transcrever as só pelo texto ({counts.texto})
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => bulk("resumo")} loading={busy === "bulk-resumo"} disabled={!!busy} icon={<Sparkles size={14} />}>
+                  Refazer todos os resumos
+                </Button>
               </div>
 
               {loading ? (
@@ -301,31 +376,87 @@ export default function AdminSearchHealth() {
                 </div>
               )}
             </>
+          ) : tab === "quizzes" ? (
+            <>
+              <p className="ui-hint" style={{ marginBottom: 12 }}>
+                Toda aula com o vídeo transcrito e sem quiz ganha um rascunho gerado pela IA (1 a cada 2 minutos). Revise as perguntas e publique: o aluno só vê depois disso.
+              </p>
+              {loading ? (
+                <div style={{ display: "grid", gap: 8 }}>{[0, 1, 2].map((i) => <Skeleton key={i} height={44} />)}</div>
+              ) : drafts.length === 0 ? (
+                <EmptyState icon={<ClipboardList size={28} />} title="Nenhum quiz esperando revisão" description="Os rascunhos aparecem aqui conforme as aulas são transcritas." />
+              ) : (
+                <div className="ui-card adm-table-wrap">
+                  <table className="adm-table">
+                    <thead>
+                      <tr><th>Aula</th><th>Perguntas</th><th>Origem</th><th>Gerado em</th><th style={{ textAlign: "right" }}>Ação</th></tr>
+                    </thead>
+                    <tbody>
+                      {drafts.map((d) => (
+                        <tr key={d.quiz_id}>
+                          <td>
+                            <div className="sh-lesson">
+                              <span className="sh-lesson__title">{d.lesson_title}</span>
+                              <span className="ui-hint">{d.course_title}</span>
+                            </div>
+                          </td>
+                          <td>{d.questions}</td>
+                          <td>{d.generated_by === "ia-lote" ? "IA (automático)" : d.generated_by === "ia" ? "IA (no admin)" : "Manual"}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>{fmtDate(d.updated_at)}</td>
+                          <td>
+                            <div className="adm-actions">
+                              <Button size="sm" onClick={() => setQuizLesson({ id: d.lesson_id, title: d.lesson_title })} icon={<ListChecks size={14} />}>Revisar</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           ) : (
             <>
               <div className="adm-toolbar">
+                <Select value={gapStatus} onChange={setGapStatus} options={GAP_STATUS} aria-label="Situação" minWidth={170} />
                 <Select value={period} onChange={setPeriod} options={PERIODS} aria-label="Período" minWidth={180} />
                 <span className="ui-hint">Perguntas em que nenhuma aula apareceu ou em que o aluno não clicou em nenhum resultado. Boas pautas para novas aulas.</span>
               </div>
               {gapsLoading ? (
                 <div style={{ display: "grid", gap: 8 }}>{[0, 1, 2].map((i) => <Skeleton key={i} height={44} />)}</div>
               ) : gaps.length === 0 ? (
-                <EmptyState icon={<SearchX size={28} />} title="Nada por aqui ainda" description="As buscas começam a ser registradas depois que a migração do painel é rodada." />
+                <EmptyState
+                  icon={<SearchX size={28} />}
+                  title={gapStatus === "abertas" ? "Nenhuma busca sem resposta" : "Nada nesta lista"}
+                  description={gapStatus === "abertas" ? "Quando um aluno não achar a aula que procura, a pergunta aparece aqui." : "Troque a situação para ver as outras buscas."}
+                />
               ) : (
                 <div className="ui-card adm-table-wrap">
                   <table className="adm-table">
                     <thead>
-                      <tr><th>Pergunta</th><th>Buscas</th><th>Pessoas</th><th>Sem resultado</th><th>Sem clique</th><th>Última</th></tr>
+                      <tr><th>Pergunta</th><th>Buscas</th><th>Pessoas</th><th>Sem resultado</th><th>Sem clique</th><th>Última</th><th style={{ textAlign: "right" }}>Ações</th></tr>
                     </thead>
                     <tbody>
                       {gaps.map((g) => (
-                        <tr key={g.query}>
+                        <tr key={g.norm}>
                           <td className="sh-query">{g.query}</td>
                           <td>{g.searches}</td>
                           <td>{g.people}</td>
                           <td>{g.no_results > 0 ? <span className="ui-badge ui-badge--danger">{g.no_results}</span> : "—"}</td>
                           <td>{g.no_click > 0 ? <span className="ui-badge ui-badge--warning">{g.no_click}</span> : "—"}</td>
                           <td style={{ whiteSpace: "nowrap" }}>{fmtDate(g.last_at)}</td>
+                          <td>
+                            <div className="adm-actions">
+                              {g.status ? (
+                                <Button size="sm" variant="ghost" onClick={() => setGap(g, null)} loading={busy === `gap-${g.norm}`} disabled={!!busy} icon={<Undo2 size={14} />}>Reabrir</Button>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="ghost" onClick={() => setGap(g, "pauta")} loading={busy === `gap-${g.norm}`} disabled={!!busy} icon={<ClipboardList size={14} />}>Virou pauta</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setGap(g, "ignorada")} disabled={!!busy} icon={<EyeOff size={14} />}>Ignorar</Button>
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -336,6 +467,16 @@ export default function AdminSearchHealth() {
           )}
         </div>
       </main>
+
+      <QuizDrawer
+        lessonId={quizLesson?.id ?? null}
+        lessonTitle={quizLesson?.title}
+        onClose={() => setQuizLesson(null)}
+        onChanged={(id, st) => {
+          // Publicado ou excluído: sai da lista de revisão
+          if (st !== "draft") setDrafts((ds) => ds.filter((d) => d.lesson_id !== id));
+        }}
+      />
     </div>
   );
 }

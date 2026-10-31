@@ -10,6 +10,10 @@ Aula publicada ──gatilho──▶ index-lesson ──▶ Gemini (transcriç�
 Aluno pergunta ──▶ search-lessons ──▶ search_lesson_chunks (vetor + palavra, respeita acesso) ──▶ /curso/...?aula=ID&t=SEG
 ```
 
+> **Publicação automática (desde 31/10/2026):** ao chegar na `main`, o GitHub Actions
+> (`.github/workflows/supabase.yml`) aplica as migrações novas de `supabase/migrations/` e
+> publica todas as Edge Functions. Os passos manuais abaixo ficam só como referência.
+
 ## Publicar (uma vez)
 
 Faça os passos **nesta ordem**. A CLI do Supabase roda com `npx`, sem instalar nada.

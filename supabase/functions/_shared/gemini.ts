@@ -140,7 +140,8 @@ export interface QuizDraft {
 export async function generateQuiz(
   lessonTitle: string,
   transcript: string,
-  opts: { questions: number; options: number },
+  /** lite: usa os modelos leves (cota alta), para os rascunhos em lote */
+  opts: { questions: number; options: number; lite?: boolean },
 ): Promise<QuizDraft> {
   const prompt = [
     `Você cria quizzes para a aula "${lessonTitle}" de um curso sobre os sistemas da Softcom.`,
@@ -158,7 +159,7 @@ export async function generateQuiz(
     transcript,
   ].join("\n");
 
-  const data = await call(`models/${QUIZ_MODEL}:generateContent`, {
+  const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
       temperature: 0.4,
@@ -186,7 +187,8 @@ export async function generateQuiz(
         required: ["title", "questions"],
       },
     },
-  });
+  };
+  const data = opts.lite ? await callLite(body) : await call(`models/${QUIZ_MODEL}:generateContent`, body);
 
   const raw = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
   let parsed: any;

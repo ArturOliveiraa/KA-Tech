@@ -10,5 +10,7 @@ verify_jwt = false
 [functions.search-lessons]
 verify_jwt = true
 
+# Também chamada pela fila "rascunhar-quizzes" (pg_net, x-index-secret);
+# a função confere o segredo ou o login de um admin/instrutor.
 [functions.generate-quiz]
-verify_jwt = true
+verify_jwt = false
